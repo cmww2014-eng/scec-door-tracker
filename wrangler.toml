@@ -6,7 +6,7 @@ compatibility_date = "2026-09-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "door-tracker"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "86bc7011-834e-433c-8773-3baa1971ea8e"
 
 [vars]
 # Comma-separated emails that are always admins (owner role).
