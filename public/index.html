@@ -243,6 +243,8 @@ td.ref{font:600 13px var(--f-mono);white-space:nowrap}
   .kpi b{font-size:17px}
 }
 @media (prefers-reduced-motion:reduce){.pin.hit i{animation:none}}
+.th-act{font-size:13px;border-left:3px solid var(--warn);padding:4px 8px;background:var(--surface)}.th-act.ok{border-color:var(--ok)}
+.th-v.hi{color:var(--warn);font-weight:700}.th-v.lo{color:var(--accent);font-weight:700}
 .pill.batch{background:#5B3FA0;color:#fff}
 </style>
 
@@ -259,6 +261,7 @@ td.ref{font:600 13px var(--f-mono);white-space:nowrap}
   <button role="tab" data-v="doors" aria-selected="false" id="tab-sched">Door schedule</button>
   <button role="tab" data-v="defects" aria-selected="false">Defects <span class="count" id="c-def">0</span></button>
   <button role="tab" data-v="requests" aria-selected="false">Requests <span class="count" id="c-req">0</span></button>
+  <button role="tab" data-v="thresh" aria-selected="false">Threshold levels <span class="count" id="c-th">0</span></button>
 </nav>
 <div id="banner" class="banner" hidden></div>
 <main>
@@ -308,6 +311,16 @@ td.ref{font:600 13px var(--f-mono);white-space:nowrap}
     </div>
     <div class="cards" id="req-list"></div>
   </section>
+  <section class="view panel-page" id="v-thresh" hidden>
+    <div class="kpis" id="th-kpis" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+    <div class="filters">
+      <div class="seg" id="th-seg"><button aria-pressed="true" data-v="action">Action needed</button><button aria-pressed="false" data-v="ok">Within tolerance</button><button aria-pressed="false" data-v="all">All surveyed</button><button aria-pressed="false" data-v="todo">Not surveyed</button></div>
+      <input type="search" id="th-q" placeholder="Search ref, room, remedy, note" aria-label="Search threshold surveys">
+      <button class="btn" id="th-export">Export CSV</button>
+    </div>
+    <p class="muted" style="margin:0;font-size:12px">Readings are taken down from a 2050 mm mark to the floor; 50 mm = level (2100 opening). Tolerance ±5 mm. Suggested remedies are a guide – set the decided remedy on each door.</p>
+    <div id="th-list"></div>
+  </section>
 </main>
 <div class="scrim" id="scrim" hidden></div>
 <aside class="drawer" id="drawer" hidden aria-label="Door record"></aside>
@@ -341,7 +354,7 @@ let STAGES=STAGESETS.doors;
 const SEC={doors:{one:"door",many:"doors",title:"Door Tracker",sched:"Door schedule",pcol:"doors"},louvres:{one:"louvre",many:"louvres",title:"COLT Louvres",sched:"Louvre schedule",pcol:"louvres"}};
 const DEF_CATS=["Damage / finish","Gaps / alignment","Ironmongery","Seals / intumescent","Glazing","Signage","Frame / fixing","Other"];
 const REQ_STATES=["Requested","Scheduled","Connected","Declined"];
-const S={data:null,RAW:null,doors:new Map(),prog:{doors:new Map(),louvres:new Map()},defects:new Map(),requests:new Map(),photos:[],names:{}};
+const S={data:null,RAW:null,doors:new Map(),prog:{doors:new Map(),louvres:new Map()},defects:new Map(),requests:new Map(),thresholds:new Map(),photos:[],names:{}};
 const UI={sup:"",fires:new Set(),sec:"doors",view:"plans",dwg:null,show:new Set(STAGES.map((_,i)=>i)),door:null,dtab:"progress",defSeg:"Open",reqSeg:"active",confirm:null,level:undefined};
 let db=null,assets=null,userCap=null,downloads=null,meId=null,canWrite=true,live=false,photoUnsub=null,isOwner=false,users=new Map();
 function isAdmin(){if(isOwner)return true;const u=meId&&users.get(meId);return !!(u&&u.role==="admin")}
@@ -394,7 +407,7 @@ async function boot(){
     if(!canWrite)banner("You have view-only access. Ask the tracker owner for Contributor access to update doors.");
     db.collection("users").onSnapshot(snap=>{users=new Map(snap.docs.map(d=>[d.id,{id:d.id,...d.data()}]));renderWho();renderAll()},()=>{});
     db.collection("overrides").onSnapshot(snap=>{applyOverrides(snap.docs.map(d=>({id:d.id,...d.data()})));renderAll()},()=>{});
-    for(const col of["doors","louvres","defects","requests"]){
+    for(const col of["doors","louvres","defects","requests","thresholds"]){
       db.collection(col).onSnapshot(snap=>{const m=new Map(snap.docs.map(d=>[d.id,migrate(col,{id:d.id,...d.data()})]));if(col==="doors"||col==="louvres"){S.prog[col]=m;S.doors=S.prog[SEC[UI.sec].pcol]}else S[col]=m;renderAll()},e=>banner("Lost connection to the shared tracker ("+(e&&e.code||"error")+"). Reload the page to reconnect.","warn"));
     }
   }
@@ -481,6 +494,9 @@ function bindStatic(){
   $("#def-seg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;UI.defSeg=b.dataset.v;segSet("#def-seg",b);renderDefects()});
   $("#req-seg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;UI.reqSeg=b.dataset.v;segSet("#req-seg",b);renderRequests()});
   $("#door-rows").addEventListener("click",e=>{const tr=e.target.closest("tr[data-ref]");if(tr)openDoor(tr.dataset.ref)});
+  $("#th-list").addEventListener("click",e=>{const tr=e.target.closest("tr[data-ref]");if(tr){UI.dtab="levels";openDoor(tr.dataset.ref)}});
+  $("#th-seg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;UI.thSeg=b.dataset.v;segSet("#th-seg",b);renderThresh()});
+  $("#th-q").addEventListener("input",()=>renderThresh());$("#th-export").onclick=exportThresh;
   $("#dwg-list").addEventListener("click",e=>{const b=e.target.closest("[data-dwg]");if(b)showDwg(b.dataset.dwg,true)});
   $("#dwg-select").addEventListener("input",e=>showDwg(e.target.value,true));
   $("#scrim").addEventListener("click",closeDoor);
@@ -492,7 +508,7 @@ function bindStatic(){
 }
 function segSet(sel,b){$(sel).querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"))}
 function setView(v){UI.view=v;$("#tabs").querySelectorAll("button").forEach(b=>b.setAttribute("aria-selected",b.dataset.v===v?"true":"false"));
-  for(const id of["plans","doors","defects","requests"])$("#v-"+id).hidden=id!==v;
+  for(const id of["plans","doors","defects","requests","thresh"])$("#v-"+id).hidden=id!==v;
   if(v==="plans")requestAnimationFrame(()=>{if(!view.fitted)fit()});renderAll()}
 function fillFilters(){
   const D=S.data.doors;
@@ -511,7 +527,7 @@ function consOf(d){return d.ctype||""}
 
 /* ---------- render ---------- */
 function renderAll(){if(!S.data)return;renderHeader();renderDwgList();renderPins();
-  if(UI.view==="doors")renderDoors();if(UI.view==="defects")renderDefects();if(UI.view==="requests")renderRequests();
+  if(UI.view==="doors")renderDoors();if(UI.view==="defects")renderDefects();if(UI.view==="requests")renderRequests();if(UI.view==="thresh")renderThresh();else if(S.data&&UI.sec==="doors"){const n=[...S.thresholds.values()].filter(t=>{const c=thCalc(t);return c&&!c.ok&&S.data.doors[t.id]&&supOk(S.data.doors[t.id])}).length;$("#c-th").textContent=n}
   if(UI.door)renderDrawer()}
 function counts(refs){const c=STAGES.map(()=>0);for(const r of refs)c[stageOf(r)]++;return c}
 function bar(c,total,cls){return `<div class="${cls}">`+c.map((n,i)=>n?`<i style="width:${(n/total*100).toFixed(2)}%;background:${css(STAGES[i].c)}" title="${esc(STAGES[i].k)}: ${n}"></i>`:"").join("")+`</div>`}
@@ -673,13 +689,13 @@ function renderDrawer(){
   const photos=S.photos.filter(p=>p.ref===ref);
   const od=defs.filter(x=>x.status!=="Closed").length;
   const where=UI.sec==="louvres"?(d.soW?`${d.soW} × ${d.soH} mm`:"COLT"):(d.from&&d.to?`${d.from} → ${d.to}`:(d.from||(d.table||"Not in door schedules").replace(/^Door Schedule - /,"")));
-  const tabs=[["progress","Progress & inspection"],["design","Design"],["photos",`Photos${photos.length?" ("+photos.length+")":""}`],["defects",`Defects${od?" ("+od+")":""}`],["requests",`Requests${reqs.length?" ("+reqs.length+")":""}`]];
+  const tabs=[["progress","Progress & inspection"],["design","Design"],["photos",`Photos${photos.length?" ("+photos.length+")":""}`],["defects",`Defects${od?" ("+od+")":""}`],["requests",`Requests${reqs.length?" ("+reqs.length+")":""}`]];if(UI.sec==="doors")tabs.splice(1,0,["levels",S.thresholds.has(ref)?"Thresholds ✓":"Thresholds"]);if(UI.dtab==="levels"&&UI.sec!=="doors")UI.dtab="progress";
   const prevScroll=$(".d-body")?$(".d-body").scrollTop:0;const keepForm=captureForm();
   $("#drawer").innerHTML=`<div class="d-head"><div class="d-row"><span class="d-ref">${esc(ref)}</span><span class="tag"><i class="dot" style="background:${css(STAGES[s].c)}"></i>${esc(STAGES[s].k)}</span><button class="x" id="d-close" aria-label="Close">×</button></div>
     <div class="d-sub">${esc(where)}${d.desc?" · "+esc(d.desc):""}</div>
-    <div class="d-row" style="flex-wrap:wrap;gap:6px">${d.fire?`<span class="fire ${/no fr|n\/a/i.test(d.fire)?"":"fr"}">${esc(d.fire)}</span>`:""}${d.type?`<span class="pill">Type ${esc(d.type)}</span>`:""}${d.hw?`<span class="pill">${esc(d.hw)}</span>`:""}${d.supplier?`<span class="pill">${esc(d.supplier)}${d.supInferred?" (assumed)":""}</span>`:""}${d.alert?`<span class="pill" style="background:var(--danger);color:#fff">Open issue</span>`:""}${d.prep?`<span class="pill blue">Threshold prep</span>`:""}${batchPill(d)}${designPill(d)}${d.level!=null?`<span class="pill ${d.levelQ?"warn":""}" title="${esc(d.levelQ||"")}">${esc(d.level==="Roof"?"Roof":"Level "+(d.level>=0?"+":"")+d.level+"m")}${d.levelQ?" · to confirm":""}</span>`:""}${d.conn?`<span class="pill blue">${esc(d.conn==="Controls"?"AOV controls":d.conn)}</span>`:""}${openDiffs(d).length?`<span class="pill warn">${openDiffs(d).length} open conflict${openDiffs(d).length>1?"s":""}</span>`:((d.diffs||[]).length?`<span class="pill green">Conflicts resolved</span>`:"")}${d.locs.length?`<button class="btn sm" id="d-locate">Show on plan</button>`:'<span class="pill">Not on uploaded drawings</span>'}</div></div>
+    <div class="d-row" style="flex-wrap:wrap;gap:6px">${d.fire?`<span class="fire ${/no fr|n\/a/i.test(d.fire)?"":"fr"}">${esc(d.fire)}</span>`:""}${d.type?`<span class="pill">Type ${esc(d.type)}</span>`:""}${d.hw?`<span class="pill">${esc(d.hw)}</span>`:""}${d.supplier?`<span class="pill">${esc(d.supplier)}${d.supInferred?" (assumed)":""}</span>`:""}${d.alert?`<span class="pill" style="background:var(--danger);color:#fff">Open issue</span>`:""}${d.prep?`<span class="pill blue">Threshold prep</span>`:""}${batchPill(d)}${designPill(d)}${thPill(ref)}${d.level!=null?`<span class="pill ${d.levelQ?"warn":""}" title="${esc(d.levelQ||"")}">${esc(d.level==="Roof"?"Roof":"Level "+(d.level>=0?"+":"")+d.level+"m")}${d.levelQ?" · to confirm":""}</span>`:""}${d.conn?`<span class="pill blue">${esc(d.conn==="Controls"?"AOV controls":d.conn)}</span>`:""}${openDiffs(d).length?`<span class="pill warn">${openDiffs(d).length} open conflict${openDiffs(d).length>1?"s":""}</span>`:((d.diffs||[]).length?`<span class="pill green">Conflicts resolved</span>`:"")}${d.locs.length?`<button class="btn sm" id="d-locate">Show on plan</button>`:'<span class="pill">Not on uploaded drawings</span>'}</div></div>
     <div class="d-tabs" role="tablist">${tabs.map(([k,l])=>`<button role="tab" data-dt="${k}" aria-selected="${UI.dtab===k}">${esc(l)}</button>`).join("")}</div>
-    <div class="d-body">${({progress:tabProgress,design:tabDesign,ldesign:tabLDesign,photos:tabPhotos,defects:tabDefects,requests:tabRequests})[UI.dtab==="design"&&UI.sec==="louvres"?"ldesign":UI.dtab](ref,d,{s,st,defs,reqs,photos})}</div>`;
+    <div class="d-body">${({progress:tabProgress,design:tabDesign,ldesign:tabLDesign,photos:tabPhotos,defects:tabDefects,requests:tabRequests,levels:tabLevels})[UI.dtab==="design"&&UI.sec==="louvres"?"ldesign":UI.dtab](ref,d,{s,st,defs,reqs,photos})}</div>`;
   $("#d-close").onclick=closeDoor;const loc=$("#d-locate");if(loc)loc.onclick=()=>{if(window.innerWidth<=900)closeDoorKeep();locate(ref)};
   $("#drawer").querySelector(".d-tabs").onclick=e=>{const b=e.target.closest("[data-dt]");if(b){UI.dtab=b.dataset.dt;renderDrawer();$(".d-body").scrollTop=0}};
   bindDrawer(ref,d);restoreForm(keepForm);$(".d-body").scrollTop=prevScroll;
@@ -772,7 +788,7 @@ function tabRequests(ref,d,{reqs}){
   <label>Details<textarea id="rq-detail" data-keep="rq-detail" placeholder="${k==="access"?(UI.sec==="louvres"?"e.g. Vent installed, actuator fitted, ready for controls wiring and C&E test.":"e.g. Door hung, EL560 lock fitted, cable at head. Ready for second fix and commissioning."):"e.g. Construction cylinder fitted; swap for permanent suited cylinder."}"></textarea></label><label>Needed by<input type="date" id="rq-need" data-keep="rq-need"></label><div class="row"><button class="btn primary" id="rq-save">Send request</button></div></div>`:""}
   ${reqs.length?`<div style="display:flex;flex-direction:column;gap:8px">${reqs.map(r=>{want(r.by);return reqCard(r,true)}).join("")}</div>`:`<div class="empty">No requests for this ${SEC[UI.sec].one} yet.</div>`}`;
 }
-function bindDrawer(ref,d){
+function bindDrawer(ref,d){if(UI.dtab==="levels")bindLevels(ref);
   const dr=$("#drawer");
   dr.querySelectorAll("[data-dt-go]").forEach(b=>b.onclick=()=>{UI.dtab=b.dataset.dtGo;renderDrawer()});
   dr.querySelectorAll("[data-stage]").forEach(b=>b.onclick=()=>{if(!guard())return;const v=+b.dataset.stage;if(v===stageOf(ref))return;const why=stageBlock(ref,d,v);if(why){toast(why);return}UI.confirm={type:"stage",v};renderDrawer()});
@@ -859,6 +875,87 @@ function zoomable(vp,img){const v={s:1,x:0,y:0,min:.05,max:8,fit:1};
   vp.addEventListener("pointerup",up);vp.addEventListener("pointercancel",up);
   new ResizeObserver(()=>{if(Math.abs(v.s-v.fit)<1e-6)fit()}).observe(vp)}
 async function del_(col,id){if(db)await db.collection(col).doc(id).delete();else{S.photos=S.photos.filter(p=>p.id!==id);renderDrawer()}}
+
+/* ---------- threshold level survey ---------- */
+const TH_NOM=50,TH_TOL=5;
+const TH_REM=["","No action","Screed through threshold","Reduce door height & pack head","Grind / break out floor","Screed + reduce door height","Other (see note)"];
+const thNum=v=>{if(v===""||v==null)return null;const n=+v;return isFinite(n)?Math.round(n):null};
+function thCalc(v){
+  if(!v)return null;const h=thNum(v.h),l=thNum(v.l),s=thNum(v.s);if(h==null||l==null)return null;
+  const T=TH_TOL,N=TH_NOM,jmin=Math.min(h,l),jmax=Math.max(h,l),fall=jmax-jmin;
+  const high=Math.max(0,N-jmin),low=Math.max(0,jmax-N),hiSide=h<l?"hinge":h>l?"latch":"both";
+  const acts=[];let need={screed:false,reduce:false,grind:false};
+  let fin=N;
+  if(high>T){fin=jmin;need.reduce=true;acts.push(`Floor is <b>${high} mm high</b> at the ${hiSide==="both"?"jambs":hiSide+" side"}: clear opening is ${2050+jmin} mm, not 2100. <b>Reduce the door height by ${high} mm and pack at the head</b> (or break out the floor by ${high} mm).`)}
+  else fin=N;
+  const toScreed=Math.max(0,jmax-fin);
+  if(toScreed>T){need.screed=true;acts.push(`<b>Screed through the threshold</b>: up to ${toScreed} mm at the ${h>l?"hinge":"latch"} side${fall>T?` to take out the ${fall} mm fall across the opening`:` to bring it up to door level`}.`)}
+  if(s!=null){const fl=need.reduce||!need.screed?Math.min(fin,jmin):fin;const over=fl-s;if(over>T){need.grind=true;acts.push(`High spot in the door swing is <b>${over} mm above</b> the threshold: <b>grind it down</b> or the leaf will foul.`)}}
+  const ok=!need.screed&&!need.reduce&&!need.grind;
+  if(ok)acts.push(`Within ±${T} mm of the 2100 opening, so no remedial work needed.`);
+  const sug=ok?"No action":need.screed&&need.reduce?"Screed + reduce door height":need.reduce?"Reduce door height & pack head":need.screed?"Screed through threshold":"Grind / break out floor";
+  return {h,l,s,high,low,fall,ok,need,acts,sug,dev:Math.max(high,low,s!=null?Math.abs(s-N):0)};
+}
+const thCls=v=>v==null?"":v<TH_NOM-TH_TOL?"hi":v>TH_NOM+TH_TOL?"lo":"";
+const thDev=v=>v==null?"":v===TH_NOM?"on level":v<TH_NOM?`${TH_NOM-v} high`:`${v-TH_NOM} low`;
+function thPill(ref){const t=S.thresholds&&S.thresholds.get(ref);const c=t&&thCalc(t);if(!c)return"";return `<span class="pill ${c.ok?"green":"warn"}" title="Threshold level survey">${c.ok?"Levels OK":"Levels: "+esc(t.remedy||c.sug)}</span>`}
+function thDiagram(){return `<svg viewBox="0 0 300 150" style="width:100%;max-width:340px;display:block;margin:4px 0 2px" role="img" aria-label="Measure down from the 2050 mark to the floor at the hinge side, latch side and any high spot in the swing">
+  <g fill="none" stroke="currentColor" stroke-width="2"><path d="M60 140V18h120v122"/></g>
+  <line x1="40" y1="40" x2="200" y2="40" stroke="#1F5FA8" stroke-width="1.5" stroke-dasharray="5 4"/><text x="204" y="44" font-size="11" fill="#1F5FA8">2050 mark</text>
+  <path d="M30 138 Q120 132 210 141" fill="none" stroke="#B4232C" stroke-width="2"/><text x="214" y="146" font-size="10" fill="#B4232C">floor (varies)</text>
+  <g stroke="#2F9E62" stroke-width="1.5"><path d="M66 42v94M62 42h8M62 136h8"/><path d="M174 42v97M170 42h8M170 139h8"/><path d="M120 42v91M116 42h8M116 133h8" stroke-dasharray="3 3"/></g>
+  <g font-size="12" font-weight="700" fill="#2F9E62"><text x="70" y="96">H</text><text x="152" y="96">L</text><text x="124" y="118">S</text></g>
+  <text x="62" y="14" font-size="10" fill="currentColor">hinge</text><text x="150" y="14" font-size="10" fill="currentColor">latch</text><text x="0" y="96" font-size="9.5" fill="currentColor">expect</text><text x="0" y="108" font-size="9.5" fill="currentColor">50 mm</text></svg>`}
+function thOut(c){if(!c)return `<p class="muted" style="margin:0;font-size:13px">Enter the hinge and latch side readings to see the assessment.</p>`;
+  return `<div class="kv"><div>Hinge side</div><div>${c.h} mm · ${thDev(c.h)}</div><div>Latch side</div><div>${c.l} mm · ${thDev(c.l)}</div>${c.s!=null?`<div>High spot in swing</div><div>${c.s} mm · ${thDev(c.s)}</div>`:""}<div>Fall across opening</div><div>${c.fall} mm</div><div>Opening height</div><div>${2050+Math.min(c.h,c.l)} mm (design 2100)</div></div>
+  <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">${c.acts.map(a=>`<div class="th-act ${c.ok?"ok":""}">${a}</div>`).join("")}</div>
+  <p class="muted" style="margin:6px 0 0;font-size:12px">Suggested: <b>${esc(c.sug)}</b></p>`}
+function tabLevels(ref,d){
+  const t=(S.thresholds&&S.thresholds.get(ref))||{};const c=thCalc(t);
+  const inp=(k,lbl,hint)=>`<label>${lbl}<span style="display:flex;align-items:center;gap:6px"><input type="number" inputmode="numeric" min="0" max="200" step="1" id="th-${k}" data-keep="th-${k}-${ref}" value="${t[k]==null?"":esc(t[k])}" placeholder="50" ${canWrite?"":"disabled"} style="font:600 20px var(--f-mono);max-width:110px"><span class="muted">mm</span></span><span class="muted" style="font-weight:400">${hint}</span></label>`;
+  return `<div class="grp"><h4>How to measure</h4><p style="margin:0;font-size:13px">Mark the jambs 2050 mm down from the top of the formed opening, then measure from the mark down to the floor. On a level slab every reading is <b>50 mm</b> (2050 + 50 = 2100 opening). Bigger = floor low, smaller = floor high.</p>${thDiagram()}</div>
+  <div class="form"><b>Threshold level readings</b>
+    <div class="row">${inp("h","Hinge side (H)","Expected 50")}${inp("l","Latch side (L)","Expected 50")}${inp("s","High spot in swing (S)","Optional – lowest reading")}</div>
+    <div id="th-out">${thOut(c)}</div>
+    <label>Remedy decided<select id="th-rem" ${canWrite?"":"disabled"}>${TH_REM.map(r=>`<option value="${esc(r)}"${(t.remedy||"")===r?" selected":""}>${r?esc(r):"Not decided – use suggestion"}</option>`).join("")}</select></label>
+    <label>Note<input type="text" id="th-note" data-keep="th-note-${ref}" value="${esc(t.note||"")}" placeholder="e.g. Slab dips toward latch, drainage channel nearby" ${canWrite?"":"disabled"}></label>
+    ${canWrite?`<div class="row" style="flex:0"><button class="btn primary" id="th-save" style="flex:0">Save readings</button></div>`:""}
+    ${t.at?`<p class="muted" style="margin:0;font-size:12px">Last saved by ${esc(name(t.by))}, ${fmt(t.at)}${(t.hist||[]).length?` · ${t.hist.length} earlier reading${t.hist.length>1?"s":""}`:""}</p>`:""}
+  </div>
+  ${(t.hist||[]).length?`<div class="grp" style="margin-top:12px"><h4>Earlier readings</h4>${t.hist.slice().reverse().map(x=>`<div class="muted" style="font-size:12px">${fmt(x.at)} · ${esc(name(x.by))}: H ${x.h??"–"} / L ${x.l??"–"} / S ${x.s??"–"}${x.remedy?" · "+esc(x.remedy):""}</div>`).join("")}</div>`:""}`;
+}
+function bindLevels(ref){
+  const live=()=>{const o=$("#th-out");if(o)o.innerHTML=thOut(thCalc({h:$("#th-h").value,l:$("#th-l").value,s:$("#th-s").value}))};
+  ["h","l","s"].forEach(k=>{const e=$("#th-"+k);if(e)e.oninput=live});
+  const b=$("#th-save");if(!b)return;
+  b.onclick=()=>{if(!guard())return;const v={h:thNum($("#th-h").value),l:thNum($("#th-l").value),s:thNum($("#th-s").value)};
+    if(v.h==null||v.l==null){toast("Enter both the hinge and latch side readings");return}
+    const bad=[v.h,v.l,v.s].filter(x=>x!=null&&(x<0||x>200));if(bad.length){toast("Readings should be between 0 and 200 mm – check the values");return}
+    const old=S.thresholds.get(ref);const hist=old?[...(old.hist||[]),{h:old.h,l:old.l,s:old.s,remedy:old.remedy||"",by:old.by,at:old.at}].slice(-20):[];
+    const c=thCalc(v);
+    save(()=>put("thresholds",ref,{ref,...v,remedy:$("#th-rem").value,note:$("#th-note").value.trim(),sug:c.sug,by:meId,at:Date.now(),hist}),`${ref} readings saved`+(Math.min(v.h,v.l,v.s??99)<10||Math.max(v.h,v.l,v.s??0)>90?" – unusually large variance, please double-check":""))}}
+/* threshold report view */
+function thRows(){return [...S.data?Object.keys(S.data.doors):[]].filter(r=>supOk(S.data.doors[r])).map(r=>{const t=S.thresholds.get(r);return {r,d:S.data.doors[r],t,c:thCalc(t)}})}
+function renderThresh(){
+  if(UI.sec!=="doors"){$("#th-list").innerHTML='<div class="empty">Threshold level surveys are recorded for doors only.</div>';$("#th-kpis").innerHTML="";return}
+  const all=thRows(),done=all.filter(x=>x.c),seg=UI.thSeg||"action",q=($("#th-q").value||"").toLowerCase().trim();
+  const cnt=k=>done.filter(x=>x.c.need[k]).length;
+  $("#th-kpis").innerHTML=[["Surveyed",`${done.length} / ${all.length}`],["Within tolerance",done.filter(x=>x.c.ok).length],["Screed needed",cnt("screed")],["Door height reduction",cnt("reduce")],["Grind high spot",cnt("grind")]].map(([k,v])=>`<div class="kpi"><b>${v}</b><span>${k}</span></div>`).join("");
+  let list=seg==="todo"?all.filter(x=>!x.c):seg==="action"?done.filter(x=>!x.c.ok):seg==="ok"?done.filter(x=>x.c.ok):done;
+  if(q)list=list.filter(x=>[x.r,x.d.from,x.d.to,x.d.supplier,x.t&&x.t.note,x.t&&x.t.remedy,x.c&&x.c.sug].join(" ").toLowerCase().includes(q));
+  list.sort((a,b)=>(b.c?b.c.dev:-1)-(a.c?a.c.dev:-1)||a.r.localeCompare(b.r));
+  list.forEach(x=>x.t&&want(x.t.by));
+  const lvl=d=>d.level==null?"":d.level==="Roof"?"Roof":(d.level>=0?"+":"")+d.level;
+  $("#th-list").innerHTML=list.length?`<div class="tbl-wrap"><table><thead><tr><th>Ref</th><th>Location</th><th>Level</th><th>H</th><th>L</th><th>S</th><th>Fall</th><th>Assessment</th><th>Remedy</th><th>Note</th><th>Measured</th></tr></thead><tbody>${list.map(({r,d,t,c})=>`<tr data-ref="${esc(r)}" data-dt-open="levels"><td class="ref">${esc(r)}</td><td>${esc(d.from&&d.to?d.from+" → "+d.to:d.from||d.desc||(d.table||"").replace(/^Door Schedule - /,""))}<br><span class="muted" style="font-size:11px">${esc(d.supplier||"")}</span></td><td class="mono">${esc(lvl(d))}</td>${c?`<td class="mono th-v ${thCls(c.h)}">${c.h}</td><td class="mono th-v ${thCls(c.l)}">${c.l}</td><td class="mono th-v ${thCls(c.s)}">${c.s??"–"}</td><td class="mono">${c.fall}</td><td>${c.ok?'<span class="pill green">OK</span>':[c.high>TH_TOL?`<span class="pill warn">${c.high} high</span>`:"",c.low>TH_TOL?`<span class="pill blue">${c.low} low</span>`:"",c.need.grind?`<span class="pill red">Swing</span>`:""].join(" ")}</td><td>${t.remedy?`<b>${esc(t.remedy)}</b>`:`<span class="muted">${esc(c.sug)} (suggested)</span>`}</td><td style="max-width:220px">${esc(t.note||"")}</td><td class="muted" style="font-size:12px">${esc(name(t.by))}<br>${fmt(t.at)}</td>`:`<td colspan="8" class="muted">Not surveyed</td>`}</tr>`).join("")}</tbody></table></div>`:`<div class="empty">${seg==="action"?"No doors needing remedial work yet. Readings are entered on each door's Threshold levels tab.":"Nothing here."}</div>`;
+  $("#c-th").textContent=done.filter(x=>!x.c.ok).length;
+}
+async function exportThresh(){
+  const q=v=>{v=v==null?"":String(v);return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  const lines=[["Ref","From","To","Supplier","Level","Hinge (mm)","Latch (mm)","Swing high spot (mm)","Fall (mm)","Floor high (mm)","Floor low (mm)","Opening height (mm)","Screed","Reduce door height","Grind high spot","Suggested","Remedy decided","Note","Measured by","Measured"].join(",")];
+  for(const {r,d,t,c} of thRows()){if(!c)continue;lines.push([r,d.from,d.to,d.supplier,d.level,c.h,c.l,c.s,c.fall,c.high,c.low,2050+Math.min(c.h,c.l),c.need.screed?"Yes":"",c.need.reduce?c.high:"",c.need.grind?"Yes":"",c.sug,t.remedy,t.note,name(t.by),new Date(t.at).toLocaleString("en-GB")].map(q).join(","))}
+  const data=lines.join("\n"),fn=`SCEC-threshold-levels-${new Date().toISOString().slice(0,10)}.csv`;
+  if(downloads){try{await downloads.save({filename:fn,data})}catch(e){if(e&&e.code!=="declined"&&e.code!=="cancelled")toast("Export didn't complete: "+(e.code||e.message))}}
+  else{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type:"text/csv"}));a.download=fn;a.click()}}
 
 /* ---------- export ---------- */
 async function exportCsv(){
