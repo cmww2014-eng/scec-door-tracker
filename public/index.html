@@ -224,8 +224,10 @@ td.ref{font:600 13px var(--f-mono);white-space:nowrap}
 .lightbox{position:fixed;inset:0;background:rgba(5,10,8,.9);z-index:40;display:flex;flex-direction:column;padding:calc(12px + env(safe-area-inset-top,0px)) 12px calc(12px + env(safe-area-inset-bottom,0px))}
 .lightbox .lb-top{display:flex;align-items:center;gap:10px;color:#fff;margin-bottom:8px}
 .lightbox .lb-top .x{background:#222;color:#fff;border-color:#444}
-.lightbox .lb-img{flex:1;min-height:0;overflow:auto;display:flex;align-items:flex-start;justify-content:center}
-.lightbox img{max-width:100%;height:auto;background:#fff}
+.lightbox .lb-img{flex:1;min-height:0;overflow:hidden;position:relative;touch-action:none;cursor:grab;border-radius:6px}
+.lightbox .lb-img:active{cursor:grabbing}
+.lightbox .lb-img img{position:absolute;left:0;top:0;transform-origin:0 0;max-width:none;background:#fff;user-select:none;-webkit-user-drag:none}
+.lightbox .lb-zoom{position:absolute;right:10px;bottom:10px;display:flex;flex-direction:column;gap:6px}.lightbox .lb-zoom button{width:40px;height:40px;border-radius:10px;border:1px solid #444;background:#222;color:#fff;font-size:20px;cursor:pointer}
 .toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:var(--r);z-index:50;font-size:13px;box-shadow:var(--shadow);max-width:calc(100% - 32px)}
 .confirm{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px}
 @media (max-width:860px){
@@ -800,10 +802,31 @@ async function shrink(file,max,q,limit,stamp){
       if(stamp){const fs=Math.max(14,Math.round(c.width/45));g.font=`600 ${fs}px system-ui,sans-serif`;const tw=g.measureText(stamp).width;const pad=fs*.5;g.fillStyle="rgba(0,0,0,.6)";g.fillRect(c.width-tw-pad*3,c.height-fs-pad*3,tw+pad*2,fs+pad*2);g.fillStyle="#fff";g.textBaseline="top";g.fillText(stamp,c.width-tw-pad*2,c.height-fs-pad*2)}
       const b=await new Promise(r=>c.toBlob(r,"image/jpeg",q));if(b.size<=limit||tries===5)return b;k*=.8;q=Math.max(.5,q-.06)}}finally{URL.revokeObjectURL(url)}}
 function lightbox(src,caption,photo){const lb=$("#lightbox");
-  lb.innerHTML=`<div class="lb-top"><span style="flex:1;min-width:0">${esc(caption)}</span>${photo&&canWrite?`<button class="btn sm danger" id="lb-del">Delete photo</button>`:""}<button class="x" id="lb-x" aria-label="Close">×</button></div><div class="lb-img"><img alt="${esc(caption)}" src="${esc(src)}"></div>`;
-  lb.hidden=false;$("#lb-x").onclick=()=>lb.hidden=true;
+  lb.innerHTML=`<div class="lb-top"><span style="flex:1;min-width:0">${esc(caption)}</span>${photo&&canWrite?`<button class="btn sm danger" id="lb-del">Delete photo</button>`:""}<button class="x" id="lb-x" aria-label="Close">×</button></div><div class="lb-img" id="lb-vp"><img alt="${esc(caption)}" src="${esc(src)}" draggable="false"><div class="lb-zoom"><button id="lb-zi" aria-label="Zoom in">+</button><button id="lb-zo" aria-label="Zoom out">\u2212</button><button id="lb-zf" aria-label="Fit" style="font-size:12px">Fit</button></div></div>`;
+  lb.hidden=false;const close=()=>{lb.hidden=true;document.removeEventListener("keydown",onKey)};const onKey=e=>{if(e.key==="Escape")close()};document.addEventListener("keydown",onKey);$("#lb-x").onclick=close;
+  zoomable($("#lb-vp"),lb.querySelector(".lb-img img"));
   const del=$("#lb-del");if(del)del.onclick=async()=>{if(!del.dataset.sure){del.dataset.sure="1";del.textContent="Tap again to delete";return}
     try{if(photo.asset&&assets)await assets.delete(photo.asset).catch(()=>{});await del_("photos",photo.id);lb.hidden=true;toast("Photo deleted")}catch(e){toast("Couldn't delete: "+(e.message||e.code))}}}
+function zoomable(vp,img){const v={s:1,x:0,y:0,min:.05,max:8,fit:1};
+  const ap=()=>{img.style.transform=`translate(${v.x}px,${v.y}px) scale(${v.s})`};
+  const fit=()=>{const W=vp.clientWidth,H=vp.clientHeight,w=img.naturalWidth||1,h=img.naturalHeight||1;v.fit=Math.min(W/w,H/h,1)*.98;v.s=v.fit;v.min=v.fit*.5;v.x=(W-w*v.s)/2;v.y=(H-h*v.s)/2;ap()};
+  const zoomAt=(f,cx,cy)=>{const ns=Math.min(v.max,Math.max(v.min,v.s*f));const k=ns/v.s;v.x=cx-(cx-v.x)*k;v.y=cy-(cy-v.y)*k;v.s=ns;ap()};
+  if(img.complete&&img.naturalWidth)fit();else img.onload=fit;
+  const mid=f=>zoomAt(f,vp.clientWidth/2,vp.clientHeight/2);
+  vp.querySelector("#lb-zi").onclick=()=>mid(1.5);vp.querySelector("#lb-zo").onclick=()=>mid(1/1.5);vp.querySelector("#lb-zf").onclick=fit;
+  vp.querySelectorAll(".lb-zoom button").forEach(b=>b.addEventListener("pointerdown",e=>e.stopPropagation()));
+  vp.addEventListener("wheel",e=>{e.preventDefault();const r=vp.getBoundingClientRect();zoomAt(Math.exp(-e.deltaY*(e.ctrlKey?.01:.0015)),e.clientX-r.left,e.clientY-r.top)},{passive:false});
+  const pts=new Map();let st=null,pin=null,lastTap=0;
+  vp.addEventListener("pointerdown",e=>{vp.setPointerCapture(e.pointerId);pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pts.size===1){st={x:e.clientX,y:e.clientY,vx:v.x,vy:v.y};const now=Date.now();if(now-lastTap<300){const r=vp.getBoundingClientRect();if(v.s>v.fit*1.05)fit();else zoomAt(2.5,e.clientX-r.left,e.clientY-r.top)}lastTap=now}
+    if(pts.size===2){const[a,b]=[...pts.values()];pin={d:Math.hypot(a.x-b.x,a.y-b.y),s:v.s,x:v.x,y:v.y,cx:(a.x+b.x)/2,cy:(a.y+b.y)/2}}});
+  vp.addEventListener("pointermove",e=>{if(!pts.has(e.pointerId))return;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});const r=vp.getBoundingClientRect();
+    if(pts.size===2&&pin){const[a,b]=[...pts.values()];const ns=Math.min(v.max,Math.max(v.min,pin.s*Math.hypot(a.x-b.x,a.y-b.y)/pin.d));const k=ns/pin.s;const cx=pin.cx-r.left,cy=pin.cy-r.top;
+      v.s=ns;v.x=cx-(cx-pin.x)*k+((a.x+b.x)/2-pin.cx);v.y=cy-(cy-pin.y)*k+((a.y+b.y)/2-pin.cy);ap()}
+    else if(pts.size===1&&st){v.x=st.vx+e.clientX-st.x;v.y=st.vy+e.clientY-st.y;ap()}});
+  const up=e=>{pts.delete(e.pointerId);if(pts.size<2)pin=null;if(pts.size===1){const p=[...pts.values()][0];st={x:p.x,y:p.y,vx:v.x,vy:v.y}}if(!pts.size)st=null};
+  vp.addEventListener("pointerup",up);vp.addEventListener("pointercancel",up);
+  new ResizeObserver(()=>{if(Math.abs(v.s-v.fit)<1e-6)fit()}).observe(vp)}
 async function del_(col,id){if(db)await db.collection(col).doc(id).delete();else{S.photos=S.photos.filter(p=>p.id!==id);renderDrawer()}}
 
 /* ---------- export ---------- */
