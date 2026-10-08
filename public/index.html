@@ -1,0 +1,820 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="icon" href="data:,"><script src="cf-shim.js"></script></head><body>
+<title>SCEC Door Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+[hidden]{display:none!important}
+/* Layout: site-office tool. Top bar + tabs; plan viewer fills the screen; door record slides in as a drawer (full sheet on phones). */
+:root{
+  --bg:#EEF1F0; --surface:#FFFFFF; --sunk:#E4E9E7; --ink:#17201D; --muted:#5B6863; --line:#D3DAD7;
+  --accent:#1F5FA8; --accent-ink:#FFFFFF; --accent-soft:#DCE7F5;
+  --danger:#C2382E; --danger-soft:#F8E1DE; --ok:#23804F;
+  --s0:#9AA5A0; --sA:#B9A3D6; --sB:#C9B45A; --s1:#E0A43A; --s2:#D9732B; --s3:#5B8FD1; --s4:#2F9E62; --s5:#145C3A;
+  --paper:#FFFFFF; --plan-filter:none; --warn:#B4610C; --warn-soft:#FBEBD9;
+  --f-display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:6px; --shadow:0 8px 28px rgba(16,28,24,.16);
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#111715; --surface:#19211F; --sunk:#141B19; --ink:#E3E9E6; --muted:#93A29C; --line:#2B3633;
+  --accent:#78A9EA; --accent-ink:#0D1A2B; --accent-soft:#1E2E44;
+  --danger:#F07468; --danger-soft:#3A1F1C; --ok:#5CC48C;
+  --s0:#6B7873; --sA:#A98CD2; --sB:#CFBB63; --s1:#E8B04E; --s2:#E78B48; --s3:#7EA9E3; --s4:#4DBB7E; --s5:#7FD8A6;
+  --paper:#F4F4F1; --plan-filter:invert(.9) hue-rotate(180deg); --warn:#F0A55A; --warn-soft:#3B2A17;
+  --shadow:0 8px 28px rgba(0,0,0,.5); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111715; --surface:#19211F; --sunk:#141B19; --ink:#E3E9E6; --muted:#93A29C; --line:#2B3633;
+  --accent:#78A9EA; --accent-ink:#0D1A2B; --accent-soft:#1E2E44;
+  --danger:#F07468; --danger-soft:#3A1F1C; --ok:#5CC48C;
+  --s0:#6B7873; --sA:#A98CD2; --sB:#CFBB63; --s1:#E8B04E; --s2:#E78B48; --s3:#7EA9E3; --s4:#4DBB7E; --s5:#7FD8A6;
+  --paper:#F4F4F1; --plan-filter:invert(.9) hue-rotate(180deg); --warn:#F0A55A; --warn-soft:#3B2A17;
+  --shadow:0 8px 28px rgba(0,0,0,.5); color-scheme:dark}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font:14px/1.45 var(--f-body);display:flex;flex-direction:column;min-height:0}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono)}
+.muted{color:var(--muted)}
+/* top bar */
+.top{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--line)}
+.brand{display:flex;flex-direction:column;line-height:1.05;min-width:0}
+.brand b{font:700 21px/1 var(--f-display);letter-spacing:.01em;text-transform:uppercase}
+.brand span{font-size:12px;color:var(--muted)}
+.prog{flex:1;min-width:220px;display:flex;flex-direction:column;gap:5px}
+.prog-bar{display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--sunk)}
+.prog-bar i{display:block;height:100%}
+.prog-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.prog-legend span{display:inline-flex;align-items:center;gap:5px;font-variant-numeric:tabular-nums}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.kpis{display:flex;gap:8px}
+.kpi{border:1px solid var(--line);border-radius:var(--r);padding:4px 10px;background:var(--surface);text-align:left}
+.kpi b{display:block;font:600 20px/1.1 var(--f-display);font-variant-numeric:tabular-nums}
+.kpi span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.kpi.alert b{color:var(--danger)}
+.who{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.who img{width:26px;height:26px;border-radius:50%}
+.role{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--line);color:var(--ink)}.role.adm{background:var(--accent-soft);color:var(--accent)}
+.team{background:var(--surface,#fff);color:var(--ink);border-radius:12px;padding:16px;max-width:640px;width:100%;margin:0 auto;overflow:auto;max-height:80vh}.team-t{width:100%;border-collapse:collapse;font-size:13px}.team-t th,.team-t td{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}
+.hist li .del{margin-left:6px;font-size:11px;padding:0 6px;cursor:pointer;color:var(--danger,#b4232c);background:none;border:1px solid var(--line);border-radius:6px}
+/* tabs */
+.tabs{display:flex;gap:2px;padding:0 16px;background:var(--surface);border-bottom:1px solid var(--line);overflow-x:auto}
+.tabs button{border:0;background:none;padding:10px 14px 9px;font:600 15px var(--f-display);letter-spacing:.05em;text-transform:uppercase;color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tabs .count{font:500 11px var(--f-mono);margin-left:6px;padding:1px 6px;border-radius:9px;background:var(--sunk);color:var(--muted);letter-spacing:0}
+.tabs .count.hot{background:var(--danger-soft);color:var(--danger)}
+.banner{padding:8px 16px;font-size:13px;background:var(--accent-soft);color:var(--ink);border-bottom:1px solid var(--line)}
+.banner[data-kind="warn"]{background:var(--danger-soft)}
+main{flex:1;min-height:0;position:relative;display:flex}
+.view{flex:1;min-width:0;min-height:0;display:flex}
+/* plans */
+.plans{flex-direction:row}
+.dwgs{width:260px;flex:none;border-right:1px solid var(--line);background:var(--surface);overflow:auto;padding:10px 0}
+.dwgs h3,.sec-title{font:600 12px var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:6px 16px 8px}
+.dwg{display:block;width:100%;text-align:left;border:0;background:none;padding:8px 16px;border-left:3px solid transparent}
+.dwg:hover{background:var(--sunk)}
+.dwg[aria-current="true"]{background:var(--accent-soft);border-left-color:var(--accent)}
+.dwg .no{font:500 11px var(--f-mono);color:var(--muted)}
+.dwg .t{display:block;font-weight:600;margin:1px 0 5px}
+.mini{display:flex;height:4px;border-radius:2px;overflow:hidden;background:var(--sunk)}
+.mini i{display:block}
+.dwg .c{font-size:11px;color:var(--muted);margin-top:3px;font-variant-numeric:tabular-nums}
+.viewer-wrap{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
+.vtools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--surface)}
+.vtools select{max-width:100%}
+.dwg-select{display:none}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:3px 10px;font-size:12px}
+.chip[aria-pressed="false"]{opacity:.45}
+.spacer{flex:1}
+.viewer{flex:1;position:relative;overflow:hidden;background:var(--sunk);touch-action:none;cursor:grab;min-height:240px}
+.viewer.dragging{cursor:grabbing}
+.stage{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
+.pins{position:absolute;inset:0;pointer-events:none;overflow:hidden}.pins .pin{pointer-events:auto;will-change:transform}
+.stage img{display:block;max-width:none;background:var(--paper);filter:var(--plan-filter);user-select:none;-webkit-user-drag:none;box-shadow:0 2px 14px rgba(0,0,0,.12)}
+.pin{position:absolute;left:0;top:0;border:0;padding:0;background:none;transform-origin:0 0}
+.pin i{display:flex;align-items:center;justify-content:center;gap:3px;transform:translate(-50%,-50%);min-width:16px;height:16px;border-radius:9px;background:var(--pc);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.45);font:600 10px/1 var(--f-mono);color:#fff;white-space:nowrap;padding:0}
+.pin.lbl i{padding:0 6px;height:20px;font-size:11px}
+.pin .flag{width:7px;height:7px;border-radius:50%;background:var(--danger);border:1px solid #fff}
+.alertbox,.qbox,.prepbox{border-radius:var(--r);padding:10px 12px;margin-bottom:10px;font-size:13px;line-height:1.4;display:flex;flex-direction:column;gap:3px;border:1px solid}
+.alertbox{background:var(--danger-soft);border-color:var(--danger);color:var(--ink)}.alertbox b{color:var(--danger)}
+.qbox{background:var(--warn-soft);border-color:var(--warn)}.prepbox{background:var(--accent-soft);border-color:var(--accent)}
+.pin.alert i{box-shadow:0 0 0 3px var(--danger),0 1px 4px rgba(0,0,0,.45)}
+.step:disabled{opacity:.45;cursor:not-allowed}
+.pin.sel i{outline:3px solid var(--accent);outline-offset:2px}
+.pin.stairbtn i{height:26px;padding:0 10px;border-radius:13px;background:var(--accent);color:#fff;font:700 12px var(--f-body);gap:6px;border:2px solid #fff}.pin.stairbtn small{background:rgba(255,255,255,.25);border-radius:8px;padding:0 5px;font:600 10px var(--f-mono)}
+.pin.cluster i{min-width:24px;height:24px;border-radius:12px;font-size:12px;font-weight:700;color:#fff;background:var(--pc);box-shadow:0 0 0 4px color-mix(in srgb,var(--pc) 35%,transparent)}
+.lvls{position:absolute;right:12px;top:12px;z-index:4;display:flex;flex-direction:column;gap:3px;max-height:calc(100% - 90px);overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:6px;box-shadow:var(--shadow);width:150px}
+.lvls h5{margin:2px 4px 4px;font:600 10px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.lvls button{display:flex;justify-content:space-between;align-items:center;gap:6px;border:1px solid transparent;background:none;border-radius:8px;padding:5px 8px;font-size:12px;color:var(--ink);text-align:left;cursor:pointer}
+.lvls button:hover{background:var(--sunk)}.lvls button[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink,var(--ink));font-weight:600}
+.lvls button.go{background:var(--accent);color:#fff;font-weight:600;justify-content:center;margin-top:4px}
+.lvls button .n{font:11px var(--f-mono);color:var(--muted)}.lvls .dw{display:flex;flex-wrap:wrap;gap:3px;padding:4px 4px 2px;border-top:1px solid var(--line);margin-top:3px}.lvls .dw button{padding:2px 6px;font:11px var(--f-mono);border:1px solid var(--line)}
+.cl-pop{position:absolute;z-index:5;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:4px;max-height:240px;overflow:auto;width:250px;font-size:12px}.cl-pop .btn{text-align:left;justify-content:flex-start}
+.pin.hit i{animation:pulse 1.2s ease-out 2}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(31,95,168,.7)}100%{box-shadow:0 0 0 18px rgba(31,95,168,0)}}
+.zoom{position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;gap:6px}
+.zoom button{width:38px;height:38px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface);font-size:18px;box-shadow:var(--shadow)}
+.dwg-meta{position:absolute;left:12px;bottom:12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:5px 9px;font:500 11px var(--f-mono);color:var(--muted);max-width:calc(100% - 90px)}
+/* lists */
+.panel-page{flex-direction:column;overflow:auto;padding:14px 16px 24px;gap:12px}
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.filters input[type=search]{flex:1;min-width:180px}
+input[type=text],input[type=search],input[type=date],select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:7px 9px;min-width:0}
+textarea{width:100%;min-height:70px;resize:vertical}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:var(--r);padding:7px 12px;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.danger{color:var(--danger);border-color:var(--danger)}
+.btn.sm{padding:4px 9px;font-size:12px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.tbl-wrap{overflow:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{position:sticky;top:0;background:var(--surface);text-align:left;font:600 11px var(--f-body);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--sunk)}
+td.ref{font:600 13px var(--f-mono);white-space:nowrap}
+.tag{display:inline-flex;align-items:center;gap:5px;font-size:12px;white-space:nowrap}
+.fire{font:600 11px var(--f-mono);padding:1px 6px;border-radius:4px;background:var(--sunk);white-space:nowrap}
+.fire.fr{background:var(--danger-soft);color:var(--danger)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.card-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.card-h .ref{font:600 14px var(--f-mono);border:0;background:none;padding:0;color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+.card p{margin:0;overflow-wrap:anywhere}
+.card .meta{font-size:12px;color:var(--muted)}
+.card .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:500;background:var(--sunk);white-space:nowrap}
+.pill.red{background:var(--danger-soft);color:var(--danger)}
+.pill.blue{background:var(--accent-soft);color:var(--accent)}
+.pill.green{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.kv div.diffv{color:var(--warn);font-weight:600}
+.kv .was{display:block;font-weight:400;font-size:11px;color:var(--muted);text-decoration:line-through}
+.check{border:1px solid var(--warn);background:var(--warn-soft);border-radius:var(--r);padding:10px 12px;font-size:13px}
+.check b{color:var(--warn)}
+.check ul{margin:6px 0 0;padding-left:18px}
+.iron{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:var(--r)}
+.iron li{border-bottom:1px solid var(--line)}
+.iron li:last-child{border-bottom:0}
+.iron label{display:flex;gap:10px;align-items:flex-start;padding:7px 10px;font-size:13px;cursor:pointer}
+.iron input{margin-top:2px;width:16px;height:16px;flex:none;accent-color:var(--ok)}
+.supbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:8px 16px;background:var(--surface);border-bottom:1px solid var(--line)}
+.supbar span{font-size:12px;color:var(--muted);margin-right:4px}
+.supbar button{border:1px solid var(--line);background:var(--surface);border-radius:16px;padding:4px 14px;font-weight:600;font-size:13px}
+.supbar button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.supbar button .n{font:500 11px var(--f-mono);margin-left:6px;opacity:.75}
+.ms{position:relative}
+.ms summary{list-style:none;cursor:pointer;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:7px 28px 7px 9px;white-space:nowrap}
+.ms summary::-webkit-details-marker{display:none}
+.ms summary::after{content:"▾";position:absolute;right:9px;top:7px;color:var(--muted)}
+.ms .menu{position:absolute;z-index:5;top:calc(100% + 4px);left:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:6px;min-width:180px}
+.ms label{display:flex;gap:8px;align-items:center;padding:5px 6px;font-size:13px;cursor:pointer;border-radius:4px}
+.ms label:hover{background:var(--sunk)}
+.section-sw{display:flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.section-sw button{border:0;background:var(--surface);padding:6px 12px;font:600 14px var(--f-display);letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.section-sw button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.empty{border:1px dashed var(--line);border-radius:var(--r);padding:26px;text-align:center;color:var(--muted);background:var(--surface)}
+/* drawer */
+.scrim{position:fixed;inset:0;background:rgba(10,18,15,.35);z-index:20}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(480px,100%);background:var(--surface);border-left:1px solid var(--line);box-shadow:var(--shadow);z-index:21;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.d-head{padding:14px 16px 10px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+.d-row{display:flex;align-items:center;gap:10px}
+.d-ref{font:700 30px/1 var(--f-display);letter-spacing:.02em}
+.d-sub{color:var(--muted);font-size:13px}
+.x{margin-left:auto;border:1px solid var(--line);background:var(--surface);width:34px;height:34px;border-radius:var(--r);font-size:18px}
+.d-tabs{display:flex;border-bottom:1px solid var(--line);overflow-x:auto;padding:0 8px}
+.d-tabs button{border:0;background:none;padding:9px 10px;font:600 13px var(--f-body);color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap}
+.d-tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.d-body{flex:1;overflow:auto;padding:14px 16px 28px;display:flex;flex-direction:column;gap:16px}
+.steps{display:flex;flex-direction:column;gap:6px}
+.step{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--surface);border-radius:var(--r);padding:9px 12px;text-align:left}
+.step .n{width:22px;height:22px;border-radius:50%;border:2px solid var(--sc);display:flex;align-items:center;justify-content:center;font:600 11px var(--f-mono);color:var(--sc);flex:none}
+.step.done .n{background:var(--sc);color:#fff}
+.step.cur{border-color:var(--sc);box-shadow:inset 3px 0 0 var(--sc)}
+.step .lbl{font-weight:600}
+.step .hint{font-size:12px;color:var(--muted);margin-left:auto;text-align:right}
+.kv{display:grid;grid-template-columns:minmax(110px,38%) 1fr;gap:0;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.kv div{padding:6px 10px;border-bottom:1px solid var(--line);font-size:13px;min-width:0;overflow-wrap:anywhere}
+.kv div:nth-child(odd){color:var(--muted);background:var(--sunk);font-size:12px}
+.kv div:nth-last-child(-n+2){border-bottom:0}
+.grp h4{margin:0 0 6px;font:600 12px var(--f-body);text-transform:uppercase;letter-spacing:.07em;color:var(--muted);display:flex;gap:8px;align-items:center}
+.items{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:var(--r)}
+.items li{display:grid;grid-template-columns:44px 1fr;gap:8px;padding:6px 10px;border-bottom:1px solid var(--line);font-size:13px}
+.items li:last-child{border-bottom:0}
+.items .q{font:500 12px var(--f-mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.items .code{font:500 11px var(--f-mono);color:var(--muted)}
+.hist{list-style:none;margin:0;padding:0;font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+.photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.ph{position:relative;border-radius:var(--r);overflow:hidden;background:var(--sunk);aspect-ratio:4/3;border:0;padding:0;max-width:100%}
+.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.ph span{position:absolute;left:0;right:0;bottom:0;padding:3px 6px;font-size:11px;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.7));text-align:left}
+.form{display:flex;flex-direction:column;gap:8px;border:1px solid var(--line);border-radius:var(--r);padding:12px;background:var(--sunk)}
+.form label{font-size:12px;font-weight:600;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+.form .row{display:flex;gap:8px;flex-wrap:wrap}
+.form .row>*{flex:1;min-width:130px}
+.seg{display:flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.seg button{flex:1;border:0;background:var(--surface);padding:7px 8px;font-size:13px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.prodimgs{display:flex;flex-direction:column;gap:8px}
+.prodimgs img{width:100%;border:1px solid var(--line);border-radius:var(--r);background:#fff}
+.lightbox{position:fixed;inset:0;background:rgba(5,10,8,.9);z-index:40;display:flex;flex-direction:column;padding:calc(12px + env(safe-area-inset-top,0px)) 12px calc(12px + env(safe-area-inset-bottom,0px))}
+.lightbox .lb-top{display:flex;align-items:center;gap:10px;color:#fff;margin-bottom:8px}
+.lightbox .lb-top .x{background:#222;color:#fff;border-color:#444}
+.lightbox .lb-img{flex:1;min-height:0;overflow:auto;display:flex;align-items:flex-start;justify-content:center}
+.lightbox img{max-width:100%;height:auto;background:#fff}
+.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:var(--r);z-index:50;font-size:13px;box-shadow:var(--shadow);max-width:calc(100% - 32px)}
+.confirm{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px}
+@media (max-width:860px){
+  .dwgs{display:none}
+  .dwg-select{display:block;flex:1;min-width:180px}
+  .kpis{order:3}
+  .prog{order:4;flex-basis:100%}
+}
+@media (max-width:520px){
+  .drawer{width:100%;border-left:0}
+  .brand b{font-size:19px}
+  .kpi{padding:3px 8px}
+  .kpi b{font-size:17px}
+}
+@media (prefers-reduced-motion:reduce){.pin.hit i{animation:none}}
+</style>
+
+<header class="top">
+  <div class="brand"><b id="brand-t">Door Tracker</b><span>South Clyde Energy Centre · Fortum Glasgow</span></div>
+  <div class="section-sw" id="section-sw" role="group" aria-label="Package"><button data-sec="doors" aria-pressed="true">Doors</button><button data-sec="louvres" aria-pressed="false">COLT louvres</button></div>
+  <div class="prog" id="prog"></div>
+  <div class="kpis" id="kpis"></div>
+  <div class="who" id="who"></div>
+</header>
+<div class="supbar" id="supbar" role="group" aria-label="Supplier"></div>
+<nav class="tabs" role="tablist" id="tabs">
+  <button role="tab" data-v="plans" aria-selected="true">Plans</button>
+  <button role="tab" data-v="doors" aria-selected="false" id="tab-sched">Door schedule</button>
+  <button role="tab" data-v="defects" aria-selected="false">Defects <span class="count" id="c-def">0</span></button>
+  <button role="tab" data-v="requests" aria-selected="false">Requests <span class="count" id="c-req">0</span></button>
+</nav>
+<div id="banner" class="banner" hidden></div>
+<main>
+  <section class="view plans" id="v-plans">
+    <aside class="dwgs" id="dwgs"><h3>Drawings</h3><div id="dwg-list"><p class="muted" style="padding:0 16px">Loading drawings…</p></div></aside>
+    <div class="viewer-wrap">
+      <div class="vtools">
+        <select id="dwg-select" class="dwg-select" aria-label="Drawing"></select>
+        <div class="chips" id="status-chips"></div>
+        <span class="spacer"></span>
+        <input type="search" id="find" placeholder="Find door ref, e.g. DG04" aria-label="Find door" style="width:190px">
+      </div>
+      <div class="viewer" id="viewer">
+        <div class="stage" id="stage"><img id="plan-img" alt="Plant layout drawing"></div>
+        <div class="pins" id="pins"></div>
+        <div class="dwg-meta" id="dwg-meta"></div>
+        <div class="cl-pop" id="cl-pop" hidden></div>
+        <div class="lvls" id="lvls" hidden></div>
+        <div class="zoom"><button id="z-in" aria-label="Zoom in">+</button><button id="z-out" aria-label="Zoom out">−</button><button id="z-fit" aria-label="Fit drawing" style="font-size:13px">Fit</button></div>
+      </div>
+    </div>
+  </section>
+  <section class="view panel-page" id="v-doors" hidden>
+    <div class="filters">
+      <input type="search" id="q" placeholder="Search ref, room, type, ironmongery…" aria-label="Search doors">
+      <select id="f-status" aria-label="Status"><option value="">All stages</option></select>
+      <select id="f-dwg" aria-label="Drawing"><option value="">All drawings</option></select>
+      <select id="f-cons" aria-label="Construction"><option value="">All construction</option></select>
+      <details class="ms" id="f-fire"><summary id="f-fire-s">All fire ratings</summary><div class="menu" id="f-fire-m"></div></details>
+      <select id="f-diff" aria-label="Design check"><option value="">Any design check</option><option value="open">Open conflicts</option><option value="rev">Supplier to revise</option><option value="rfi">RFI open</option><option value="diff">Any conflict (incl. resolved)</option><option value="ok">Matches supplier design</option><option value="issue">Open site issues</option><option value="prep">Threshold / jamb prep notes</option><option value="levelq">Level to confirm</option><option value="prelim">Prelim design (not approved)</option><option value="approved">Design approved for construction</option></select>
+      <button class="btn" id="export" hidden>Export CSV</button>
+    </div>
+    <div class="muted" id="door-count" style="font-size:12px"></div>
+    <div class="tbl-wrap"><table><thead id="door-head"></thead><tbody id="door-rows"></tbody></table></div>
+  </section>
+  <section class="view panel-page" id="v-defects" hidden>
+    <div class="filters">
+      <div class="seg" id="def-seg"><button aria-pressed="true" data-v="Open">Open</button><button aria-pressed="false" data-v="Closed">Closed</button><button aria-pressed="false" data-v="">All</button></div>
+      <input type="search" id="def-q" placeholder="Search defects" aria-label="Search defects">
+    </div>
+    <div class="cards" id="def-list"></div>
+  </section>
+  <section class="view panel-page" id="v-requests" hidden>
+    <div class="filters">
+      <div class="seg" id="req-seg"><button aria-pressed="true" data-v="active">Active</button><button aria-pressed="false" data-v="done">Done</button><button aria-pressed="false" data-v="">All</button></div>
+      <select id="req-kind" aria-label="Request type"><option value="">All types</option><option value="access">Handover for connection</option><option value="lock">Suited lock / cylinder</option></select>
+    </div>
+    <div class="cards" id="req-list"></div>
+  </section>
+</main>
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" hidden aria-label="Door record"></aside>
+<div class="lightbox" id="lightbox" hidden></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+"use strict";
+const STAGESETS={doors:[
+ {k:"Not started",c:"--s0",hint:"Nothing on site yet"},
+ {k:"Jamb prepared",c:"--sB",hint:"Reveal flashed / boarded, ready for frame"},
+ {k:"Frame installed",c:"--s1",hint:"Frame fixed & packed"},
+ {k:"Leaf hung",c:"--s2",hint:"Leaf hung, gaps checked"},
+ {k:"Ironmongery fitted",c:"--s3",hint:"Per supplier design"},
+ {k:"Complete",c:"--s4",hint:"Ready for inspection",done:1},
+ {k:"Inspected",c:"--s5",hint:"Signed off",done:1}],
+ louvres:[
+ {k:"Not started",c:"--s0",hint:"Opening ready"},
+ {k:"Subframe fixed",c:"--s1",hint:"Support steel / subframe"},
+ {k:"Unit installed",c:"--s2",hint:"Louvre / vent fixed"},
+ {k:"Flashings & sealed",c:"--s3",hint:"Weathered, mesh fitted"},
+ {k:"Complete",c:"--s4",hint:"Ready for inspection",done:1},
+ {k:"Inspected",c:"--s5",hint:"Signed off",done:1}]};
+const DONE=c=>STAGES.reduce((n,x,i)=>n+(x.done?c[i]:0),0);
+const DOORS_V=3;function migrate(col,o){if(col!=="doors"||(o.v||1)>=DOORS_V)return o;const v=o.v||1;const f=v===1?(x=>x>=1?x+1:x):(x=>x>=2?x-1:0);return {...o,v:DOORS_V,stage:typeof o.stage==="number"?f(o.stage):o.stage,hist:(o.hist||[]).map(h=>({...h,s:f(h.s)}))}}
+const DESIGN={Approved:{t:"Design approved for construction",cls:"green"},Prelim:{t:"Prelim design (P-rev)",cls:"warn"},None:{t:"No supplier design",cls:""}};
+function designPill(d){if(UI.sec!=="doors")return"";const x=DESIGN[d.design||"None"];return `<span class="pill ${x.cls}" title="${esc((d.designRevs||[]).length?"Drawing rev "+d.designRevs.join(", "):"")}">${x.t}</span>`}
+let STAGES=STAGESETS.doors;
+const SEC={doors:{one:"door",many:"doors",title:"Door Tracker",sched:"Door schedule",pcol:"doors"},louvres:{one:"louvre",many:"louvres",title:"COLT Louvres",sched:"Louvre schedule",pcol:"louvres"}};
+const DEF_CATS=["Damage / finish","Gaps / alignment","Ironmongery","Seals / intumescent","Glazing","Signage","Frame / fixing","Other"];
+const REQ_STATES=["Requested","Scheduled","Connected","Declined"];
+const S={data:null,RAW:null,doors:new Map(),prog:{doors:new Map(),louvres:new Map()},defects:new Map(),requests:new Map(),photos:[],names:{}};
+const UI={sup:"",fires:new Set(),sec:"doors",view:"plans",dwg:null,show:new Set(STAGES.map((_,i)=>i)),door:null,dtab:"progress",defSeg:"Open",reqSeg:"active",confirm:null,level:undefined};
+let db=null,assets=null,userCap=null,downloads=null,meId=null,canWrite=true,live=false,photoUnsub=null,isOwner=false,users=new Map();
+function isAdmin(){if(isOwner)return true;const u=meId&&users.get(meId);return !!(u&&u.role==="admin")}
+function myRole(){return isOwner?"Owner":(meId&&users.get(meId)&&users.get(meId).role==="admin")?"Admin":canWrite?"Contributor":"Viewer"}
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const css=v=>`var(${v})`;
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const fmt=t=>{if(!t)return"";const d=new Date(t);return d.toLocaleDateString("en-GB",{day:"numeric",month:"short"})+" "+d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})};
+function toast(m){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,2600)}
+function stageOf(ref){const d=S.doors.get(ref);return d&&typeof d.stage==="number"?d.stage:0}
+const RES={"Accept supplier design":{cls:"green",t:"Supplier design accepted",done:1},"Schedule to be updated by RPS":{cls:"green",t:"RPS to update schedule",done:1},"No action – acceptable tolerance":{cls:"green",t:"Within tolerance",done:1},"Supplier to revise to schedule":{cls:"warn",t:"Supplier to revise",done:0},"Query / RFI raised":{cls:"warn",t:"RFI open",done:0}};
+function openDiffs(d){return (d.diffs||[]).filter(x=>!(RES[x.res]&&RES[x.res].done))}
+const MAINSUP=["Ascot","Almet","Johan"];
+function supOk(d){if(UI.sec!=="doors"||!UI.sup)return true;return UI.sup==="Others"?!MAINSUP.includes(d.supplier):d.supplier===UI.sup}
+function vis(){return Object.keys(S.data.doors).filter(r=>supOk(S.data.doors[r]))}
+function renderSupbar(){const b=$("#supbar");if(UI.sec!=="doors"){b.hidden=true;return}b.hidden=false;const D=S.data.doors,all=Object.values(D);
+  const n=k=>k===""?all.length:k==="Others"?all.filter(d=>!MAINSUP.includes(d.supplier)).length:all.filter(d=>d.supplier===k).length;
+  b.innerHTML='<span>Supplier</span>'+["","Ascot","Almet","Johan","Others"].map(k=>`<button data-sup="${k}" aria-pressed="${UI.sup===k}">${k||"All"}<span class="n">${n(k)}</span></button>`).join("")}
+function inSec(ref){return !!(S.data&&S.data.doors[ref])}
+function openDefects(ref){let n=0;for(const d of S.defects.values())if(d.ref===ref&&d.status!=="Closed")n++;return n}
+function activeReqs(ref){let n=0;for(const r of S.requests.values())if(r.ref===ref&&(r.status==="Requested"||r.status==="Scheduled"))n++;return n}
+function name(id){if(!id)return"Someone";if(id===meId&&!S.names[id])return"You";return S.names[id]||"Someone"}
+let nameQ=new Set(),nameT=null;
+function want(id){if(id&&!(id in S.names)&&userCap){nameQ.add(id);clearTimeout(nameT);nameT=setTimeout(resolveNames,60)}}
+async function resolveNames(){const ids=[...nameQ];nameQ.clear();if(!ids.length||!userCap)return;try{const ps=await userCap.profiles(ids);let ch=false;for(const id of ids){const n=(ps[id]&&ps[id].name)||"";if(S.names[id]!==n){S.names[id]=n;ch=true}}if(ch)renderAll()}catch(e){}}
+
+/* ---------- data writes (db when available, in-memory otherwise) ---------- */
+async function put(col,id,data){
+  if(col==="doors")data={...data,v:DOORS_V};
+  if(db){await db.collection(col).doc(id).set(data)}
+  else{(S.prog[col]||S[col]).set(id,{id,...data});renderAll()}
+}
+async function del(col,id){if(db)await db.collection(col).doc(id).delete();else{S[col].delete(id);renderAll()}}
+function guard(){if(!canWrite){toast("You have view-only access to this tracker.");return false}return true}
+
+/* ---------- boot ---------- */
+async function boot(){
+  bindStatic();
+  try{const r=await fetch("data.json");S.RAW=await r.json()}catch(e){$("#dwg-list").innerHTML='<p class="muted" style="padding:0 16px">Drawing data could not be loaded. Reload the page.</p>';return}
+  applySection("doors");
+  const use=n=>window.claude&&window.claude.use?Promise.resolve(window.claude.use(n)).catch(()=>null):Promise.resolve(null);
+  [db,userCap,assets,downloads]=await Promise.all([use("db"),use("user"),use("assets"),use("downloads")]);
+  if(downloads)$("#export").hidden=false;
+  if(userCap){try{meId=await userCap.id();const me=await userCap.me();if(me){$("#who").innerHTML=`<img alt="" src="${esc(me.avatarUrl)}"><span>${esc(me.name||"Signed in")}</span>`;if(me.id)S.names[me.id]=me.name||"";isOwner=!!me.isOwner;S.meAvatar=me.avatarUrl}}catch(e){}
+    try{const c=await userCap.can("data.write");if(c===false)canWrite=false}catch(e){}}
+  if(!db){banner("This view isn't connected to the shared tracker, so progress, defects and photos you add here won't be saved. Open the tracker from claude.ai while signed in.","warn")}
+  else{
+    live=true;
+    if(!canWrite)banner("You have view-only access. Ask the tracker owner for Contributor access to update doors.");
+    db.collection("users").onSnapshot(snap=>{users=new Map(snap.docs.map(d=>[d.id,{id:d.id,...d.data()}]));renderWho();renderAll()},()=>{});
+    db.collection("overrides").onSnapshot(snap=>{applyOverrides(snap.docs.map(d=>({id:d.id,...d.data()})));renderAll()},()=>{});
+    for(const col of["doors","louvres","defects","requests"]){
+      db.collection(col).onSnapshot(snap=>{const m=new Map(snap.docs.map(d=>[d.id,migrate(col,{id:d.id,...d.data()})]));if(col==="doors"||col==="louvres"){S.prog[col]=m;S.doors=S.prog[SEC[UI.sec].pcol]}else S[col]=m;renderAll()},e=>banner("Lost connection to the shared tracker ("+(e&&e.code||"error")+"). Reload the page to reconnect.","warn"));
+    }
+  }
+}
+function applySection(sec){
+  UI.sec=sec;const R=S.RAW;STAGES=STAGESETS[sec];
+  S.data={doors:sec==="doors"?R.doors:R.louvres,layouts:sec==="doors"?R.layouts:R.llayouts,hwsets:R.hwsets};
+  S.doors=S.prog[SEC[sec].pcol];
+  $("#brand-t").textContent=SEC[sec].title;$("#tab-sched").textContent=SEC[sec].sched;
+  $("#section-sw").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.sec===sec?"true":"false"));
+  $("#find").placeholder=sec==="doors"?"Find door ref, e.g. DG04":"Find louvre ref, e.g. L17 or RV04";
+  $("#f-diff").hidden=$("#f-cons").hidden=$("#f-fire").hidden=sec!=="doors";UI.fires.clear();
+  if(UI.door)closeDoor();
+  UI.dwg=S.data.layouts[0].id;UI.show=new Set(STAGES.map((_,i)=>i));
+  fillFilters();renderAll();showDwg(UI.dwg,true);
+}
+function renderWho(){const w=$("#who");if(!userCap||!meId)return;const me=S.names[meId];const role=myRole();
+  w.innerHTML=`${S.meAvatar?`<img alt="" src="${esc(S.meAvatar)}">`:""}<span>${esc(me||"Signed in")}</span><span class="role ${role==="Owner"||role==="Admin"?"adm":""}">${role}</span><button class="btn sm" id="team-btn">Team</button>`;$("#team-btn").onclick=openTeam}
+/* ---------- schedule overrides (admin) ---------- */
+const OV_FIELDS=[["from","From room"],["to","To room"],["desc","Description"],["ctype","Construction"],["supplier","Supplier"],["fire","Fire rating"],["acoustic","Acoustics"],["soW","Structural opening width"],["soH","Structural opening height"],["clearW","Clear opening width"],["clearH","Clear opening height"],["finish","Door finish"],["vision","Vision panel"],["handles","Handles"],["lock","Lock / latch"],["access","Access control"],["hinges","Hinges"],["closer","Closer"],["kick","Kickplate"],["signage","Signage"],["comments","Comments"],["conn","Connection type (EL560 / Motorised / Controls / blank)"],["level","Level (metres, e.g. 8 or 12.4, or Roof)"],["note","Tracker note"]];
+function applyOverrides(list){const R=S.RAW;if(!R)return;if(!R._base)R._base={};
+  for(const ref in R._base){if(R.doors[ref])R.doors[ref]=R._base[ref]}
+  R._base={};
+  for(const o of list){const d=R.doors[o.id];if(!d||!o.f)continue;R._base[o.id]=d;R.doors[o.id]={...d,...o.f,ov:{by:o.by,at:o.at,keys:Object.keys(o.f)}}}
+  if(UI.sec==="doors")S.data.doors=R.doors}
+function ovForm(ref,d){const base=(S.RAW._base&&S.RAW._base[ref])||d;
+  return `<div class="form" id="ov-form"><b>Edit schedule information (admin)</b><span class="muted" style="font-size:12px">Changes are stored as tracker overrides on top of the RPS schedule and shown to everyone. Clear a field to restore the schedule value.</span>
+  ${OV_FIELDS.map(([k,l])=>`<label>${esc(l)}${d.ov&&d.ov.keys.includes(k)?' <span class="pill warn" style="font-size:10px">overridden</span>':""}<input type="text" data-ov="${k}" value="${esc(d[k]==null?"":d[k])}" placeholder="${esc(base[k]==null?"":base[k])}"></label>`).join("")}
+  <div class="row"><button class="btn primary" id="ov-save">Save</button><button class="btn" id="ov-reset">Remove all overrides</button><button class="btn" id="ov-cancel">Cancel</button></div></div>`}
+/* ---------- team dialog ---------- */
+function openTeam(){const lb=$("#lightbox");lb.hidden=false;renderTeam()}
+async function renderTeam(){const lb=$("#lightbox");const ids=[...users.keys()];if(meId&&!ids.includes(meId))ids.unshift(meId);ids.forEach(want);
+  const adm=isAdmin();
+  lb.innerHTML=`<div class="lb-top"><span style="flex:1">Team &amp; access</span><button class="x" id="lb-x" aria-label="Close">×</button></div>
+  <div class="team"><p class="muted" style="margin:0 0 10px;font-size:13px">Everyone opens the tracker with their claude.ai sign-in. <b>Admins</b> can edit schedule information and delete installation-stage history. The artifact owner is always an admin. ${adm?"Search your organisation below to add people.":"Ask an admin to change roles."}</p>
+  ${adm?`<label style="display:block;margin-bottom:10px">Add a person<input type="search" id="team-q" placeholder="Type a name…" autocomplete="off"></label><div id="team-hits"></div>`:""}
+  <table class="team-t"><thead><tr><th>Person</th><th>Role</th><th></th></tr></thead><tbody>${ids.map(id=>{const u=users.get(id)||{};const role=u.role||"member";return `<tr><td>${esc(name(id))}${id===meId?' <span class="muted">(you)</span>':""}</td><td><span class="role ${role==="admin"?"adm":""}">${role==="admin"?"Admin":"Member"}</span></td><td style="text-align:right">${adm&&id!==meId?`<button class="btn sm" data-role="${id}" data-to="${role==="admin"?"member":"admin"}">${role==="admin"?"Make member":"Make admin"}</button> <button class="btn sm" data-rm="${id}">Remove</button>`:""}</td></tr>`}).join("")||'<tr><td colspan="3" class="muted">No one listed yet.</td></tr>'}</tbody></table></div>`;
+  $("#lb-x").onclick=()=>{lb.hidden=true;lb.innerHTML=""};
+  lb.querySelectorAll("[data-role]").forEach(b=>b.onclick=()=>save(()=>put("users",b.dataset.role,{role:b.dataset.to,by:meId,at:Date.now()}).then(renderTeam),"Role updated"));
+  lb.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>save(()=>del("users",b.dataset.rm).then(renderTeam),"Removed"));
+  const q=$("#team-q");if(q){const run=async()=>{const hits=await userCap.search(q.value);const box=$("#team-hits");box.innerHTML=hits.filter(h=>h.id!==meId&&!users.has(h.id)).map(h=>`<button class="btn sm" data-add="${esc(h.id)}" style="margin:0 6px 6px 0"></button>`).join("");
+      box.querySelectorAll("[data-add]").forEach((b,i)=>{const h=hits.find(x=>x.id===b.dataset.add);b.textContent="+ "+(h.name||"Someone");S.names[h.id]=h.name||"";b.onclick=()=>save(()=>put("users",h.id,{role:"admin",by:meId,at:Date.now()}).then(()=>{q.value="";renderTeam()}),(h.name||"Person")+" added as admin")})};
+    q.oninput=run;q.onfocus=run}}
+function banner(msg,kind){const b=$("#banner");b.textContent=msg;b.dataset.kind=kind||"";b.hidden=false}
+
+/* ---------- static bindings ---------- */
+function bindStatic(){
+  $("#supbar").addEventListener("click",e=>{const b=e.target.closest("[data-sup]");if(!b)return;UI.sup=b.dataset.sup;renderAll()});
+  $("#f-fire-m").addEventListener("change",e=>{const c=e.target.closest("input[data-fire]");if(!c)return;c.checked?UI.fires.add(c.dataset.fire):UI.fires.delete(c.dataset.fire);$("#f-fire-s").textContent=UI.fires.size?[...UI.fires].join(", "):"All fire ratings";renderDoors()});
+  document.addEventListener("click",e=>{const m=$("#f-fire");if(m.open&&!m.contains(e.target))m.open=false});
+  $("#section-sw").addEventListener("click",e=>{const b=e.target.closest("[data-sec]");if(b&&b.dataset.sec!==UI.sec)applySection(b.dataset.sec)});
+  $("#tabs").addEventListener("click",e=>{const b=e.target.closest("button[data-v]");if(b)setView(b.dataset.v)});
+  ["#q","#f-status","#f-dwg","#f-cons","#f-diff"].forEach(s=>$(s).addEventListener("input",renderDoors));
+  $("#def-q").addEventListener("input",renderDefects);
+  $("#req-kind").addEventListener("input",renderRequests);
+  $("#def-seg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;UI.defSeg=b.dataset.v;segSet("#def-seg",b);renderDefects()});
+  $("#req-seg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;UI.reqSeg=b.dataset.v;segSet("#req-seg",b);renderRequests()});
+  $("#door-rows").addEventListener("click",e=>{const tr=e.target.closest("tr[data-ref]");if(tr)openDoor(tr.dataset.ref)});
+  $("#dwg-list").addEventListener("click",e=>{const b=e.target.closest("[data-dwg]");if(b)showDwg(b.dataset.dwg,true)});
+  $("#dwg-select").addEventListener("input",e=>showDwg(e.target.value,true));
+  $("#scrim").addEventListener("click",closeDoor);
+  $("#export").addEventListener("click",exportCsv);
+  $("#find").addEventListener("keydown",e=>{if(e.key==="Enter"){const r=e.target.value.trim().toUpperCase();if(S.data.doors[r]){locate(r);openDoor(r)}else toast("No "+SEC[UI.sec].one+" "+r+" in this package. Try the other package switch.")}});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(!$("#lightbox").hidden)$("#lightbox").hidden=true;else if(UI.door)closeDoor()}});
+  document.addEventListener("click",listClicks);
+  initViewer();
+}
+function segSet(sel,b){$(sel).querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"))}
+function setView(v){UI.view=v;$("#tabs").querySelectorAll("button").forEach(b=>b.setAttribute("aria-selected",b.dataset.v===v?"true":"false"));
+  for(const id of["plans","doors","defects","requests"])$("#v-"+id).hidden=id!==v;
+  if(v==="plans")requestAnimationFrame(()=>{if(!view.fitted)fit()});renderAll()}
+function fillFilters(){
+  const D=S.data.doors;
+  $("#f-status").innerHTML='<option value="">All stages</option>'+STAGES.map((s,i)=>`<option value="${i}">${esc(s.k)}</option>`).join("");
+  const dw=S.data.layouts.map(l=>`<option value="${l.id}">${esc(l.id+" · "+l.title)}</option>`).join("");
+  $("#f-dwg").innerHTML='<option value="">All drawings</option>'+dw+'<option value="none">Not on these drawings</option>';
+  $("#dwg-select").innerHTML=dw;
+  const CT=["Steel - External","Steel - Internal","Timber","Roller shutter","Glazed","Louvre screen","Roof hatch"];
+  $("#f-cons").innerHTML='<option value="">All construction</option>'+CT.map(c=>`<option>${esc(c)}</option>`).join("");
+  const fires=[...new Set(Object.values(D).map(d=>normFire(d.fire)).filter(Boolean))].sort((a,b)=>(a==="No FR"?-1:b==="No FR"?1:parseInt(a.slice(2))-parseInt(b.slice(2))));
+  $("#f-fire-m").innerHTML=fires.map(f=>`<label><input type="checkbox" data-fire="${esc(f)}"> ${esc(f)}</label>`).join("");$("#f-fire-s").textContent="All fire ratings";
+  $("#door-head").innerHTML=UI.sec==="doors"?"<tr><th>Ref</th><th>Location</th><th>Supplier / construction</th><th>Type</th><th>Fire</th><th>Size (SO)</th><th>Connection</th><th>Stage</th><th>Issues</th></tr>":"<tr><th>Ref</th><th>Description</th><th>Size (SO)</th><th>Finish</th><th>Controls</th><th>Stage</th><th>Issues</th></tr>";
+}
+function normFire(f){if(!f)return"";if(/not fire|no ?fr|^nfr/i.test(f))return"No FR";f=f.toUpperCase().replace(/\s/g,"");return /^FD\d+$/.test(f)?f+"S":f}
+function consOf(d){return d.ctype||""}
+
+/* ---------- render ---------- */
+function renderAll(){if(!S.data)return;renderHeader();renderDwgList();renderPins();
+  if(UI.view==="doors")renderDoors();if(UI.view==="defects")renderDefects();if(UI.view==="requests")renderRequests();
+  if(UI.door)renderDrawer()}
+function counts(refs){const c=STAGES.map(()=>0);for(const r of refs)c[stageOf(r)]++;return c}
+function bar(c,total,cls){return `<div class="${cls}">`+c.map((n,i)=>n?`<i style="width:${(n/total*100).toFixed(2)}%;background:${css(STAGES[i].c)}" title="${esc(STAGES[i].k)}: ${n}"></i>`:"").join("")+`</div>`}
+function renderHeader(){
+  renderSupbar();const refs=vis().filter(r=>!S.data.doors[r].unscheduled);const c=counts(refs);const tot=refs.length;
+  $("#prog").innerHTML=bar(c,tot,"prog-bar")+`<div class="prog-legend">`+STAGES.map((s,i)=>`<span><i class="dot" style="background:${css(s.c)}"></i>${esc(s.k)} ${c[i]}</span>`).join("")+`</div>`;
+  const done=DONE(c);let od=0;for(const d of S.defects.values())if(d.status!=="Closed"&&inSec(d.ref))od++;let ar=0;for(const r of S.requests.values())if((r.status==="Requested"||r.status==="Scheduled")&&inSec(r.ref))ar++;
+  $("#kpis").innerHTML=`<div class="kpi"><b>${Math.round(done/tot*100)}%</b><span>${done}/${tot} done</span></div><div class="kpi ${od?"alert":""}"><b>${od}</b><span>Open defects</span></div><div class="kpi"><b>${ar}</b><span>Requests</span></div>`;
+  $("#c-def").textContent=od;$("#c-def").className="count"+(od?" hot":"");$("#c-req").textContent=ar;
+}
+function renderDwgList(){
+  let grp=null;const html=S.data.layouts.map(l=>{const refs=vis().filter(r=>S.data.doors[r].locs.some(p=>p.l===l.id));const c=counts(refs);const done=DONE(c);
+    const head=l.group&&l.group!==grp?`<h3 style="margin-top:10px">${esc(grp=l.group)}</h3>`:"";
+    return head+`<button class="dwg" data-dwg="${l.id}" aria-current="${l.id===UI.dwg}"><span class="no">${l.kind==="level"?"Stitched plan":l.kind==="stair"?"Stair layout":l.id==="overall"?"A-1080 rev P02":(/^\d{4}$/.test(l.id)?"A-":"")+l.id+(l.rev?" rev "+esc(l.rev):"")}</span><span class="t">${esc(l.title)}</span>${bar(c,refs.length||1,"mini")}<div class="c">${done} of ${refs.length} ${SEC[UI.sec].many} complete</div></button>`}).join("");
+  $("#dwg-list").innerHTML=html;$("#dwg-select").value=UI.dwg;
+  $("#status-chips").innerHTML=STAGES.map((s,i)=>`<button class="chip" data-chip="${i}" aria-pressed="${UI.show.has(i)}"><i class="dot" style="background:${css(s.c)}"></i>${esc(s.k)}</button>`).join("");
+}
+
+/* ---------- plan viewer ---------- */
+const view={s:1,tx:0,ty:0,w:1,h:1,fitted:false,min:.05,max:4};
+function showDwg(id,doFit){UI.dwg=id;const L=S.data.layouts.find(l=>l.id===id);const img=$("#plan-img");view.w=L.w;view.h=L.h;img.width=L.w;img.height=L.h;
+  if(img.getAttribute("src")!==L.file)img.src=L.file;
+  $("#dwg-meta").textContent=L.kind?L.title+" · "+L.no:L.overall?"A-1080 P02 Site layout · all doors placed by gridline (upper floors shown at plan position) · click a numbered pin to zoom":L.no+(L.rev?" rev "+L.rev:"")+" · "+L.title;
+  renderDwgList();renderLevels();renderPins();if(doFit){view.fitted=false;fit()}}
+function fit(){const v=$("#viewer");const W=v.clientWidth,H=v.clientHeight;if(!W||!H)return;const s=Math.min(W/view.w,H/view.h)*.96;view.s=s;view.fitS=s;view.min=s*.6;view.tx=(W-view.w*s)/2;view.ty=(H-view.h*s)/2;view.fitted=true;apply()}
+function apply(){$("#stage").style.transform=`translate(${view.tx}px,${view.ty}px) scale(${view.s})`;
+  if(UI.dwg==="overall"&&clusterScale&&Math.abs(view.s-clusterScale)/clusterScale>.3){renderPins();return}
+  const lbl=view.s>Math.min(.38,(view.fitS||.2)*1.7);
+  for(const p of $("#pins").querySelectorAll(".pin")){p.style.transform=`translate(${(view.tx+p.dataset.x*view.s).toFixed(1)}px,${(view.ty+p.dataset.y*view.s).toFixed(1)}px)`;p.classList.toggle("lbl",lbl)}}
+function zoomAt(f,cx,cy){const ns=Math.min(view.max,Math.max(view.min,view.s*f));const k=ns/view.s;view.tx=cx-(cx-view.tx)*k;view.ty=cy-(cy-view.ty)*k;view.s=ns;apply()}
+let clusterScale=0;
+function renderPins(){
+  if(!S.data||!UI.dwg)return;const st=$("#pins");st.innerHTML="";hidePop();
+  const frag=document.createDocumentFragment();const items=[];
+  for(const[ref,d]of Object.entries(S.data.doors)){if(!supOk(d))continue;for(const p of d.locs){if(p.l!==UI.dwg)continue;if(UI.dwg==="overall"&&d.plan&&d.plan!=="lvG")continue;const s=stageOf(ref);if(!UI.show.has(s))continue;items.push({ref,x:p.x*view.w,y:p.y*view.h,s,via:p.via})}}
+  const overall=UI.dwg==="overall"||/^lv/.test(UI.dwg);clusterScale=view.s;
+  const mk=(it)=>{const b=document.createElement("button");b.className="pin"+(UI.door===it.ref?" sel":"")+(S.data.doors[it.ref].alert?" alert":"");b.dataset.ref=it.ref;b.dataset.x=it.x;b.dataset.y=it.y;b.style.setProperty("--pc",css(STAGES[it.s].c));
+    const od=openDefects(it.ref);b.setAttribute("aria-label",`${it.ref}, ${STAGES[it.s].k}${od?", "+od+" open defects":""}${it.via&&it.via!=="5000"?", position from drawing "+it.via:""}`);
+    b.innerHTML=`<i>${esc(it.ref)}${od?'<span class="flag"></span>':""}</i>`;return b};
+  if(!overall){items.forEach(it=>frag.appendChild(mk(it)))}
+  else{const R=24/Math.max(view.s,.01);const used=new Set();
+    for(let i=0;i<items.length;i++){if(used.has(i))continue;const g=[i];for(let j=i+1;j<items.length;j++){if(used.has(j))continue;if(Math.hypot(items[j].x-items[i].x,items[j].y-items[i].y)<R){g.push(j);used.add(j)}}used.add(i);
+      if(g.length===1){frag.appendChild(mk(items[i]));continue}
+      const cx=g.reduce((a,k)=>a+items[k].x,0)/g.length,cy=g.reduce((a,k)=>a+items[k].y,0)/g.length;const tight=g.every(k=>Math.hypot(items[k].x-cx,items[k].y-cy)<6);
+      const b=document.createElement("button");b.className="pin cluster";b.dataset.x=cx;b.dataset.y=cy;b.dataset.refs=g.map(k=>items[k].ref).join(",");b.dataset.tight=tight?"1":"";
+      const low=Math.min(...g.map(k=>items[k].s));b.style.setProperty("--pc",css(STAGES[low].c));b.setAttribute("aria-label",`${g.length} doors here`);b.innerHTML=`<i>${g.length}</i>`;frag.appendChild(b)}}
+  const curL=S.data.layouts.find(l=>l.id===UI.dwg);
+  for(const bt of (curL&&curL.buttons)||[]){const n=Object.values(S.data.doors).filter(d=>d.plan===bt.to&&supOk(d)).length;const b=document.createElement("button");b.className="pin stairbtn";b.dataset.to=bt.to;b.dataset.x=bt.x*view.w;b.dataset.y=bt.y*view.h;b.setAttribute("aria-label",bt.label+" layout");b.innerHTML=`<i>${esc(bt.label)} \u203a<small>${n}</small></i>`;frag.appendChild(b)}
+  st.appendChild(frag);apply()}
+function bandOf(d){const L=S.RAW&&S.RAW.levels;if(!L||d.level==null)return null;const v=d.level==="Roof"?998:+d.level;if(isNaN(v))return null;const i=L.findIndex(x=>v>=x.lo&&v<x.hi);return i<0?null:i}
+function renderLevels(){const el=$("#lvls");if(UI.sec!=="doors"){el.hidden=true;return}
+  const Ls=S.data.layouts;const cur=Ls.find(l=>l.id===UI.dwg);if(!cur||!(cur.group==="Floor plans"||cur.group==="Stair cores")){el.hidden=true;return}
+  const cnt=id=>vis().filter(r=>S.data.doors[r].plan===id).length;
+  const lab=l=>l.id==="overall"?"Site layout":l.kind==="stair"?l.title.split(" –")[0]:l.id==="lvX"?"Other levels":l.title.replace(/^(First|Second|Third|Fourth) floor /,"").replace(/ –.*$/,"");
+  const btn=l=>`<button data-godwg="${l.id}" aria-pressed="${l.id===UI.dwg}" title="${esc(l.title)}">${esc(lab(l))}<span class="n">${l.id==="overall"?cnt("lvG"):cnt(l.id)}</span></button>`;
+  el.innerHTML=`<h5>Floor plans</h5>`+Ls.filter(l=>l.group==="Floor plans").map(btn).join("")+`<h5 style="margin-top:8px">Stair cores</h5>`+Ls.filter(l=>l.group==="Stair cores").map(btn).join("");
+  el.hidden=false;el.querySelectorAll("[data-godwg]").forEach(b=>b.onclick=()=>showDwg(b.dataset.godwg,true))}
+function hidePop(){const p=$("#cl-pop");if(p)p.hidden=true}
+function clusterClick(b,e){const refs=b.dataset.refs.split(",");
+  if(b.dataset.tight||view.s>=view.max*.9){const p=$("#cl-pop");const r=$("#viewer").getBoundingClientRect();p.innerHTML=`<b>${refs.length} doors at this location</b>`+refs.map(x=>{const d=S.data.doors[x];const v=(d.locs.find(l=>l.l==="overall")||{}).via;return `<button class="btn sm" data-pop="${esc(x)}">${esc(x)}<span class="muted"> ${esc(d.from||d.desc||"")}${v&&v!=="5000"?" · "+esc(v):""}</span></button>`}).join("");
+    p.style.left=Math.min(r.width-260,Math.max(8,e.clientX-r.left+8))+"px";p.style.top=Math.min(r.height-200,Math.max(8,e.clientY-r.top+8))+"px";p.hidden=false;
+    p.querySelectorAll("[data-pop]").forEach(x=>x.onclick=()=>{hidePop();openDoor(x.dataset.pop)})}
+  else{const r=$("#viewer").getBoundingClientRect();zoomAt(2.4,e.clientX-r.left,e.clientY-r.top)}}
+function initViewer(){
+  const v=$("#viewer"),pts=new Map();let start=null,moved=0,pinch=null;
+  v.addEventListener("pointerdown",e=>{if(e.target.closest(".lvls,.zoom,.cl-pop"))return;v.setPointerCapture(e.pointerId);pts.set(e.pointerId,{x:e.clientX,y:e.clientY});moved=0;
+    if(pts.size===1)start={x:e.clientX,y:e.clientY,tx:view.tx,ty:view.ty,target:e.target.closest(".pin")};
+    if(pts.size===2){const[a,b]=[...pts.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),s:view.s,tx:view.tx,ty:view.ty,cx:(a.x+b.x)/2,cy:(a.y+b.y)/2}}});
+  v.addEventListener("pointermove",e=>{if(!pts.has(e.pointerId))return;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});const r=v.getBoundingClientRect();
+    if(pts.size===2&&pinch){const[a,b]=[...pts.values()];const d=Math.hypot(a.x-b.x,a.y-b.y);const ns=Math.min(view.max,Math.max(view.min,pinch.s*d/pinch.d));const k=ns/pinch.s;const cx=pinch.cx-r.left,cy=pinch.cy-r.top;
+      const ncx=(a.x+b.x)/2-r.left,ncy=(a.y+b.y)/2-r.top;view.s=ns;view.tx=ncx-(cx-pinch.tx)*k;view.ty=ncy-(cy-pinch.ty)*k;moved=99;apply();return}
+    if(start){const dx=e.clientX-start.x,dy=e.clientY-start.y;moved=Math.max(moved,Math.abs(dx)+Math.abs(dy));if(moved>4){v.classList.add("dragging");view.tx=start.tx+dx;view.ty=start.ty+dy;apply()}}});
+  const end=e=>{if(!pts.has(e.pointerId))return;pts.delete(e.pointerId);v.classList.remove("dragging");
+    if(pts.size===0){if(start&&start.target&&moved<=4){if(start.target.classList.contains("stairbtn"))showDwg(start.target.dataset.to,true);else if(start.target.classList.contains("cluster"))clusterClick(start.target,e);else{hidePop();openDoor(start.target.dataset.ref)}}else if(start&&!start.target&&moved<=4)hidePop();start=null;pinch=null}
+    else if(pts.size===1){const p=[...pts.values()][0];start={x:p.x,y:p.y,tx:view.tx,ty:view.ty,target:null};pinch=null}};
+  v.addEventListener("pointerup",end);v.addEventListener("pointercancel",end);
+  v.addEventListener("wheel",e=>{e.preventDefault();const r=v.getBoundingClientRect();zoomAt(Math.exp(-e.deltaY*.0015),e.clientX-r.left,e.clientY-r.top)},{passive:false});
+  const mid=f=>{const r=v.getBoundingClientRect();zoomAt(f,r.width/2,r.height/2)};
+  $("#z-in").onclick=()=>mid(1.5);$("#z-out").onclick=()=>mid(1/1.5);$("#z-fit").onclick=fit;
+  ["#z-in","#z-out","#z-fit"].forEach(s=>$(s).addEventListener("pointerdown",e=>e.stopPropagation()));
+  window.addEventListener("resize",()=>{if(UI.view==="plans"&&view.fitted)fit()});
+}
+function locate(ref){const d=S.data.doors[ref];if(!d||!d.locs.length){toast(ref+" isn't marked on the uploaded drawings.");return}
+  const p=d.locs.find(x=>x.l===UI.dwg)||d.locs.find(x=>x.l===d.plan)||d.locs[0];setView("plans");if(p.l!==UI.dwg)showDwg(p.l,false);
+  UI.show.add(stageOf(ref));renderPins();
+  requestAnimationFrame(()=>{const v=$("#viewer");const s=Math.max(view.s,.7);view.s=Math.min(s,view.max);view.tx=v.clientWidth/2-p.x*view.w*view.s;view.ty=v.clientHeight/2-p.y*view.h*view.s;view.fitted=false;apply();
+    const pin=$(`.pin[data-ref="${CSS.escape(ref)}"]`);if(pin){pin.classList.remove("hit");void pin.offsetWidth;pin.classList.add("hit")}})}
+
+/* ---------- door schedule ---------- */
+function filtered(){
+  const q=$("#q").value.trim().toLowerCase(),fs=$("#f-status").value,fd=$("#f-dwg").value,fc=$("#f-cons").value;
+  return Object.entries(S.data.doors).filter(([r,d])=>{
+    if(fs!==""&&stageOf(r)!==+fs)return false;
+    if(fd==="none"&&d.locs.length)return false;if(fd&&fd!=="none"&&!d.locs.some(p=>p.l===fd))return false;
+    if(UI.sec==="doors"){if(!supOk(d))return false;if(fc&&consOf(d)!==fc)return false;if(UI.fires.size&&!UI.fires.has(normFire(d.fire)))return false;
+      const fdf=$("#f-diff").value;
+      if(fdf==="diff"&&!(d.diffs&&d.diffs.length))return false;if(fdf==="open"&&!openDiffs(d).length)return false;if(fdf==="rfi"&&!(d.diffs||[]).some(x=>x.res==="Query / RFI raised"))return false;if(fdf==="rev"&&!(d.diffs||[]).some(x=>x.res==="Supplier to revise to schedule"))return false;if(fdf==="ok"&&(!d.sup||!Object.keys(d.sup).length||(d.diffs&&d.diffs.length)))return false;if(fdf==="prelim"&&d.design!=="Prelim")return false;if(fdf==="issue"&&!d.alert)return false;if(fdf==="prep"&&!d.prep)return false;if(fdf==="levelq"&&!d.levelQ)return false;if(fdf==="approved"&&d.design!=="Approved")return false}
+    if(q){const hay=[r,(d.doorsets||[]).map(x=>x.no).join(" "),d.from,d.to,d.type,d.desc,d.construction,d.lock,d.access,d.hw,d.comments,d.table,d.supplier,(d.drawings||[]).map(x=>x.no).join(" ")].join(" ").toLowerCase();if(!hay.includes(q))return false}
+    return true})}
+function renderDoors(){
+  const rows=filtered();$("#door-count").textContent=`${rows.length} of ${Object.keys(S.data.doors).length} ${SEC[UI.sec].many}`;
+  const stg=r=>{const s=stageOf(r);return `<span class="tag"><i class="dot" style="background:${css(STAGES[s].c)}"></i>${esc(STAGES[s].k)}</span>`};
+  const iss=r=>{const od=openDefects(r),ar=activeReqs(r),all=(S.data.doors[r].diffs||[]).length,df=openDiffs(S.data.doors[r]).length;return `${df?`<span class="pill warn">${df} open conflict${df>1?"s":""}</span> `:(all?`<span class="pill green">${all} resolved</span> `:"")}${od?`<span class="pill red">${od} defect${od>1?"s":""}</span> `:""}${ar?`<span class="pill blue">${ar} req</span>`:""}`};
+  if(UI.sec==="louvres"){$("#door-rows").innerHTML=rows.map(([r,d])=>`<tr data-ref="${esc(r)}"><td class="ref">${esc(r)}</td><td>${esc(d.desc||"")}${d.unscheduled?' <span class="pill">Not in schedule P06</span>':""}</td><td class="mono" style="white-space:nowrap">${d.soW?esc(d.soW+"×"+d.soH):""}</td><td>${esc(d.finish||"")}</td><td>${d.conn?'<span class="pill blue">AOV controls</span>':""}</td><td>${stg(r)}</td><td>${iss(r)}</td></tr>`).join("")||`<tr><td colspan="7" class="muted" style="text-align:center;padding:22px">No louvres match these filters.</td></tr>`;return}
+  $("#door-rows").innerHTML=rows.map(([r,d])=>{const s=stageOf(r),od=openDefects(r),ar=activeReqs(r);const fr=d.fire&&!/no fr|n\/a/i.test(d.fire);
+    const loc=d.from&&d.to?`${esc(d.from)} → ${esc(d.to)}`:esc(d.from||d.to||(d.table||"").replace(/^Door Schedule - /,""));
+    return `<tr data-ref="${esc(r)}"><td class="ref">${esc(r)}</td><td>${loc||'<span class="muted">Not in schedule</span>'}</td><td>${esc(d.supplier||"")} <span class="muted" style="font-size:11px">${esc(d.ctype||"")}</span>${d.supInferred&&d.supplier&&!/Demount|Roof/.test(d.supplier)?' <span class="muted" title="No supplier drawing yet; supplier assumed from door type">(assumed)</span>':""}</td><td>${esc(d.type||"")}</td><td>${d.fire?`<span class="fire ${fr?"fr":""}">${esc(d.fire)}</span>`:""}</td><td class="mono" style="white-space:nowrap">${d.soW?esc(d.soW+"×"+d.soH):""}</td><td>${d.conn?`<span class="pill blue">${esc(d.conn)}</span>`:""}</td><td>${stg(r)}</td><td>${iss(r)}</td></tr>`}).join("")||`<tr><td colspan="9" class="muted" style="text-align:center;padding:22px">No doors match these filters.</td></tr>`;
+}
+function accessLabel(d){const a=d.access&&!/^n\/a$/i.test(d.access)?d.access:"";const suited=isSuited(d);return [a&&("AC: "+a),suited&&"Master-keyed cylinder"].filter(Boolean).join(" · ")}
+function isSuited(d){const set=d.hw&&S.data.hwsets[d.hw];if(set&&set.items.some(i=>/master key|cylinder/i.test(i.desc)))return true;return d.lock&&/cylinder/i.test(d.lock)}
+
+/* ---------- defects & requests lists ---------- */
+function renderDefects(){
+  const q=$("#def-q").value.trim().toLowerCase();
+  const list=[...S.defects.values()].filter(d=>inSec(d.ref)&&(!UI.defSeg||(UI.defSeg==="Closed"?d.status==="Closed":d.status!=="Closed"))&&(!q||[d.ref,d.title,d.detail,d.cat].join(" ").toLowerCase().includes(q))).sort((a,b)=>(b.at||0)-(a.at||0));
+  list.forEach(d=>{want(d.by);want(d.closedBy)});
+  $("#def-list").innerHTML=list.length?list.map(defectCard).join(""):`<div class="empty">${UI.defSeg==="Open"?"No open defects. Report one from a record: open an item on the plan or in the schedule, then choose Defects.":"Nothing here yet."}</div>`;
+}
+function defectCard(d,inDrawer){const sev=d.sev==="High"?"red":d.sev==="Low"?"":"blue";
+  return `<div class="card"><div class="card-h">${inDrawer?"":`<button class="ref" data-open="${esc(d.ref)}">${esc(d.ref)}</button>`}<b style="flex:1;min-width:0">${esc(d.title)}</b><span class="pill ${d.status==="Closed"?"green":sev}">${d.status==="Closed"?"Closed":esc(d.sev||"Medium")}</span></div>
+  ${d.detail?`<p>${esc(d.detail)}</p>`:""}<div class="meta">${esc(d.cat||"")} · Raised by ${esc(name(d.by))}, ${fmt(d.at)}${d.status==="Closed"?` · Closed by ${esc(name(d.closedBy))}, ${fmt(d.closedAt)}${d.closeNote?" — "+esc(d.closeNote):""}`:""}</div>
+  ${canWrite?`<div class="acts">${d.status==="Closed"?`<button class="btn sm" data-def-reopen="${d.id}">Reopen</button>`:`<button class="btn sm" data-def-close="${d.id}">Close defect</button>`}</div>`:""}</div>`}
+function renderRequests(){
+  const k=$("#req-kind").value;
+  const list=[...S.requests.values()].filter(r=>inSec(r.ref)&&(!k||r.kind===k)&&(!UI.reqSeg||(UI.reqSeg==="active"?(r.status==="Requested"||r.status==="Scheduled"):(r.status==="Connected"||r.status==="Declined")))).sort((a,b)=>(a.need||"9").localeCompare(b.need||"9")||(b.at||0)-(a.at||0));
+  list.forEach(r=>{want(r.by);want(r.upBy)});
+  $("#req-list").innerHTML=list.length?list.map(r=>reqCard(r)).join(""):`<div class="empty">No requests here. Request an access control connection or a suited lock from a door record's Requests tab.</div>`;
+}
+const KIND={access:"Handover for connection",lock:"Suited lock / cylinder"};
+function reqCard(r,inDrawer){const pc=r.status==="Connected"?"green":r.status==="Declined"?"red":r.status==="Scheduled"?"blue":"";
+  return `<div class="card"><div class="card-h">${inDrawer?"":`<button class="ref" data-open="${esc(r.ref)}">${esc(r.ref)}</button>`}<b style="flex:1;min-width:0">${esc(KIND[r.kind]||r.kind)}</b><span class="pill ${pc}">${esc(r.status)}</span></div>
+  ${r.detail?`<p>${esc(r.detail)}</p>`:""}${r.suite?`<p class="meta">Key suite / group: <b>${esc(r.suite)}</b></p>`:""}
+  <div class="meta">${r.need?`Needed by ${new Date(r.need).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})} · `:""}Raised by ${esc(name(r.by))}, ${fmt(r.at)}${r.upAt&&r.status!=="Requested"?` · ${esc(r.status)} by ${esc(name(r.upBy))}, ${fmt(r.upAt)}`:""}</div>
+  ${canWrite?`<div class="acts">${REQ_STATES.filter(s=>s!==r.status).map(s=>`<button class="btn sm" data-req="${r.id}" data-st="${s}">Mark ${esc(s.toLowerCase())}</button>`).join("")}</div>`:""}</div>`}
+async function listClicks(e){
+  const t=e.target;let b;
+  if(e.detail===0&&(b=t.closest(".pin[data-ref]"))){openDoor(b.dataset.ref);return}
+  if(b=t.closest("[data-chip]")){const i=+b.dataset.chip;UI.show.has(i)?UI.show.delete(i):UI.show.add(i);renderDwgList();renderPins();return}
+  if(b=t.closest("[data-open]")){openDoor(b.dataset.open);return}
+  if(b=t.closest("[data-def-close]")){if(!guard())return;const d=S.defects.get(b.dataset.defClose);if(!d)return;
+    const note=b.closest(".card").querySelector("[data-close-note]");if(!note){b.insertAdjacentHTML("afterend",`<span class="confirm"><input type="text" data-close-note placeholder="How was it fixed? (optional)" aria-label="Close note"><button class="btn sm primary" data-def-close="${d.id}">Confirm close</button></span>`);b.remove();return}
+    await save(()=>put("defects",d.id,{...strip(d),status:"Closed",closedBy:meId,closedAt:Date.now(),closeNote:note.value.trim()}),"Defect closed");return}
+  if(b=t.closest("[data-def-reopen]")){if(!guard())return;const d=S.defects.get(b.dataset.defReopen);if(d)await save(()=>put("defects",d.id,{...strip(d),status:"Open",closedBy:null,closedAt:null}),"Defect reopened");return}
+  if(b=t.closest("[data-req]")){if(!guard())return;const r=S.requests.get(b.dataset.req);if(r)await save(()=>put("requests",r.id,{...strip(r),status:b.dataset.st,upBy:meId,upAt:Date.now()}),"Request marked "+b.dataset.st.toLowerCase());return}
+}
+function strip(o){const c={...o};delete c.id;return c}
+async function save(fn,msg){try{await fn();if(msg)toast(msg)}catch(e){toast(e&&e.code==="permission_denied"?"You don't have permission to change the tracker.":"Couldn't save: "+(e&&e.message||"try again"))}}
+
+/* ---------- door drawer ---------- */
+function openDoor(ref){UI.door=ref;UI.confirm=null;$("#drawer").hidden=false;$("#scrim").hidden=window.innerWidth>900;renderPins();renderDrawer();subscribePhotos(ref)}
+function closeDoor(){UI.door=null;$("#drawer").hidden=true;$("#scrim").hidden=true;if(photoUnsub){photoUnsub();photoUnsub=null}renderPins()}
+function subscribePhotos(ref){if(photoUnsub){photoUnsub();photoUnsub=null}S.photos=S.photos.filter(p=>!live&&p.ref===ref);
+  if(!db){renderDrawer();return}
+  photoUnsub=db.collection("photos").where("ref","==",ref).onSnapshot(snap=>{S.photos=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.at||0)-(a.at||0));renderDrawer()},()=>{})}
+function renderDrawer(){
+  const ref=UI.door,d=S.data.doors[ref];if(!d)return;const s=stageOf(ref);const st=S.doors.get(ref)||{};
+  const defs=[...S.defects.values()].filter(x=>x.ref===ref).sort((a,b)=>(a.status==="Closed")-(b.status==="Closed")||(b.at||0)-(a.at||0));
+  const reqs=[...S.requests.values()].filter(x=>x.ref===ref).sort((a,b)=>(b.at||0)-(a.at||0));
+  const photos=S.photos.filter(p=>p.ref===ref);
+  const od=defs.filter(x=>x.status!=="Closed").length;
+  const where=UI.sec==="louvres"?(d.soW?`${d.soW} × ${d.soH} mm`:"COLT"):(d.from&&d.to?`${d.from} → ${d.to}`:(d.from||(d.table||"Not in door schedules").replace(/^Door Schedule - /,"")));
+  const tabs=[["progress","Progress & inspection"],["design","Design"],["photos",`Photos${photos.length?" ("+photos.length+")":""}`],["defects",`Defects${od?" ("+od+")":""}`],["requests",`Requests${reqs.length?" ("+reqs.length+")":""}`]];
+  const prevScroll=$(".d-body")?$(".d-body").scrollTop:0;const keepForm=captureForm();
+  $("#drawer").innerHTML=`<div class="d-head"><div class="d-row"><span class="d-ref">${esc(ref)}</span><span class="tag"><i class="dot" style="background:${css(STAGES[s].c)}"></i>${esc(STAGES[s].k)}</span><button class="x" id="d-close" aria-label="Close">×</button></div>
+    <div class="d-sub">${esc(where)}${d.desc?" · "+esc(d.desc):""}</div>
+    <div class="d-row" style="flex-wrap:wrap;gap:6px">${d.fire?`<span class="fire ${/no fr|n\/a/i.test(d.fire)?"":"fr"}">${esc(d.fire)}</span>`:""}${d.type?`<span class="pill">Type ${esc(d.type)}</span>`:""}${d.hw?`<span class="pill">${esc(d.hw)}</span>`:""}${d.supplier?`<span class="pill">${esc(d.supplier)}${d.supInferred?" (assumed)":""}</span>`:""}${d.alert?`<span class="pill" style="background:var(--danger);color:#fff">Open issue</span>`:""}${d.prep?`<span class="pill blue">Threshold prep</span>`:""}${designPill(d)}${d.level!=null?`<span class="pill ${d.levelQ?"warn":""}" title="${esc(d.levelQ||"")}">${esc(d.level==="Roof"?"Roof":"Level "+(d.level>=0?"+":"")+d.level+"m")}${d.levelQ?" · to confirm":""}</span>`:""}${d.conn?`<span class="pill blue">${esc(d.conn==="Controls"?"AOV controls":d.conn)}</span>`:""}${openDiffs(d).length?`<span class="pill warn">${openDiffs(d).length} open conflict${openDiffs(d).length>1?"s":""}</span>`:((d.diffs||[]).length?`<span class="pill green">Conflicts resolved</span>`:"")}${d.locs.length?`<button class="btn sm" id="d-locate">Show on plan</button>`:'<span class="pill">Not on uploaded drawings</span>'}</div></div>
+    <div class="d-tabs" role="tablist">${tabs.map(([k,l])=>`<button role="tab" data-dt="${k}" aria-selected="${UI.dtab===k}">${esc(l)}</button>`).join("")}</div>
+    <div class="d-body">${({progress:tabProgress,design:tabDesign,ldesign:tabLDesign,photos:tabPhotos,defects:tabDefects,requests:tabRequests})[UI.dtab==="design"&&UI.sec==="louvres"?"ldesign":UI.dtab](ref,d,{s,st,defs,reqs,photos})}</div>`;
+  $("#d-close").onclick=closeDoor;const loc=$("#d-locate");if(loc)loc.onclick=()=>{if(window.innerWidth<=900)closeDoorKeep();locate(ref)};
+  $("#drawer").querySelector(".d-tabs").onclick=e=>{const b=e.target.closest("[data-dt]");if(b){UI.dtab=b.dataset.dt;renderDrawer();$(".d-body").scrollTop=0}};
+  bindDrawer(ref,d);restoreForm(keepForm);$(".d-body").scrollTop=prevScroll;
+}
+function closeDoorKeep(){$("#drawer").hidden=true;$("#scrim").hidden=true;UI.door=null;if(photoUnsub){photoUnsub();photoUnsub=null}}
+function captureForm(){const o={};document.querySelectorAll("#drawer [data-keep]").forEach(el=>o[el.dataset.keep]=el.type==="file"?null:el.value);return o}
+function restoreForm(o){for(const k in o){const el=document.querySelector(`#drawer [data-keep="${k}"]`);if(el&&o[k]!=null&&el.type!=="file")el.value=o[k]}}
+function tabProgress(ref,d,{s,st}){
+  (st.hist||[]).forEach(h=>want(h.by));
+  const top=(d.alert?`<div class="alertbox"><b>⚠ Open issue</b>${esc(d.alert)}</div>`:"")+(d.levelQ?`<div class="qbox"><b>Level to confirm</b>${esc(d.levelQ)}</div>`:"")+(d.prep?`<div class="prepbox"><b>Jamb / threshold preparation</b>${esc(d.prep)}</div>`:"");
+  return top+`<div class="grp"><h4>Installation stage</h4><div class="steps">${STAGES.map((x,i)=>`<button class="step ${i<=s&&i>0?"done":""} ${i===s?"cur":""}" style="--sc:${css(x.c)}" data-stage="${i}" ${canWrite&&!stageBlock(ref,d,i)?"":"disabled"} title="${esc(stageBlock(ref,d,i)||"")}"><span class="n">${i===0?"–":i}</span><span class="lbl">${esc(x.k)}</span><span class="hint">${i===s&&st.at?esc(name(st.by))+"<br>"+fmt(st.at):esc(x.hint)}</span></button>`).join("")}</div></div>
+  <p class="muted" style="margin:-4px 0 10px;font-size:12px">Complete and Inspected unlock only once every earlier stage is set and the inspection checklist below is fully ticked and evidenced.</p>
+  ${UI.confirm&&UI.confirm.type==="stage"?`<div class="form"><b>Set ${esc(ref)} to “${esc(STAGES[UI.confirm.v].k)}”?</b>${STAGES[UI.confirm.v].k==="Inspected"?'<span class="muted" style="font-size:12px">Use Inspected only once the door has been checked and signed off.</span>':""}<label>Note (optional)<input type="text" id="stage-note" data-keep="stage-note" placeholder="e.g. Frame packed and fixed, gaps 3mm"></label><div class="row"><button class="btn primary" id="stage-ok">Confirm</button><button class="btn" id="stage-cancel">Cancel</button></div></div>`:""}
+  ${ironList(ref,d,st)}
+  <div class="grp"><h4>History</h4>${(st.hist||[]).length?`<ul class="hist">${[...st.hist].map((h,i)=>({h,i})).reverse().map(({h,i})=>`<li><b style="color:var(--ink)">${esc(STAGES[h.s]?STAGES[h.s].k:"")}</b> · ${esc(name(h.by))} · ${fmt(h.at)}${h.note?" — "+esc(h.note):""}${isAdmin()?`<button class="del" data-hdel="${i}" title="Delete this history entry (admin)">${UI.hdel===i?"confirm delete":"delete"}</button>`:""}</li>`).join("")}</ul>`:'<p class="muted" style="margin:0;font-size:13px">No updates yet. Tap a stage above as work progresses.</p>'}</div>
+  <div class="grp"><h4>Quick actions</h4><div class="row" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-dt-go="photos">Add photo</button><button class="btn" data-dt-go="defects">Report defect</button>${d.conn?`<button class="btn" data-dt-go="requests">Hand over for connection</button>`:""}</div></div>`;
+}
+function ironStatus(ref,d,st){const items=UI.sec==="doors"?(d.iron||[]):[];const ck=st.iron||{};const needP=new Set(d.ironPhoto||[]);const hasP=i=>S.photos.some(p=>p.ref===ref&&String(p.item)===String(i));
+  const missing=items.map((t,i)=>({t,i})).filter(({i})=>!ck[i]);const noPhoto=items.map((t,i)=>({t,i})).filter(({i})=>needP.has(i)&&!hasP(i));return {total:items.length,missing,noPhoto}}
+function stageBlock(ref,d,v){const cur=stageOf(ref);const k=STAGES[v].k;if(v<cur)return null;
+  if(d.prepIdx!=null&&v>=STAGES.findIndex(x=>x.k==="Frame installed")&&!((S.doors.get(ref)||{}).iron||{})[d.prepIdx])return "Threshold preparation must be ticked off in the checklist before the frame is installed.";if(!(k==="Complete"||k==="Inspected"))return null;
+  if(cur<v-1)return `${k} can only be set after ${STAGES[v-1].k}.`;
+  const st=S.doors.get(ref)||{};const is=ironStatus(ref,d,st);
+  if(is.noPhoto.length)return `${is.noPhoto.length} checklist item${is.noPhoto.length>1?"s":""} still need${is.noPhoto.length>1?"":"s"} a photo before ${k}.`;
+  if(is.missing.length)return `${is.missing.length} of ${is.total} checklist items are not yet ticked – all must be checked before ${k}.`;
+  return null}
+function ironList(ref,d,st){
+  const items=UI.sec==="doors"?(d.iron||[]):[];if(!items.length)return"";const title=d.ctype==="Roller shutter"?"Roller shutter inspection":"Ironmongery inspection";
+  const ck=st.iron||{};const n=items.filter((_,i)=>ck[i]).length;
+  const src=d.ironSrc||(d.sup&&d.sup.src?d.sup.src:"RPS schedule (no supplier ironmongery list yet)");
+  const needP=new Set(d.ironPhoto||[]);const hasP=i=>S.photos.some(p=>p.ref===ref&&String(p.item)===String(i));const gate=d.ironGate||{};const cur=stageOf(ref);
+  return `<div class="grp"><h4>${title} <span class="pill ${n===items.length?"green":""}">${n}/${items.length} checked</span></h4><ul class="iron">${items.map((t,i)=>{const np=needP.has(i),ok=!np||hasP(i);const g=gate[i]!=null&&cur<gate[i];return `<li><label><input type="checkbox" data-iron="${i}" ${ck[i]?"checked":""} ${canWrite&&ok&&!g?"":"disabled"}><span style="flex:1">${esc(t)}${g?` <span class="pill">Released once ${esc(STAGES[gate[i]].k)}</span>`:""}${np?(hasP(i)?' <span class="pill green">Photo uploaded</span>':' <span class="pill warn">Photo needed to tick</span>'):""}</span>${np&&canWrite?`<button class="btn sm" data-iron-photo="${i}" data-label="${esc(t.replace(/\s*\(photo required\)/i,""))}">${hasP(i)?"Add photo":"Upload photo"}</button>`:""}</label></li>`}).join("")}</ul><p class="muted" style="margin:6px 0 0;font-size:12px">From ${esc(src)}.${ck._by?` Last ticked by ${esc(name(ck._by))}, ${fmt(ck._at)}.`:""}</p></div>`}
+function kvd(d,pairs){const df={};(d.diffs||[]).forEach(x=>df[x.f]=x);const rows=pairs.filter(p=>p[1]!=null&&p[1]!=="");if(!rows.length)return"";
+  return `<div class="kv">${rows.map(([k,v,f])=>{const x=f&&df[f];return x?(x.res==="Supplier to revise to schedule"?`<div>${esc(k)}</div><div class="diffv">${esc(v)} <span class="pill warn" style="font-size:10px">schedule governs</span><span class="was">Supplier drawing: ${esc(x.sup)} (to be revised)</span></div>`:`<div>${esc(k)}</div><div class="diffv">${esc(x.agreed||x.sup)} <span class="pill ${RES[x.res]&&RES[x.res].done?"green":"warn"}" style="font-size:10px">${RES[x.res]&&RES[x.res].done?"supplier · agreed":x.res==="Query / RFI raised"?"supplier · RFI open":"supplier"}</span><span class="was">Schedule: ${esc(v)}</span></div>`):`<div>${esc(k)}</div><div>${esc(v)}</div>`}).join("")}</div>`}
+function kv(pairs){const rows=pairs.filter(p=>p[1]!=null&&p[1]!=="");if(!rows.length)return"";return `<div class="kv">${rows.map(([k,v])=>`<div>${esc(k)}</div><div>${esc(v)}</div>`).join("")}</div>`}
+function tabDesign(ref,d){
+  const src=d.sheet?`From drawing A-${d.sheet} · ${(d.table||"").replace(/^Door Schedule - /,"")}`:"";
+  const set=d.hw&&S.data.hwsets[d.hw];const p=d.prod;
+  const out=[];
+  if(d.unscheduled)out.push(`<div class="empty" style="padding:14px;text-align:left">${esc(ref)} ${d.locs.length?"appears on the layout drawings":"has a supplier doorset drawing"} but isn't listed in the uploaded door schedules.</div>`);
+  if(d.doorsets&&d.doorsets.length)out.push(`<div class="grp"><h4>Doorset drawing${d.doorsets.length>1?"s":""}</h4><div style="display:flex;flex-direction:column;gap:6px">${d.doorsets.map((x,i)=>`<button class="btn" style="text-align:left;white-space:normal" data-ds="${esc(x.file)}" data-cap="${esc(x.no+" rev "+x.rev+" · "+x.title)}"><b class="mono">${esc(x.no)}</b> rev ${esc(x.rev)} · ${esc(x.title)}${x.maker?` <span class="muted">(${esc(x.maker)})</span>`:""}${x.superseded?' <span class="pill">Earlier issue</span>':""}</button>`).join("")}</div></div>`);
+  if(d.note)out.push(`<div class="empty" style="padding:12px;text-align:left">${esc(d.note)}</div>`);
+  if(UI.sec==="doors"&&isAdmin()&&db)out.push(UI.ovEdit===ref?ovForm(ref,d):`<div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn sm" id="ov-open">Edit schedule information</button>${d.ov?`<span class="muted" style="font-size:12px">${d.ov.keys.length} field${d.ov.keys.length>1?"s":""} overridden by ${esc(name(d.ov.by))}, ${fmt(d.ov.at)}</span>`:""}</div>`);
+  else if(d.ov)out.push(`<div class="muted" style="font-size:12px">${d.ov.keys.length} field${d.ov.keys.length>1?"s":""} updated in the tracker by ${esc(name(d.ov.by))}, ${fmt(d.ov.at)} (overrides the RPS schedule).</div>`);
+  if((d.diffs||[]).length)out.push(`<div class="check" style="${openDiffs(d).length?"":"border-color:var(--ok);background:color-mix(in srgb,var(--ok) 10%,transparent)"}"><b style="${openDiffs(d).length?"":"color:var(--ok)"}">${d.diffs.length} conflict${d.diffs.length>1?"s":""} between the RPS schedule and the ${esc(d.supplier)} design · ${openDiffs(d).length} open</b><ul>${d.diffs.map(x=>`<li>${esc(x.label)}: supplier <b>${esc(x.sup)}</b>, schedule ${esc(x.sch)}${x.res?` <span class="pill ${RES[x.res]?RES[x.res].cls:""}">${esc(RES[x.res]?RES[x.res].t:x.res)}</span>`:' <span class="pill warn">Not reviewed</span>'}${x.agreed?` · agreed: <b>${esc(x.agreed)}</b>`:""}${x.comment?`<br><span class="muted">${esc(x.comment)}</span>`:""}</li>`).join("")}</ul><div class="muted" style="margin-top:6px;font-size:12px">Reviewed in the returned conflicts sheet. Where the supplier design governs it's shown first, with the superseded schedule value struck through; where the supplier must revise, the schedule value governs.</div></div>`);
+  else if(d.sup&&Object.keys(d.sup).length)out.push(`<div class="muted" style="font-size:12px">Schedule checked against ${esc(d.sup.src)}: no conflicts found in fire rating, sizes, locks, vision panel${d.supplier==="Almet"?", acoustics, colour":", closer"}.</div>`);
+  if(d.sup&&d.sup.hardware&&(d.supplier==="Almet"||d.supplier==="Ascot"))out.push(`<div class="grp"><h4>${esc(d.supplier)} design · ${esc(d.sup.src)}</h4>${d.sup.note?`<div class="muted" style="font-size:12px;margin-bottom:6px">${esc(d.sup.note)}</div>`:""}${kv([["Specification",d.sup.spec],["Configuration",[d.sup.type,d.sup.swing,d.sup.hand].filter(Boolean).join(" · ")],["Fire rating",d.sup.fire],["Structural opening",d.sup.soW?`${d.sup.soW} × ${d.sup.soH} mm`:""],["Clear passage",d.sup.clearW?`${d.sup.clearW}${d.sup.clearH?" × "+d.sup.clearH:""} mm`:""],["Acoustic",d.sup.acoustic],["Colour",d.sup.colour],["Vision",d.sup.vision]])}<ul class="items" style="margin-top:8px">${d.sup.hardware.map(h=>`<li><span class="q">•</span><span>${esc(h)}</span></li>`).join("")}</ul></div>`);
+  if(!d.unscheduled){
+    out.push(`<div class="grp"><h4>Opening</h4>${kvd(d,[["From room",d.from],["To room",d.to],["Context",d.context],["Door type",d.type],["Description",d.desc],["Construction",d.construction],["Structural opening width",d.soW?d.soW+" mm":"","soW"],["Structural opening height",d.soH?d.soH+" mm":"","soH"],["Clear opening width",d.clearW?d.clearW+" mm":"","clearW"],["Clear opening height",(d.clearH||d.clearL)?(d.clearH||d.clearL)+" mm":"","clearH"],["Wall",[d.wallCon,d.wallThk&&d.wallThk+" mm"].filter(Boolean).join(", ")]])}</div>`);
+    out.push(`<div class="grp"><h4>Performance</h4>${kvd(d,[["Fire rating",d.fire,"fire"],["Acoustics",d.acoustic,"acoustic"],["Environmental class",d.env],["U-value",d.uvalue],["Wind",d.wind]])}</div>`);
+    out.push(`<div class="grp"><h4>Finish & ironmongery (RPS schedule)</h4>${kvd(d,[["Door finish",d.finish,"finish"],["Vision panel",d.vision,"vision"],["Handles",d.handles],["Lock / latch",d.lock,"lock"],["Access control",d.access,"access"],["Hinges",d.hinges],["Closer",d.closer,"closer"],["Kickplate",d.kick],["Operation",d.operation],["Accessories",d.accessories],["Signage",d.signage],["Comments",d.comments]])}</div>`);
+    out.push(`<p class="muted" style="margin:-8px 0 0;font-size:12px">${esc(src)}</p>`);
+  }
+  if(set)out.push(`<div class="grp"><h4>Ironmongery set · ${esc(d.hw)}</h4><p style="margin:0 0 6px;font-weight:600">${esc(set.title)}</p><ul class="items">${set.items.map(i=>`<li><span class="q">${esc(i.qty)} ${esc(i.unit.toLowerCase())}</span><span>${esc(i.desc)}<br><span class="code">${esc(i.code)}</span></span></li>`).join("")}</ul><p class="muted" style="margin:6px 0 0;font-size:12px">Johan Doors schedule BN-192-ABC rev N. Access control and Doc M packs by others.</p></div>`);
+  if(p)out.push(`<div class="grp"><h4>Timber doorset (Johan production sheet)</h4>${kv([["Fire rating",p.fire],["Leaf size",p.size],["Core",p.core],["Facing",p.facing],["Lipping",p.lipping],["Handing",p.handing],["Frame",p.frame],["Intumescent / seals",p.intumescent],["Door stop",p.stop],["Architrave",p.archOut],["Glazing",(p.glazing||[]).join("; ")],["Same sheet as",(p.sharedWith||[]).join(", ")]])}
+    ${p.fittings&&p.fittings.length?`<ul class="items" style="margin-top:8px">${p.fittings.map(f=>`<li><span class="q">${esc(f.qty)}</span><span>${esc(f.item)}${f.by==="Customer"?' <span class="code">customer supplied</span>':""}</span></li>`).join("")}</ul>`:""}
+    <div class="row" style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">${p.pages.map((n,i)=>`<button class="btn sm" data-prod="${n}">Production drawing${p.pages.length>1?" "+(i+1):""}</button>`).join("")}</div></div>`);
+  if(d.locs.length)out.push(`<div class="grp"><h4>On drawings</h4><div style="display:flex;gap:6px;flex-wrap:wrap">${[...new Set(d.locs.map(l=>l.l))].map(l=>{const L=S.data.layouts.find(x=>x.id===l);return `<button class="btn sm" data-goto="${l}">${/^\d{4}$/.test(l)?"A-":""}${l} ${esc(L?L.title:"")}</button>`}).join("")}</div></div>`);
+  return out.join("");
+}
+function tabLDesign(ref,d){
+  const out=[];
+  if(d.unscheduled)out.push(`<div class="empty" style="padding:12px;text-align:left">${esc(ref)} isn't in RPS louvre schedule 5511 rev P06 (June 2025). It appears on COLT / RPS drawings issued since.</div>`);
+  out.push(`<div class="grp"><h4>RPS louvre schedule${d.sched?" · "+esc(d.sched):""}</h4>${kv([["Description",d.desc],["Structural opening",d.soW?`${d.soW} × ${d.soH} mm`:""],["Finish",d.finish],["U-value",d.uvalue],["Weather class",d.weather],["Environmental",d.env],["Acoustic (Rw)",d.rw],["Damper",d.damper],["Bird mesh",d.mesh],["Comments",d.comments],["Supplier","COLT"]])}</div>`);
+  if(d.drawings&&d.drawings.length)out.push(`<div class="grp"><h4>COLT drawings</h4><div style="display:flex;flex-direction:column;gap:6px">${d.drawings.map(x=>`<button class="btn" style="text-align:left;white-space:normal" data-ds="${esc(x.file)}" data-cap="${esc(x.no+" rev "+x.rev+" · "+x.title)}"><b class="mono">${esc(x.no)}</b> rev ${esc(x.rev)} · ${esc(x.title)}</button>`).join("")}</div></div>`);
+  if(d.locs.length)out.push(`<div class="grp"><h4>On drawings</h4><div style="display:flex;gap:6px;flex-wrap:wrap">${[...new Set(d.locs.map(l=>l.l))].map(l=>{const L=S.data.layouts.find(x=>x.id===l);return `<button class="btn sm" data-goto="${l}">${/^\d{4}$/.test(l)?"A-":""}${l} ${esc(L?L.title:"")}</button>`}).join("")}</div></div>`);
+  return out.join("");
+}
+function photoSrc(p){return p.asset?(window.__CF__?"/api/photo/":"/_blob/")+p.asset:p.data}
+function tabPhotos(ref,d,{photos}){
+  photos.forEach(p=>want(p.by));
+  const pi=UI.photoItem&&UI.photoItem.ref===ref?UI.photoItem:null;
+  return `${canWrite?`<div class="form">${pi?`<div class="check" style="margin-bottom:4px">This upload confirms checklist item: <b>${esc(pi.label)}</b> <button class="btn sm" id="ph-noitem">Cancel</button></div>`:""}<div class="row" style="display:flex;gap:8px;flex-wrap:wrap"><label class="btn primary" style="cursor:pointer">📷 Take photo<input type="file" id="ph-cam" accept="image/*" capture="environment" hidden></label><label class="btn" style="cursor:pointer">Upload photos<input type="file" id="ph-file" accept="image/*" multiple hidden></label><span class="muted" id="ph-sel" style="font-size:12px;align-self:center"></span></div><span class="muted" style="font-size:11px">Photos are reduced to max 1600 px (~0.5 MB) and stamped with the door ref and the date/time taken.</span><label>Caption<input type="text" id="ph-cap" data-keep="ph-cap" placeholder="e.g. Frame fixed, east elevation" ${pi?`value="${esc(pi.label)}"`:""}></label><div class="row"><button class="btn primary" id="ph-up">Upload</button></div><span class="muted" style="font-size:12px" id="ph-msg">On a phone, this opens the camera or your photo library. Photos are resized before upload.</span></div>`:""}
+  ${photos.length?`<div class="photos">${photos.map(p=>`<button class="ph" data-photo="${p.id}"><img loading="lazy" alt="${esc(p.cap||"Door photo")}" src="${esc(photoSrc(p))}"><span>${esc(p.cap||name(p.by))} · ${new Date(p.taken||p.at).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</span></button>`).join("")}</div>`:'<div class="empty">No photos of this door yet.</div>'}`;
+}
+function tabDefects(ref,d,{defs}){
+  return `${canWrite?`<div class="form"><b>Report a defect</b><label>What's wrong<input type="text" id="df-title" data-keep="df-title" placeholder="e.g. Leaf binding on head, 2mm gap at lock side"></label><div class="row"><label>Category<select id="df-cat" data-keep="df-cat">${DEF_CATS.map(c=>`<option>${esc(c)}</option>`).join("")}</select></label><label>Severity<select id="df-sev" data-keep="df-sev"><option>Low</option><option selected>Medium</option><option>High</option></select></label></div><label>Details<textarea id="df-detail" data-keep="df-detail" placeholder="Location on the door, who should fix it"></textarea></label><label>Photo (optional)<input type="file" id="df-file" accept="image/*"></label><div class="row"><button class="btn primary" id="df-save">Report defect</button></div></div>`:""}
+  ${defs.length?`<div style="display:flex;flex-direction:column;gap:8px">${defs.map(x=>{want(x.by);return defectCard(x,true)}).join("")}</div>`:'<div class="empty">No defects recorded for this door.</div>'}`;
+}
+function tabRequests(ref,d,{reqs}){
+  const ac=d.access&&!/^n\/a$/i.test(d.access)?d.access:"";
+  const canConn=!!d.conn, canLock=UI.sec==="doors"&&(d.suitable_cyl||isSuited(d));
+  const opts=[canConn&&"access",canLock&&"lock"].filter(Boolean);
+  let k=(UI.reqKind&&UI.reqKind.ref===ref&&opts.includes(UI.reqKind.k))?UI.reqKind.k:opts[0];
+  const connLbl=UI.sec==="louvres"?"Hand over for controls connection":"Hand over for connection";
+  const why=d.connNote?d.connNote:UI.sec==="louvres"?(canConn?"Automatic opening vent: controls and power by the building services contractor.":"Fixed louvre: no building services connection."):(d.conn==="EL560"?"Electric lock (EL560) to be connected by the building services contractor.":d.conn==="Motorised"?"Motorised / powered door to be connected by the building services contractor.":d.conn==="Maglock"?"Mini maglock in the partition supplier's design, to be connected by the building services contractor.":d.conn?"Hold-open device linked to the fire alarm panel, to be connected by the building services contractor.":"No electric lock or motorised drive in the design, so no building services handover is needed.");
+  return `<div class="grp"><h4>Designed provision</h4>${kv(UI.sec==="doors"?[["Building services connection",d.conn||"Not required"],["Access control (schedule)",ac||"None"],["Lock / latch",(d.sup&&d.sup.lock)||d.lock],["Supplier",d.supplier]]:[["Controls",d.conn?"AOV – connection required":"None"]])}<p class="muted" style="margin:6px 0 0;font-size:12px">${esc(why)}</p></div>
+  ${canWrite&&opts.length?`<div class="form"><b>New request</b>${opts.length>1?`<div class="seg" id="rq-kind">${canConn?`<button aria-pressed="${k==="access"}" data-k="access">${connLbl}</button>`:""}${canLock?`<button aria-pressed="${k==="lock"}" data-k="lock">Suited lock / cylinder</button>`:""}</div>`:`<div class="seg" id="rq-kind"><button aria-pressed="true" data-k="${k}">${k==="access"?connLbl:"Suited lock / cylinder"}</button></div>`}
+  ${k==="lock"?`<label>Key suite / group<input type="text" id="rq-suite" data-keep="rq-suite" placeholder="e.g. Grand master GM, sub-master Electrical"></label>`:""}
+  <label>Details<textarea id="rq-detail" data-keep="rq-detail" placeholder="${k==="access"?(UI.sec==="louvres"?"e.g. Vent installed, actuator fitted, ready for controls wiring and C&E test.":"e.g. Door hung, EL560 lock fitted, cable at head. Ready for second fix and commissioning."):"e.g. Construction cylinder fitted; swap for permanent suited cylinder."}"></textarea></label><label>Needed by<input type="date" id="rq-need" data-keep="rq-need"></label><div class="row"><button class="btn primary" id="rq-save">Send request</button></div></div>`:""}
+  ${reqs.length?`<div style="display:flex;flex-direction:column;gap:8px">${reqs.map(r=>{want(r.by);return reqCard(r,true)}).join("")}</div>`:`<div class="empty">No requests for this ${SEC[UI.sec].one} yet.</div>`}`;
+}
+function bindDrawer(ref,d){
+  const dr=$("#drawer");
+  dr.querySelectorAll("[data-dt-go]").forEach(b=>b.onclick=()=>{UI.dtab=b.dataset.dtGo;renderDrawer()});
+  dr.querySelectorAll("[data-stage]").forEach(b=>b.onclick=()=>{if(!guard())return;const v=+b.dataset.stage;if(v===stageOf(ref))return;const why=stageBlock(ref,d,v);if(why){toast(why);return}UI.confirm={type:"stage",v};renderDrawer()});
+  const ok=$("#stage-ok");if(ok){ok.onclick=async()=>{const v=UI.confirm.v,note=$("#stage-note").value.trim();const cur=S.doors.get(ref)||{};const hist=(cur.hist||[]).concat([{s:v,by:meId,at:Date.now(),note}]).slice(-40);UI.confirm=null;
+      await save(()=>put(SEC[UI.sec].pcol,ref,{...strip(cur),stage:v,by:meId,at:Date.now(),hist}),`${ref} set to ${STAGES[v].k}`)};$("#stage-cancel").onclick=()=>{UI.confirm=null;renderDrawer()}}
+  dr.querySelectorAll("[data-hdel]").forEach(b=>b.onclick=async()=>{if(!isAdmin())return;const i=+b.dataset.hdel;const cur=S.doors.get(ref)||{};const hist=(cur.hist||[]).filter((_,j)=>j!==i);const last=hist[hist.length-1];
+    if(UI.hdel!==i){UI.hdel=i;renderDrawer();toast("Tap again to confirm deleting this entry.");return}UI.hdel=null;
+    await save(()=>put(SEC[UI.sec].pcol,ref,{...strip(cur),hist,stage:last?last.s:0,by:last?last.by:null,at:last?last.at:null}),"History entry deleted")});
+  const ovb=$("#ov-open");if(ovb)ovb.onclick=()=>{UI.ovEdit=ref;renderDrawer()};
+  const ovs=$("#ov-save");if(ovs){ovs.onclick=async()=>{const base=(S.RAW._base&&S.RAW._base[ref])||d;const f={};dr.querySelectorAll("[data-ov]").forEach(i=>{const k=i.dataset.ov,v=i.value.trim();if(v!==""&&v!==String(base[k]==null?"":base[k]))f[k]=v});
+      UI.ovEdit=null;if(Object.keys(f).length)await save(()=>put("overrides",ref,{f,by:meId,at:Date.now()}),"Schedule information updated");else await save(()=>del("overrides",ref),"Overrides removed")};
+    $("#ov-reset").onclick=()=>{UI.ovEdit=null;save(()=>del("overrides",ref),"Overrides removed")};$("#ov-cancel").onclick=()=>{UI.ovEdit=null;renderDrawer()}}
+  dr.querySelectorAll("[data-iron]").forEach(c=>c.onchange=async()=>{if(!guard()){c.checked=!c.checked;return}const cur=S.doors.get(ref)||{};const iron={...(cur.iron||{})};if(c.checked)iron[c.dataset.iron]=true;else delete iron[c.dataset.iron];iron._by=meId;iron._at=Date.now();
+    await save(()=>put(SEC[UI.sec].pcol,ref,{stage:0,hist:[],...strip(cur),iron}))});
+  dr.querySelectorAll("[data-iron-photo]").forEach(b=>b.onclick=e=>{e.preventDefault();UI.photoItem={ref,i:b.dataset.ironPhoto,label:b.dataset.label};UI.dtab="photos";renderDrawer()});
+  const pni=$("#ph-noitem");if(pni)pni.onclick=()=>{UI.photoItem=null;renderDrawer()};
+  dr.querySelectorAll("[data-ds]").forEach(b=>b.onclick=()=>lightbox(b.dataset.ds,`${ref} · ${b.dataset.cap}`));
+  dr.querySelectorAll("[data-prod]").forEach(b=>b.onclick=()=>lightbox(`prod/${b.dataset.prod}.png`,`${ref} · Johan production drawing, page ${b.dataset.prod}`));
+  dr.querySelectorAll("[data-goto]").forEach(b=>b.onclick=()=>{if(window.innerWidth<=900)closeDoorKeep();showDwg(b.dataset.goto,false);locate(ref)});
+  dr.querySelectorAll("[data-photo]").forEach(b=>b.onclick=()=>{const p=S.photos.find(x=>x.id===b.dataset.photo);if(p)lightbox(photoSrc(p),`${ref} · ${p.cap||""} · taken ${fmt(p.taken||p.at)} · uploaded by ${name(p.by)}, ${fmt(p.at)}`,p)});
+  const up=$("#ph-up");
+  const cam=$("#ph-cam");if(cam)cam.onchange=()=>{if(cam.files.length)doUp([...cam.files])};
+  const pf=$("#ph-file");if(pf)pf.onchange=()=>{$("#ph-sel").textContent=pf.files.length?pf.files.length+" photo"+(pf.files.length>1?"s":"")+" selected":""};
+  if(up)up.onclick=()=>{const files=[...$("#ph-file").files];if(!files.length){toast("Take or choose a photo first.");return}doUp(files)};
+  const doUp=async files=>{if(!guard())return;
+    if(up)up.disabled=true;const cap=$("#ph-cap").value.trim();let n=0;
+    const it=UI.photoItem&&UI.photoItem.ref===ref?UI.photoItem.i:null;
+    for(const f of files){$("#ph-msg").textContent=`Uploading ${n+1} of ${files.length}…`;try{await addPhoto(ref,f,cap,null,it);n++}catch(e){toast("Couldn't upload "+f.name+": "+(e.message||e.code||"error"));break}}
+    if(n)toast(`${n} photo${n>1?"s":""} added to ${ref}`+(it!=null?" – you can now tick the checklist item":""));if(n&&it!=null){UI.photoItem=null;UI.dtab="progress";renderDrawer()}const c=$("#ph-cap");if(c)c.value="";if(up)up.disabled=false;$("#ph-msg")&&($("#ph-msg").textContent="Done.")};
+  const ds=$("#df-save");if(ds)ds.onclick=async()=>{if(!guard())return;const title=$("#df-title").value.trim();if(!title){toast("Describe the defect first.");$("#df-title").focus();return}
+    ds.disabled=true;const id=uid();const rec={ref,title,cat:$("#df-cat").value,sev:$("#df-sev").value,detail:$("#df-detail").value.trim(),status:"Open",by:meId,at:Date.now()};const f=$("#df-file").files[0];
+    try{await put("defects",id,rec);if(f)await addPhoto(ref,f,"Defect: "+title,id);["df-title","df-detail"].forEach(k=>{const el=$("#"+k);if(el)el.value=""});toast("Defect reported on "+ref)}catch(e){toast("Couldn't save the defect: "+(e.message||e.code||"error"))}ds.disabled=false};
+  const rk=$("#rq-kind");if(rk)rk.onclick=e=>{const b=e.target.closest("[data-k]");if(b){UI.reqKind={ref,k:b.dataset.k};renderDrawer()}};
+  const rs=$("#rq-save");if(rs)rs.onclick=async()=>{if(!guard())return;const k=$("#rq-kind [aria-pressed=true]").dataset.k;rs.disabled=true;
+    const rec={ref,kind:k,detail:$("#rq-detail").value.trim(),need:$("#rq-need").value||"",suite:k==="lock"?($("#rq-suite").value.trim()):"",status:"Requested",by:meId,at:Date.now()};
+    try{await put("requests",uid(),rec);["rq-detail","rq-need","rq-suite"].forEach(x=>{const el=$("#"+x);if(el)el.value=""});toast((KIND[k])+" requested for "+ref)}catch(e){toast("Couldn't send the request: "+(e.message||e.code||"error"))}rs.disabled=false};
+}
+async function exifDate(file){try{const b=new DataView(await file.slice(0,131072).arrayBuffer());if(b.getUint16(0)!==0xFFD8)return null;let o=2;
+  while(o<b.byteLength-4){const m=b.getUint16(o),len=b.getUint16(o+2);if(m===0xFFE1&&b.getUint32(o+4)===0x45786966){const t=o+10,le=b.getUint16(t)===0x4949;const g16=p=>b.getUint16(p,le),g32=p=>b.getUint32(p,le);
+    const rd=(ifd,want)=>{const n=g16(t+ifd);for(let i=0;i<n;i++){const e=t+ifd+2+i*12;if(g16(e)===want)return g32(e+8)}return null};
+    const str=p=>{let x="";for(let i=0;i<19;i++)x+=String.fromCharCode(b.getUint8(t+p+i));return x};
+    const ifd0=g32(t+4);const ex=rd(ifd0,0x8769);let p=ex!=null?rd(ex,0x9003):null;if(p==null)p=rd(ifd0,0x0132);if(p==null)return null;
+    const m2=str(p).match(/(\d{4}):(\d\d):(\d\d) (\d\d):(\d\d):(\d\d)/);return m2?new Date(+m2[1],m2[2]-1,+m2[3],+m2[4],+m2[5],+m2[6]).getTime():null}
+    if((m&0xFF00)!==0xFF00)break;o+=2+len}}catch(e){}return null}
+async function addPhoto(ref,file,cap,defectId,item){
+  const taken=(await exifDate(file))||file.lastModified||Date.now();
+  const blob=await shrink(file,assets?1600:1280,assets?.8:.7,assets?6e5:200e3,ref+"  \u00b7  "+new Date(taken).toLocaleString("en-GB",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}));
+  const rec={ref,cap:cap||"",by:meId,at:Date.now(),taken};if(defectId)rec.defect=defectId;if(item!=null)rec.item=String(item);
+  if(assets){const r=await assets.upload(blob,{type:"image/jpeg"});rec.asset=r.id}
+  else{rec.data=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(blob)})}
+  const id=uid();
+  if(db)await db.collection("photos").doc(id).set(rec);else{S.photos.unshift({id,...rec});renderDrawer()}
+}
+async function shrink(file,max,q,limit,stamp){
+  const url=URL.createObjectURL(file);try{const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>rej(new Error("not an image"));i.src=url});
+    let w=img.naturalWidth,h=img.naturalHeight,k=Math.min(1,max/Math.max(w,h));
+    for(let tries=0;tries<6;tries++){const c=document.createElement("canvas");c.width=Math.round(w*k);c.height=Math.round(h*k);const g=c.getContext("2d");g.drawImage(img,0,0,c.width,c.height);
+      if(stamp){const fs=Math.max(14,Math.round(c.width/45));g.font=`600 ${fs}px system-ui,sans-serif`;const tw=g.measureText(stamp).width;const pad=fs*.5;g.fillStyle="rgba(0,0,0,.6)";g.fillRect(c.width-tw-pad*3,c.height-fs-pad*3,tw+pad*2,fs+pad*2);g.fillStyle="#fff";g.textBaseline="top";g.fillText(stamp,c.width-tw-pad*2,c.height-fs-pad*2)}
+      const b=await new Promise(r=>c.toBlob(r,"image/jpeg",q));if(b.size<=limit||tries===5)return b;k*=.8;q=Math.max(.5,q-.06)}}finally{URL.revokeObjectURL(url)}}
+function lightbox(src,caption,photo){const lb=$("#lightbox");
+  lb.innerHTML=`<div class="lb-top"><span style="flex:1;min-width:0">${esc(caption)}</span>${photo&&canWrite?`<button class="btn sm danger" id="lb-del">Delete photo</button>`:""}<button class="x" id="lb-x" aria-label="Close">×</button></div><div class="lb-img"><img alt="${esc(caption)}" src="${esc(src)}"></div>`;
+  lb.hidden=false;$("#lb-x").onclick=()=>lb.hidden=true;
+  const del=$("#lb-del");if(del)del.onclick=async()=>{if(!del.dataset.sure){del.dataset.sure="1";del.textContent="Tap again to delete";return}
+    try{if(photo.asset&&assets)await assets.delete(photo.asset).catch(()=>{});await del_("photos",photo.id);lb.hidden=true;toast("Photo deleted")}catch(e){toast("Couldn't delete: "+(e.message||e.code))}}}
+async function del_(col,id){if(db)await db.collection(col).doc(id).delete();else{S.photos=S.photos.filter(p=>p.id!==id);renderDrawer()}}
+
+/* ---------- export ---------- */
+async function exportCsv(){
+  const cols=["Ref","From","To","Supplier","Type","Description","Construction","SO width","SO height","Fire","Access control","Lock/latch","Ironmongery set","Connection","Design status","Design conflicts","Drawings","Stage","Stage updated","Open defects","Active requests"];
+  const q=v=>{v=v==null?"":String(v);return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  const lines=[cols.join(",")];
+  for(const[r,d]of filtered()){const st=S.doors.get(r)||{};lines.push([r,d.from,d.to,d.supplier,d.type,d.desc,d.construction,d.soW,d.soH,d.fire,d.access,d.lock,d.hw,d.conn,(DESIGN[d.design||"None"]||{}).t,(d.diffs||[]).map(x=>x.label+": supplier "+x.sup+" / schedule "+x.sch+(x.res?" ["+x.res+(x.comment?" – "+x.comment:"")+"]":"")).join("; "),[...new Set(d.locs.map(l=>l.l))].join(" "),STAGES[stageOf(r)].k,st.at?new Date(st.at).toISOString().slice(0,16).replace("T"," "):"",openDefects(r),activeReqs(r)].map(q).join(","))}
+  try{await downloads.save({filename:`SCEC-${SEC[UI.sec].many}-progress-${new Date().toISOString().slice(0,10)}.csv`,data:lines.join("\n")})}catch(e){if(e&&e.code!=="declined"&&e.code!=="cancelled")toast("Export didn't complete: "+(e.code||e.message))}
+}
+boot();
+</script>
+
+</body></html>
