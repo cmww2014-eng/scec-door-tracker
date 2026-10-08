@@ -2,6 +2,12 @@
 const json=(o,s=200)=>new Response(JSON.stringify(o),{status:s,headers:{"content-type":"application/json","cache-control":"no-store"}});
 const ADMIN_ONLY=new Set(["users","overrides"]);
 const COLS=new Set(["doors","louvres","defects","requests","photos","users","overrides"]);
+let ready=false;
+async function ensureSchema(env){if(ready)return;await env.DB.batch([
+  env.DB.prepare("CREATE TABLE IF NOT EXISTS docs(col TEXT NOT NULL,id TEXT NOT NULL,data TEXT,updated INTEGER NOT NULL,by TEXT,deleted INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(col,id))"),
+  env.DB.prepare("CREATE INDEX IF NOT EXISTS docs_updated ON docs(col,updated)"),
+  env.DB.prepare("CREATE TABLE IF NOT EXISTS people(email TEXT PRIMARY KEY,name TEXT,role TEXT NOT NULL DEFAULT 'member',first_seen INTEGER)"),
+  env.DB.prepare("CREATE TABLE IF NOT EXISTS blobs(id TEXT PRIMARY KEY,type TEXT,data TEXT NOT NULL,created INTEGER,by TEXT)")]);ready=true}
 async function who(req,env){
   let email=(req.headers.get("cf-access-authenticated-user-email")||"").toLowerCase();
   if(!email&&env.DEV_USER)email=env.DEV_USER.toLowerCase();
@@ -16,6 +22,7 @@ async function who(req,env){
 }
 export async function onRequest(ctx){
   const {request:req,env,params}=ctx;const p=[].concat(params.path||[]);const m=req.method;
+  await ensureSchema(env);
   const u=await who(req,env);if(!u)return json({error:"Not signed in"},401);
   try{
     if(p[0]==="me")return json(u);

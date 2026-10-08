@@ -6,7 +6,7 @@ Static app (`public/`) + small API (`functions/api`) on **Cloudflare Pages**, da
 
 1. **Cloudflare account** – sign up free at dash.cloudflare.com.
 2. **D1 database** – Workers & Pages → D1 → *Create database* → name `door-tracker`.
-   Open it → *Console* → paste the contents of `schema.sql` → *Execute*.
+   (Tables are created automatically on first use; `schema.sql` is for reference.)
    Copy the **Database ID** into `wrangler.toml` (`database_id = ...`) and commit.
 3. **Pages project** – Workers & Pages → *Create* → *Pages* → *Connect to Git* → choose this repo.
    Framework preset: *None*. Build command: *(empty)*. Build output directory: `public`.
