@@ -10,4 +10,4 @@ database_id = "86bc7011-834e-433c-8773-3baa1971ea8e"
 
 [vars]
 # Comma-separated emails that are always admins (owner role).
-ADMIN_EMAILS = "cmww2014@gmail.com"
+ADMIN_EMAILS = "cmww2014@gmail.com,craig.williams@afry.com"
