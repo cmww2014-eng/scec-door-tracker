@@ -15,13 +15,21 @@ Static app (`public/`) + small API (`functions/api`) on **Cloudflare Pages**, da
 4. **Lock it down with sign-in** – *Zero Trust* (left menu; pick the free plan) →
    Access → Applications → *Add an application* → *Self-hosted*:
    - Domain: `scec-door-tracker.pages.dev` (add a second entry for `*.scec-door-tracker.pages.dev` to cover preview builds).
-   - Policy *Allow*: Include → *Emails* (list each person) or *Emails ending in* `@afry.com`.
+   - Policy *Allow*: Include → *Everyone*. Access only checks the email is real (one-time PIN); the app itself decides who gets in.
    - Login method: *One-time PIN* (code sent by email). Microsoft/Azure AD can be added later for AFRY single sign-on.
-5. Open the site, sign in with the email code. Emails in `ADMIN_EMAILS` are owners; owners make other users admins from **Team** in the app.
+5. Open the site, sign in with the email code. Emails in `ADMIN_EMAILS` are owners.
+
+## Letting people in
+New people verify their email, then see an access page. They either
+- **request access** (with a note of company/role) – admins see the request under **Team** and approve as Member, Viewer or Admin, or refuse; or
+- **enter the access code** an admin has set under **Team → Access code** – instant Member access. Change or turn the code off at any time.
+Optional: set `AUTO_APPROVE = "@afry.com"` under `[vars]` in `wrangler.toml` to let a whole email domain straight in.
+Note every email that signs in uses one of Access's 50 free seats, even if refused.
 
 ## Roles
 - **Owner** (`ADMIN_EMAILS`) and **Admin**: everything, including editing schedule information and deleting stage history.
-- **Member** (anyone let in by Access): progress, checklists, photos, defects, requests.
+- **Member**: progress, checklists, photos, defects, requests.
+- **Viewer**: read only.
 Permissions are enforced by the API, not just the screen.
 
 ## Updating drawings / door data

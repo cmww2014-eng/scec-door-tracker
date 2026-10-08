@@ -409,7 +409,7 @@ function applySection(sec){
   fillFilters();renderAll();showDwg(UI.dwg,true);
 }
 function renderWho(){const w=$("#who");if(!userCap||!meId)return;const me=S.names[meId];const role=myRole();
-  w.innerHTML=`${S.meAvatar?`<img alt="" src="${esc(S.meAvatar)}">`:""}<span>${esc(me||"Signed in")}</span><span class="role ${role==="Owner"||role==="Admin"?"adm":""}">${role}</span><button class="btn sm" id="team-btn">Team</button>`;$("#team-btn").onclick=openTeam}
+  w.innerHTML=`${S.meAvatar?`<img alt="" src="${esc(S.meAvatar)}">`:""}<span>${esc(me||"Signed in")}</span><span class="role ${role==="Owner"||role==="Admin"?"adm":""}">${role}</span><button class="btn sm" id="team-btn">Team</button>`;$("#team-btn").onclick=openTeam;cfBadge()}
 /* ---------- schedule overrides (admin) ---------- */
 const OV_FIELDS=[["from","From room"],["to","To room"],["desc","Description"],["ctype","Construction"],["supplier","Supplier"],["fire","Fire rating"],["acoustic","Acoustics"],["soW","Structural opening width"],["soH","Structural opening height"],["clearW","Clear opening width"],["clearH","Clear opening height"],["finish","Door finish"],["vision","Vision panel"],["handles","Handles"],["lock","Lock / latch"],["access","Access control"],["hinges","Hinges"],["closer","Closer"],["kick","Kickplate"],["signage","Signage"],["comments","Comments"],["conn","Connection type (EL560 / Motorised / Controls / blank)"],["level","Level (metres, e.g. 8 or 12.4, or Roof)"],["note","Tracker note"]];
 function applyOverrides(list){const R=S.RAW;if(!R)return;if(!R._base)R._base={};
@@ -423,7 +423,7 @@ function ovForm(ref,d){const base=(S.RAW._base&&S.RAW._base[ref])||d;
   <div class="row"><button class="btn primary" id="ov-save">Save</button><button class="btn" id="ov-reset">Remove all overrides</button><button class="btn" id="ov-cancel">Cancel</button></div></div>`}
 /* ---------- team dialog ---------- */
 function openTeam(){const lb=$("#lightbox");lb.hidden=false;renderTeam()}
-async function renderTeam(){const lb=$("#lightbox");const ids=[...users.keys()];if(meId&&!ids.includes(meId))ids.unshift(meId);ids.forEach(want);
+async function renderTeam(){if(window.__CF__)return renderTeamCF();const lb=$("#lightbox");const ids=[...users.keys()];if(meId&&!ids.includes(meId))ids.unshift(meId);ids.forEach(want);
   const adm=isAdmin();
   lb.innerHTML=`<div class="lb-top"><span style="flex:1">Team &amp; access</span><button class="x" id="lb-x" aria-label="Close">×</button></div>
   <div class="team"><p class="muted" style="margin:0 0 10px;font-size:13px">Everyone opens the tracker with their claude.ai sign-in. <b>Admins</b> can edit schedule information and delete installation-stage history. The artifact owner is always an admin. ${adm?"Search your organisation below to add people.":"Ask an admin to change roles."}</p>
@@ -435,6 +435,34 @@ async function renderTeam(){const lb=$("#lightbox");const ids=[...users.keys()];
   const q=$("#team-q");if(q){const run=async()=>{const hits=await userCap.search(q.value);const box=$("#team-hits");box.innerHTML=hits.filter(h=>h.id!==meId&&!users.has(h.id)).map(h=>`<button class="btn sm" data-add="${esc(h.id)}" style="margin:0 6px 6px 0"></button>`).join("");
       box.querySelectorAll("[data-add]").forEach((b,i)=>{const h=hits.find(x=>x.id===b.dataset.add);b.textContent="+ "+(h.name||"Someone");S.names[h.id]=h.name||"";b.onclick=()=>save(()=>put("users",h.id,{role:"admin",by:meId,at:Date.now()}).then(()=>{q.value="";renderTeam()}),(h.name||"Person")+" added as admin")})};
     q.oninput=run;q.onfocus=run}}
+/* ---------- team dialog (Cloudflare build: access requests, roles, access code) ---------- */
+const CFJ=(u,o)=>fetch(u,Object.assign({credentials:"same-origin",headers:{"content-type":"application/json"}},o||{})).then(async r=>{if(!r.ok)throw new Error((await r.text())||r.statusText);return r.json()});
+const ROLE_LBL={owner:"Owner",admin:"Admin",member:"Member",viewer:"Viewer",pending:"Requested",rejected:"Refused"};
+let cfBadgeAt=0,cfBadgeN=0;async function cfBadge(){const b=$("#team-btn");if(!b||!window.__CF__||!isAdmin())return;const paint=n=>{b.textContent=n?`Team · ${n} request${n>1?"s":""}`:"Team";b.classList.toggle("primary",!!n)};if(Date.now()-cfBadgeAt<60000){paint(cfBadgeN);return}cfBadgeAt=Date.now();try{const ps=await CFJ("/api/admin/people");const n=cfBadgeN=ps.filter(p=>p.role==="pending"&&p.requested).length;paint(n)}catch(e){}}
+async function renderTeamCF(){const lb=$("#lightbox");const adm=isAdmin();
+  lb.innerHTML=`<div class="lb-top"><span style="flex:1">Team &amp; access</span><button class="x" id="lb-x" aria-label="Close">×</button></div><div class="team" id="cft"><p class="muted">Loading…</p></div>`;
+  $("#lb-x").onclick=()=>{lb.hidden=true;lb.innerHTML=""};
+  const box=$("#cft");
+  if(!adm){box.innerHTML=`<p class="muted" style="font-size:13px">People sign in with their email and a one-time code. New people need approval from an admin, or an access code. <b>Members</b> can update installation progress and photos, <b>Viewers</b> can only look, and <b>Admins</b> can also edit schedule information, delete stage history and approve people.</p>`;return}
+  let ps,code;try{[ps,code]=await Promise.all([CFJ("/api/admin/people"),CFJ("/api/admin/code")])}catch(e){box.innerHTML=`<p class="muted">Couldn't load the team list: ${esc(e.message)}</p>`;return}
+  const when=t=>t?new Date(t).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}):"";
+  const req=ps.filter(p=>p.role==="pending"),ok=ps.filter(p=>!["pending","rejected"].includes(p.role)),no=ps.filter(p=>p.role==="rejected");
+  const sel=p=>p.role==="owner"||p.email===meId?`<span class="role ${p.role==="owner"||p.role==="admin"?"adm":""}">${ROLE_LBL[p.role]}</span>`:`<select data-set="${esc(p.email)}">${["admin","member","viewer","rejected"].map(r=>`<option value="${r}"${r===p.role?" selected":""}>${r==="rejected"?"Remove access":ROLE_LBL[r]}</option>`).join("")}</select>`;
+  box.innerHTML=`<p class="muted" style="margin:0 0 10px;font-size:13px">Anyone can verify their email at the tracker link, but they see nothing until you approve them here or they enter the access code. <b>Members</b> update progress and photos, <b>Viewers</b> look only, <b>Admins</b> also edit schedule information, delete stage history and approve people.</p>
+  <h4 style="margin:12px 0 6px">Access requests ${req.length?`<span class="pill warn">${req.length}</span>`:""}</h4>
+  ${req.length?`<table class="team-t"><tbody>${req.map(p=>`<tr><td><b>${esc(p.name||"")}</b><br><span class="muted">${esc(p.email)}</span>${p.note?`<br><i>"${esc(p.note)}"</i>`:""}<br><span class="muted" style="font-size:11px">${p.requested?"Requested "+when(p.requested):"Signed in "+when(p.first_seen)+" – no request sent yet"}</span></td><td style="text-align:right;white-space:nowrap"><button class="btn sm primary" data-ap="${esc(p.email)}" data-r="member">Approve</button> <button class="btn sm" data-ap="${esc(p.email)}" data-r="viewer">View only</button> <button class="btn sm" data-ap="${esc(p.email)}" data-r="admin">Admin</button> <button class="btn sm" data-ap="${esc(p.email)}" data-r="rejected">Refuse</button></td></tr>`).join("")}</tbody></table>`:'<p class="muted" style="font-size:13px">No requests waiting.</p>'}
+  <h4 style="margin:16px 0 6px">Access code</h4>
+  <p class="muted" style="font-size:13px;margin:0 0 6px">Give this code to people (e.g. the site team) so they get Member access straight away without waiting for approval. Change or turn it off at any time; people already in keep their access.</p>
+  <div class="row" style="gap:6px;align-items:center"><input type="text" id="cf-code" value="${esc(code.code||"")}" placeholder="No code – approval only" style="max-width:220px;font-family:'IBM Plex Mono',monospace"><button class="btn sm" id="cf-gen">Generate</button><button class="btn sm primary" id="cf-save">Save code</button>${code.code?`<button class="btn sm" id="cf-off">Turn off</button>`:""}</div>
+  <h4 style="margin:16px 0 6px">People with access (${ok.length})</h4>
+  <table class="team-t"><thead><tr><th>Person</th><th>Role</th></tr></thead><tbody>${ok.map(p=>`<tr><td>${esc(p.name||"")}${p.email===meId?' <span class="muted">(you)</span>':""}<br><span class="muted">${esc(p.email)}</span></td><td style="text-align:right">${sel(p)}</td></tr>`).join("")}</tbody></table>
+  ${no.length?`<details style="margin-top:12px"><summary class="muted">Refused / removed (${no.length})</summary><table class="team-t"><tbody>${no.map(p=>`<tr><td>${esc(p.email)}</td><td style="text-align:right"><button class="btn sm" data-ap="${esc(p.email)}" data-r="member">Restore as member</button></td></tr>`).join("")}</tbody></table></details>`:""}`;
+  const setRole=(email,role)=>save(()=>CFJ("/api/admin/people/"+encodeURIComponent(email),{method:"PUT",body:JSON.stringify({role})}).then(()=>{cfBadgeAt=0;renderTeamCF();cfBadge()}),role==="rejected"?"Access removed":"Access updated");
+  box.querySelectorAll("[data-ap]").forEach(b=>b.onclick=()=>setRole(b.dataset.ap,b.dataset.r));
+  box.querySelectorAll("[data-set]").forEach(s=>s.onchange=()=>setRole(s.dataset.set,s.value));
+  $("#cf-gen").onclick=()=>{const a="ABCDEFGHJKMNPQRSTUVWXYZ23456789";$("#cf-code").value="SCEC-"+Array.from(crypto.getRandomValues(new Uint8Array(5)),x=>a[x%a.length]).join("")};
+  $("#cf-save").onclick=()=>{const c=$("#cf-code").value.trim();if(c&&c.length<6){toast("Use at least 6 characters for the code");return}save(()=>CFJ("/api/admin/code",{method:"PUT",body:JSON.stringify({code:c||null})}).then(renderTeamCF),c?"Access code saved":"Access code turned off")};
+  const off=$("#cf-off");if(off)off.onclick=()=>save(()=>CFJ("/api/admin/code",{method:"PUT",body:JSON.stringify({code:null})}).then(renderTeamCF),"Access code turned off")}
 function banner(msg,kind){const b=$("#banner");b.textContent=msg;b.dataset.kind=kind||"";b.hidden=false}
 
 /* ---------- static bindings ---------- */
@@ -839,5 +867,3 @@ async function exportCsv(){
 }
 boot();
 </script>
-
-</body></html>
