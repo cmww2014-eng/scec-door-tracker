@@ -248,6 +248,7 @@ td.ref{font:600 13px var(--f-mono);white-space:nowrap}
 .rp-h{margin:16px 0 6px;font:600 12px var(--f-body);text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
 table.rp tr.tot td{font-weight:700;border-top:2px solid var(--line)}table.rp tr.grp-row td{background:var(--sunk)}table.rp tr[data-ref]{cursor:pointer}
 @media print{header.top,.supbar,nav.tabs,.noprint,#banner,.drawer,.scrim,.toast{display:none!important}body{background:#fff}.panel-page{padding:0!important}.tbl-wrap{overflow:visible!important;max-height:none!important}table.rp{font-size:10px}table.rp tr{break-inside:avoid}}
+details.coll{border:1px solid var(--line);border-radius:var(--r);padding:8px 12px;background:var(--surface)}details.coll>summary{cursor:pointer;list-style:revert}
 .dnotes{margin:6px 0 0;padding-left:18px;font-size:13px}.dnotes li{margin:2px 0}
 .th-act{font-size:13px;border-left:3px solid var(--warn);padding:4px 8px;background:var(--surface)}.th-act.ok{border-color:var(--ok)}
 .th-v.hi{color:var(--warn);font-weight:700}.th-v.lo{color:var(--accent);font-weight:700}
@@ -411,7 +412,7 @@ function guard(){if(!canWrite){toast("You have view-only access to this tracker.
 /* ---------- boot ---------- */
 async function boot(){
   bindStatic();
-  try{const r=await fetch("data.json");S.RAW=await r.json()}catch(e){$("#dwg-list").innerHTML='<p class="muted" style="padding:0 16px">Drawing data could not be loaded. Reload the page.</p>';return}
+  try{const r=await fetch("data.json");S.RAW=await r.json();for(const d of Object.values(S.RAW.doors||{}))(d.diffs||[]).forEach(x=>x._b={res:x.res||"",agreed:x.agreed||"",comment:x.comment||""})}catch(e){$("#dwg-list").innerHTML='<p class="muted" style="padding:0 16px">Drawing data could not be loaded. Reload the page.</p>';return}
   applySection("doors");
   const use=n=>window.claude&&window.claude.use?Promise.resolve(window.claude.use(n)).catch(()=>null):Promise.resolve(null);
   [db,userCap,assets,downloads]=await Promise.all([use("db"),use("user"),use("assets"),use("downloads")]);
@@ -423,6 +424,7 @@ async function boot(){
     live=true;
     if(!canWrite)banner("You have view-only access. Ask the tracker owner for Contributor access to update doors.");
     db.collection("users").onSnapshot(snap=>{users=new Map(snap.docs.map(d=>[d.id,{id:d.id,...d.data()}]));renderWho();renderAll()},()=>{});
+    db.collection("diffres").onSnapshot(snap=>{applyDiffRes(new Map(snap.docs.map(d=>[d.id,d.data()])));renderAll();if(UI.door)renderDrawer();if(!$("#lightbox").hidden&&UI.adminTab==="diff")renderDiscrep()},()=>{});
     db.collection("overrides").onSnapshot(snap=>{applyOverrides(snap.docs.map(d=>({id:d.id,...d.data()})));renderAll()},()=>{});
     for(const col of["doors","louvres","defects","requests","thresholds","firedocs"]){
       db.collection(col).onSnapshot(snap=>{const m=new Map(snap.docs.map(d=>[d.id,migrate(col,{id:d.id,...d.data()})]));if(col==="doors"||col==="louvres"){S.prog[col]=m;S.doors=S.prog[SEC[UI.sec].pcol]}else S[col]=m;renderAll()},e=>banner("Lost connection to the shared tracker ("+(e&&e.code||"error")+"). Reload the page to reconnect.","warn"));
@@ -455,10 +457,10 @@ function ovForm(ref,d){const base=(S.RAW._base&&S.RAW._base[ref])||d;
   ${OV_FIELDS.map(([k,l])=>`<label>${esc(l)}${d.ov&&d.ov.keys.includes(k)?' <span class="pill warn" style="font-size:10px">overridden</span>':""}<input type="text" data-ov="${k}" value="${esc(d[k]==null?"":d[k])}" placeholder="${esc(base[k]==null?"":base[k])}"></label>`).join("")}
   <div class="row"><button class="btn primary" id="ov-save">Save</button><button class="btn" id="ov-reset">Remove all overrides</button><button class="btn" id="ov-cancel">Cancel</button></div></div>`}
 /* ---------- team dialog ---------- */
-function openTeam(){const lb=$("#lightbox");lb.hidden=false;renderTeam()}
+function openTeam(tab){const lb=$("#lightbox");lb.hidden=false;UI.adminTab=tab||"team";if(UI.adminTab==="diff")renderDiscrep();else renderTeam()}
 async function renderTeam(){if(window.__CF__)return renderTeamCF();const lb=$("#lightbox");const ids=[...users.keys()];if(meId&&!ids.includes(meId))ids.unshift(meId);ids.forEach(want);
   const adm=isAdmin();
-  lb.innerHTML=`<div class="lb-top"><span style="flex:1">Team &amp; access</span><button class="x" id="lb-x" aria-label="Close">×</button></div>
+  lb.innerHTML=`<div class="lb-top">${adminTabs("team")}<button class="x" id="lb-x" aria-label="Close">×</button></div>
   <div class="team"><p class="muted" style="margin:0 0 10px;font-size:13px">Everyone opens the tracker with their claude.ai sign-in. <b>Admins</b> can edit schedule information and delete installation-stage history. The artifact owner is always an admin. ${adm?"Search your organisation below to add people.":"Ask an admin to change roles."}</p>
   ${adm?`<label style="display:block;margin-bottom:10px">Add a person<input type="search" id="team-q" placeholder="Type a name…" autocomplete="off"></label><div id="team-hits"></div>`:""}
   <table class="team-t"><thead><tr><th>Person</th><th>Role</th><th></th></tr></thead><tbody>${ids.map(id=>{const u=users.get(id)||{};const role=u.role||"member";return `<tr><td>${esc(name(id))}${id===meId?' <span class="muted">(you)</span>':""}</td><td><span class="role ${role==="admin"?"adm":""}">${role==="admin"?"Admin":"Member"}</span></td><td style="text-align:right">${adm&&id!==meId?`<button class="btn sm" data-role="${id}" data-to="${role==="admin"?"member":"admin"}">${role==="admin"?"Make member":"Make admin"}</button> <button class="btn sm" data-rm="${id}">Remove</button>`:""}</td></tr>`}).join("")||'<tr><td colspan="3" class="muted">No one listed yet.</td></tr>'}</tbody></table></div>`;
@@ -473,7 +475,7 @@ const CFJ=(u,o)=>fetch(u,Object.assign({credentials:"same-origin",headers:{"cont
 const ROLE_LBL={owner:"Owner",admin:"Admin",member:"Member",viewer:"Viewer",pending:"Requested",rejected:"Refused"};
 let cfBadgeAt=0,cfBadgeN=0;async function cfBadge(){const b=$("#team-btn");if(!b||!window.__CF__||!isAdmin())return;const paint=n=>{b.textContent=n?`Team · ${n} request${n>1?"s":""}`:"Team";b.classList.toggle("primary",!!n)};if(Date.now()-cfBadgeAt<60000){paint(cfBadgeN);return}cfBadgeAt=Date.now();try{const ps=await CFJ("/api/admin/people");const n=cfBadgeN=ps.filter(p=>p.role==="pending"&&p.requested).length;paint(n)}catch(e){}}
 async function renderTeamCF(){const lb=$("#lightbox");const adm=isAdmin();
-  lb.innerHTML=`<div class="lb-top"><span style="flex:1">Team &amp; access</span><button class="x" id="lb-x" aria-label="Close">×</button></div><div class="team" id="cft"><p class="muted">Loading…</p></div>`;
+  lb.innerHTML=`<div class="lb-top">${adminTabs("team")}<button class="x" id="lb-x" aria-label="Close">×</button></div><div class="team" id="cft"><p class="muted">Loading…</p></div>`;
   $("#lb-x").onclick=()=>{lb.hidden=true;lb.innerHTML=""};
   const box=$("#cft");
   if(!adm){box.innerHTML=`<p class="muted" style="font-size:13px">People sign in with their email and a one-time code. New people need approval from an admin, or an access code. <b>Members</b> can update installation progress and photos, <b>Viewers</b> can only look, and <b>Admins</b> can also edit schedule information, delete stage history and approve people.</p>`;return}
@@ -725,7 +727,7 @@ function renderDrawer(){
     <div class="d-body">${({progress:tabProgress,design:tabDesign,ldesign:tabLDesign,photos:tabPhotos,defects:tabDefects,requests:tabRequests,levels:tabLevels,fire:tabFire})[UI.dtab==="design"&&UI.sec==="louvres"?"ldesign":UI.dtab](ref,d,{s,st,defs,reqs,photos})}</div>`;
   $("#d-close").onclick=closeDoor;const loc=$("#d-locate");if(loc)loc.onclick=()=>{if(window.innerWidth<=900)closeDoorKeep();locate(ref)};
   $("#drawer").querySelector(".d-tabs").onclick=e=>{const b=e.target.closest("[data-dt]");if(b){UI.dtab=b.dataset.dt;renderDrawer();$(".d-body").scrollTop=0}};
-  bindDrawer(ref,d);restoreForm(keepForm);$(".d-body").scrollTop=prevScroll;
+  bindDrawer(ref,d);restoreForm(keepForm);const dz=$("#dz-open");if(dz)dz.onclick=()=>openTeam("diff");$(".d-body").scrollTop=prevScroll;
 }
 function closeDoorKeep(){$("#drawer").hidden=true;$("#scrim").hidden=true;UI.door=null;if(photoUnsub){photoUnsub();photoUnsub=null}}
 function captureForm(){const o={};document.querySelectorAll("#drawer [data-keep]").forEach(el=>o[el.dataset.keep]=el.type==="file"?null:el.value);return o}
@@ -770,29 +772,49 @@ function ironList(ref,d,st){
 function kvd(d,pairs){const df={};(d.diffs||[]).forEach(x=>df[x.f]=x);const rows=pairs.filter(p=>p[1]!=null&&p[1]!=="");if(!rows.length)return"";
   return `<div class="kv">${rows.map(([k,v,f])=>{const x=f&&df[f];return x?(x.res==="Supplier to revise to schedule"?`<div>${esc(k)}</div><div class="diffv">${esc(v)} <span class="pill warn" style="font-size:10px">schedule governs</span><span class="was">Supplier drawing: ${esc(x.sup)} (to be revised)</span></div>`:`<div>${esc(k)}</div><div class="diffv">${esc(x.agreed||x.sup)} <span class="pill ${RES[x.res]&&RES[x.res].done?"green":"warn"}" style="font-size:10px">${RES[x.res]&&RES[x.res].done?"supplier · agreed":x.res==="Query / RFI raised"?"supplier · RFI open":"supplier"}</span><span class="was">Schedule: ${esc(v)}</span></div>`):`<div>${esc(k)}</div><div>${esc(v)}</div>`}).join("")}</div>`}
 function kv(pairs){const rows=pairs.filter(p=>p[1]!=null&&p[1]!=="");if(!rows.length)return"";return `<div class="kv">${rows.map(([k,v])=>`<div>${esc(k)}</div><div>${esc(v)}</div>`).join("")}</div>`}
+function sameVal(a,b,k){if(a==null||b==null||a===""||b==="")return false;let x=String(a),y=String(b);
+  if(k==="fire")return normFire(x)===normFire(y);
+  const n=v=>v.toLowerCase().replace(/\b(mm|db)\b/g,"").replace(/[^a-z0-9]/g,"");const nil=v=>/^(no|none|n\/?a|-|–)?$/i.test(v.trim());
+  if(nil(x)&&nil(y))return true;if(/^\d+$/.test(n(x))&&/^\d+$/.test(n(y)))return +n(x)===+n(y);
+  return n(x)===n(y)||(n(x).length>3&&n(y).includes(n(x)))||(n(y).length>3&&n(x).includes(n(y)))}
+function keyLine(d){const sp=d.sup||{};const so=sp.soW?`${sp.soW} × ${sp.soH}`:d.soW?`${d.soW} × ${d.soH}`:"";const cl=sp.clearW?`${sp.clearW}${sp.clearH?" × "+sp.clearH:""}`:d.clearW?`${d.clearW}${d.clearH?" × "+d.clearH:""}`:"";
+  return [d.fire&&`<span class="fire ${/no fr|n\/a/i.test(d.fire)?"":"fr"}">${esc(d.fire)}</span>`,so&&`SO ${esc(so)} mm`,cl&&`clear ${esc(cl)} mm`,d.acoustic&&!/^n\/?a$/i.test(d.acoustic)&&esc(d.acoustic),d.type&&`type ${esc(d.type)}`].filter(Boolean).join(" · ")}
+function supRows(d){const sp=d.sup||{};const df={};(d.diffs||[]).forEach(x=>df[x.f]=x);
+  const rows=[["Specification",sp.spec],["Configuration",[sp.type,sp.swing,sp.hand].filter(Boolean).join(" · ")],["Leaf",sp.leaf],["Frame",sp.frameW?`${sp.frameW} × ${sp.frameH} mm`:""]];
+  const cmp=[["Fire rating",sp.fire,d.fire,"fire"],["Structural opening",sp.soW?`${sp.soW} × ${sp.soH} mm`:"",d.soW?`${d.soW} × ${d.soH} mm`:"","so"],["Clear opening",sp.clearW?`${sp.clearW}${sp.clearH?" × "+sp.clearH:""} mm`:"",d.clearW?`${d.clearW}${d.clearH?" × "+d.clearH:""} mm`:"","clear"],["Acoustic",sp.acoustic,d.acoustic,"acoustic"],["Colour",sp.colour,d.finish,"finish"],["Vision panel",sp.vision,d.vision,"vision"]];
+  for(const [l,v,sc,k] of cmp){if(!v)continue;const eq=k==="so"?(sp.soW==d.soW&&sp.soH==d.soH):k==="clear"?(!d.clearW||(sp.clearW==d.clearW)):sameVal(v,sc,k);if(eq&&sc)continue;rows.push([l,v+(sc&&!eq?`  (schedule: ${sc})`:"")])}
+  return rows}
 function tabDesign(ref,d){
   const src=d.sheet?`From drawing A-${d.sheet} · ${(d.table||"").replace(/^Door Schedule - /,"")}`:"";
-  const set=d.hw&&S.data.hwsets[d.hw];const p=d.prod;
-  const out=[];
+  const set=d.hw&&S.data.hwsets[d.hw];const p=d.prod;const out=[];
+  // 1. drawings first: supplier / production drawings + the most relevant layout
+  const cur=(d.doorsets||[]).filter(x=>!x.superseded),old=(d.doorsets||[]).filter(x=>x.superseded);
+  const plan=d.plan||(d.locs[0]&&d.locs[0].l);const PL=plan&&S.data.layouts.find(x=>x.id===plan);
+  const btn=x=>`<button class="btn" style="text-align:left;white-space:normal" data-ds="${esc(x.file)}" data-cap="${esc((x.batch?batchTxt(x.batch)+" · ":"")+x.no+" rev "+x.rev+" · "+x.title)}">📄 ${x.batch?`<span class="pill batch">${batchTxt(x.batch)}</span> `:""}<b class="mono">${esc(x.no)}</b> rev ${esc(x.rev)}${x.maker?` <span class="muted">(${esc(x.maker)})</span>`:""}</button>`;
+  out.push(`<div class="grp"><h4>Drawings</h4><div style="display:flex;flex-direction:column;gap:6px">${cur.map(btn).join("")}${p?p.pages.map((n,i)=>`<button class="btn" style="text-align:left" data-prod="${n}">📄 Johan production drawing${p.pages.length>1?" "+(i+1):""}</button>`).join(""):""}${PL?`<button class="btn" style="text-align:left" data-goto="${esc(plan)}">📍 Show on ${esc(PL.title)}</button>`:""}${!cur.length&&!p&&!PL?'<span class="muted" style="font-size:13px">No supplier drawing or layout location yet.</span>':""}</div>
+    ${old.length?`<details style="margin-top:6px"><summary class="muted" style="font-size:12px">Earlier issues (${old.length})</summary><div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">${old.map(btn).join("")}</div></details>`:""}
+    <p style="margin:8px 0 0;font-size:13px">${keyLine(d)}</p></div>`);
   if(d.unscheduled)out.push(`<div class="empty" style="padding:14px;text-align:left">${esc(ref)} ${d.locs.length?"appears on the layout drawings":"has a supplier doorset drawing"} but isn't listed in the uploaded door schedules.</div>`);
-  if(d.doorsets&&d.doorsets.length)out.push(`<div class="grp"><h4>Doorset drawing${d.doorsets.length>1?"s":""}</h4><div style="display:flex;flex-direction:column;gap:6px">${d.doorsets.map((x,i)=>`<button class="btn" style="text-align:left;white-space:normal" data-ds="${esc(x.file)}" data-cap="${esc((x.batch?batchTxt(x.batch)+" · ":"")+x.no+" rev "+x.rev+" · "+x.title)}">${x.batch?`<span class="pill batch">${batchTxt(x.batch)}</span> `:""}<b class="mono">${esc(x.no)}</b> rev ${esc(x.rev)} · ${esc(x.title)}${x.maker?` <span class="muted">(${esc(x.maker)})</span>`:""}${x.superseded?' <span class="pill">Earlier issue</span>':""}</button>`).join("")}</div></div>`);
   if(d.note)out.push(`<div class="empty" style="padding:12px;text-align:left">${esc(d.note)}</div>`);
+  // 2. open discrepancies only
+  const od=openDiffs(d),cd=(d.diffs||[]).filter(x=>!od.includes(x));
+  if(od.length)out.push(`<div class="check"><b>${od.length} open discrepanc${od.length>1?"ies":"y"} between the RPS schedule and the ${esc(d.supplier||"supplier")} design</b><ul>${od.map(x=>`<li>${esc(x.label)}: supplier <b>${esc(x.sup)}</b>, schedule ${esc(x.sch)}${x.res?` <span class="pill ${RES[x.res]?RES[x.res].cls:""}">${esc(RES[x.res]?RES[x.res].t:x.res)}</span>`:' <span class="pill warn">Not reviewed</span>'}${x.comment?`<br><span class="muted">${esc(x.comment)}</span>`:""}</li>`).join("")}</ul><div class="muted" style="margin-top:6px;font-size:12px">${isAdmin()?`Review and close these under <button class="btn sm" id="dz-open">Team → Discrepancies</button>`:"An admin reviews and closes these."}</div></div>`);
+  // 3. supplier design – only what isn't already in the schedule (or differs from it)
+  if(d.sup&&d.sup.hardware&&(d.supplier==="Almet"||d.supplier==="Ascot")){const rows=supRows(d);
+    out.push(`<div class="grp"><h4>${esc(d.supplier)} design · ${esc(d.sup.src)}</h4>${d.sup.note?`<div class="muted" style="font-size:12px;margin-bottom:6px">${esc(d.sup.note)}</div>`:""}${kv(rows)}<ul class="items" style="margin-top:8px">${d.sup.hardware.map(h=>`<li><span class="q">•</span><span>${esc(h)}</span></li>`).join("")}</ul></div>`)}
+  // 4. Johan production sheet – drop fields that repeat the schedule
+  if(p){const pr=[["Fire rating",sameVal(p.fire,d.fire,"fire")||sameVal(String(p.fire||"").replace(/\s*\d+\s*db/i,""),d.fire,"fire")?"":p.fire],["Leaf size",p.size],["Core",p.core],["Facing",p.facing],["Lipping",p.lipping],["Handing",p.handing],["Frame",p.frame],["Intumescent / seals",p.intumescent],["Door stop",p.stop],["Architrave",p.archOut],["Glazing",(p.glazing||[]).join("; ")],["Same sheet as",(p.sharedWith||[]).join(", ")]];
+    out.push(`<div class="grp"><h4>Timber doorset (Johan production sheet)</h4>${kv(pr)}${p.fittings&&p.fittings.length?`<ul class="items" style="margin-top:8px">${p.fittings.map(f=>`<li><span class="q">${esc(f.qty)}</span><span>${esc(f.item)}${f.by==="Customer"?' <span class="code">customer supplied</span>':""}</span></li>`).join("")}</ul>`:""}</div>`)}
+  if(set)out.push(`<div class="grp"><h4>Ironmongery set · ${esc(d.hw)}</h4><p style="margin:0 0 6px;font-weight:600">${esc(set.title)}</p><ul class="items">${set.items.map(i=>`<li><span class="q">${esc(i.qty)} ${esc(i.unit.toLowerCase())}</span><span>${esc(i.desc)}<br><span class="code">${esc(i.code)}</span></span></li>`).join("")}</ul><p class="muted" style="margin:6px 0 0;font-size:12px">Johan Doors schedule BN-192-ABC rev N. Access control and Doc M packs by others.</p></div>`);
   if(UI.sec==="doors"&&isAdmin()&&db)out.push(UI.ovEdit===ref?ovForm(ref,d):`<div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn sm" id="ov-open">Edit schedule information</button>${d.ov?`<span class="muted" style="font-size:12px">${d.ov.keys.length} field${d.ov.keys.length>1?"s":""} overridden by ${esc(name(d.ov.by))}, ${fmt(d.ov.at)}</span>`:""}</div>`);
   else if(d.ov)out.push(`<div class="muted" style="font-size:12px">${d.ov.keys.length} field${d.ov.keys.length>1?"s":""} updated in the tracker by ${esc(name(d.ov.by))}, ${fmt(d.ov.at)} (overrides the RPS schedule).</div>`);
-  if((d.diffs||[]).length)out.push(`<div class="check" style="${openDiffs(d).length?"":"border-color:var(--ok);background:color-mix(in srgb,var(--ok) 10%,transparent)"}"><b style="${openDiffs(d).length?"":"color:var(--ok)"}">${d.diffs.length} conflict${d.diffs.length>1?"s":""} between the RPS schedule and the ${esc(d.supplier)} design · ${openDiffs(d).length} open</b><ul>${d.diffs.map(x=>`<li>${esc(x.label)}: supplier <b>${esc(x.sup)}</b>, schedule ${esc(x.sch)}${x.res?` <span class="pill ${RES[x.res]?RES[x.res].cls:""}">${esc(RES[x.res]?RES[x.res].t:x.res)}</span>`:' <span class="pill warn">Not reviewed</span>'}${x.agreed?` · agreed: <b>${esc(x.agreed)}</b>`:""}${x.comment?`<br><span class="muted">${esc(x.comment)}</span>`:""}</li>`).join("")}</ul><div class="muted" style="margin-top:6px;font-size:12px">Reviewed in the returned conflicts sheet. Where the supplier design governs it's shown first, with the superseded schedule value struck through; where the supplier must revise, the schedule value governs.</div></div>`);
-  else if(d.sup&&Object.keys(d.sup).length)out.push(`<div class="muted" style="font-size:12px">Schedule checked against ${esc(d.sup.src)}: no conflicts found in fire rating, sizes, locks, vision panel${d.supplier==="Almet"?", acoustics, colour":", closer"}.</div>`);
-  if(d.sup&&d.sup.hardware&&(d.supplier==="Almet"||d.supplier==="Ascot"))out.push(`<div class="grp"><h4>${esc(d.supplier)} design · ${esc(d.sup.src)}</h4>${d.sup.note?`<div class="muted" style="font-size:12px;margin-bottom:6px">${esc(d.sup.note)}</div>`:""}${kv([["Specification",d.sup.spec],["Configuration",[d.sup.type,d.sup.swing,d.sup.hand].filter(Boolean).join(" · ")],["Fire rating",d.sup.fire],["Structural opening",d.sup.soW?`${d.sup.soW} × ${d.sup.soH} mm`:""],["Clear passage",d.sup.clearW?`${d.sup.clearW}${d.sup.clearH?" × "+d.sup.clearH:""} mm`:""],["Acoustic",d.sup.acoustic],["Colour",d.sup.colour],["Vision",d.sup.vision]])}<ul class="items" style="margin-top:8px">${d.sup.hardware.map(h=>`<li><span class="q">•</span><span>${esc(h)}</span></li>`).join("")}</ul></div>`);
-  if(!d.unscheduled){
-    out.push(`<div class="grp"><h4>Opening</h4>${kvd(d,[["From room",d.from],["To room",d.to],["Context",d.context],["Door type",d.type],["Description",d.desc],["Construction",d.construction],["Structural opening width",d.soW?d.soW+" mm":"","soW"],["Structural opening height",d.soH?d.soH+" mm":"","soH"],["Clear opening width",d.clearW?d.clearW+" mm":"","clearW"],["Clear opening height",(d.clearH||d.clearL)?(d.clearH||d.clearL)+" mm":"","clearH"],["Wall",[d.wallCon,d.wallThk&&d.wallThk+" mm"].filter(Boolean).join(", ")]])}</div>`);
-    out.push(`<div class="grp"><h4>Performance</h4>${kvd(d,[["Fire rating",d.fire,"fire"],["Acoustics",d.acoustic,"acoustic"],["Environmental class",d.env],["U-value",d.uvalue],["Wind",d.wind]])}</div>`);
-    out.push(`<div class="grp"><h4>Finish & ironmongery (RPS schedule)</h4>${kvd(d,[["Door finish",d.finish,"finish"],["Vision panel",d.vision,"vision"],["Handles",d.handles],["Lock / latch",d.lock,"lock"],["Access control",d.access,"access"],["Hinges",d.hinges],["Closer",d.closer,"closer"],["Kickplate",d.kick],["Operation",d.operation],["Accessories",d.accessories],["Signage",d.signage],["Comments",d.comments]])}</div>`);
-    out.push(`<p class="muted" style="margin:-8px 0 0;font-size:12px">${esc(src)}</p>`);
-  }
-  if(set)out.push(`<div class="grp"><h4>Ironmongery set · ${esc(d.hw)}</h4><p style="margin:0 0 6px;font-weight:600">${esc(set.title)}</p><ul class="items">${set.items.map(i=>`<li><span class="q">${esc(i.qty)} ${esc(i.unit.toLowerCase())}</span><span>${esc(i.desc)}<br><span class="code">${esc(i.code)}</span></span></li>`).join("")}</ul><p class="muted" style="margin:6px 0 0;font-size:12px">Johan Doors schedule BN-192-ABC rev N. Access control and Doc M packs by others.</p></div>`);
-  if(p)out.push(`<div class="grp"><h4>Timber doorset (Johan production sheet)</h4>${kv([["Fire rating",p.fire],["Leaf size",p.size],["Core",p.core],["Facing",p.facing],["Lipping",p.lipping],["Handing",p.handing],["Frame",p.frame],["Intumescent / seals",p.intumescent],["Door stop",p.stop],["Architrave",p.archOut],["Glazing",(p.glazing||[]).join("; ")],["Same sheet as",(p.sharedWith||[]).join(", ")]])}
-    ${p.fittings&&p.fittings.length?`<ul class="items" style="margin-top:8px">${p.fittings.map(f=>`<li><span class="q">${esc(f.qty)}</span><span>${esc(f.item)}${f.by==="Customer"?' <span class="code">customer supplied</span>':""}</span></li>`).join("")}</ul>`:""}
-    <div class="row" style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">${p.pages.map((n,i)=>`<button class="btn sm" data-prod="${n}">Production drawing${p.pages.length>1?" "+(i+1):""}</button>`).join("")}</div></div>`);
-  if(d.locs.length)out.push(`<div class="grp"><h4>On drawings</h4><div style="display:flex;gap:6px;flex-wrap:wrap">${[...new Set(d.locs.map(l=>l.l))].map(l=>{const L=S.data.layouts.find(x=>x.id===l);return `<button class="btn sm" data-goto="${l}">${/^\d{4}$/.test(l)?"A-":""}${l} ${esc(L?L.title:"")}</button>`}).join("")}</div></div>`);
+  // 5. collapsed: closed discrepancies, then the full RPS schedule
+  if(cd.length)out.push(`<details class="grp coll"><summary><b>Closed discrepancies (${cd.length})</b></summary><ul style="margin:8px 0 0;padding-left:18px;font-size:13px">${cd.map(x=>`<li>${esc(x.label)}: supplier ${esc(x.sup)}, schedule ${esc(x.sch)} – <b>${esc(RES[x.res]?RES[x.res].t:x.res)}</b>${x.agreed?` · agreed: ${esc(x.agreed)}`:""}${x.comment?`<br><span class="muted">${esc(x.comment)}</span>`:""}${x.by?`<br><span class="muted" style="font-size:11px">Closed by ${esc(name(x.by))}, ${fmt(x.at)}</span>`:""}</li>`).join("")}</ul></details>`);
+  if(!d.unscheduled)out.push(`<details class="grp coll"><summary><b>RPS schedule information</b> <span class="muted" style="font-size:12px">${esc(src)}</span></summary>
+    <div class="grp" style="margin-top:8px"><h4>Opening</h4>${kvd(d,[["From room",d.from],["To room",d.to],["Context",d.context],["Door type",d.type],["Description",d.desc],["Construction",d.construction],["Structural opening width",d.soW?d.soW+" mm":"","soW"],["Structural opening height",d.soH?d.soH+" mm":"","soH"],["Clear opening width",d.clearW?d.clearW+" mm":"","clearW"],["Clear opening height",(d.clearH||d.clearL)?(d.clearH||d.clearL)+" mm":"","clearH"],["Wall",[d.wallCon,d.wallThk&&d.wallThk+" mm"].filter(Boolean).join(", ")]])}</div>
+    <div class="grp"><h4>Performance</h4>${kvd(d,[["Fire rating",d.fire,"fire"],["Acoustics",d.acoustic,"acoustic"],["Environmental class",d.env],["U-value",d.uvalue],["Wind",d.wind]])}</div>
+    <div class="grp"><h4>Finish & ironmongery</h4>${kvd(d,[["Door finish",d.finish,"finish"],["Vision panel",d.vision,"vision"],["Handles",d.handles],["Lock / latch",d.lock,"lock"],["Access control",d.access,"access"],["Hinges",d.hinges],["Closer",d.closer,"closer"],["Kickplate",d.kick],["Operation",d.operation],["Accessories",d.accessories],["Signage",d.signage],["Comments",d.comments]])}</div>
+    ${d.locs.length>1?`<div class="grp"><h4>Also on</h4><div style="display:flex;gap:6px;flex-wrap:wrap">${[...new Set(d.locs.map(l=>l.l))].map(l=>{const L=S.data.layouts.find(x=>x.id===l);return `<button class="btn sm" data-goto="${l}">${/^\d{4}$/.test(l)?"A-":""}${l} ${esc(L?L.title:"")}</button>`}).join("")}</div></div>`:""}</details>`);
   return out.join("");
 }
 function tabLDesign(ref,d){
@@ -1129,6 +1151,35 @@ async function exportReport(){const seg=UI.rpSeg||"comp",rows=rpRows();const q=v
   const data=lines.join("\n"),fn=`SCEC-${seg==="comp"?"completion":"open-defects"}-${new Date().toISOString().slice(0,10)}.csv`;
   if(downloads){try{await downloads.save({filename:fn,data})}catch(e){if(e&&e.code!=="declined"&&e.code!=="cancelled")toast("Export didn't complete: "+(e.code||e.message))}}
   else{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type:"text/csv"}));a.download=fn;a.click()}}
+
+
+/* ---------- design discrepancy close-out (admin) ---------- */
+RES["Closed – other (see comment)"]={cls:"green",t:"Closed",done:1};
+let DIFFRES=new Map();
+function applyDiffRes(m){DIFFRES=m;for(const d of Object.values(S.RAW.doors||{}))for(const x of d.diffs||[]){const b=x._b||{res:x.res||"",agreed:x.agreed||"",comment:x.comment||""};x._b=b;const o=m.get(x.cid);
+  Object.assign(x,b,{by:null,at:null});if(o)Object.assign(x,{res:o.res||"",agreed:o.agreed??b.agreed,comment:o.comment??b.comment,by:o.by,at:o.at})}}
+function adminTabs(cur){if(!isAdmin())return `<span style="flex:1">Team &amp; access</span>`;const n=Object.values(S.RAW.doors||{}).reduce((a,d)=>a+openDiffs(d).length,0);
+  return `<span style="flex:1;display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm ${cur==="team"?"primary":""}" style="${cur==="team"?"":"color:var(--ink)"}" data-admtab="team">Team &amp; access</button><button class="btn sm ${cur==="diff"?"primary":""}" style="${cur==="diff"?"":"color:var(--ink)"}" data-admtab="diff">Design discrepancies${n?` · ${n} open`:""}</button></span>`}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-admtab]");if(b)openTeam(b.dataset.admtab)});
+function renderDiscrep(){const lb=$("#lightbox");if(!isAdmin()){openTeam("team");return}UI.adminTab="diff";const seg=UI.dzSeg||"open";const q=(UI.dzQ||"").toLowerCase();
+  const items=[];for(const [r,d] of Object.entries(S.RAW.doors||{}))for(const x of d.diffs||[]){const done=!!(RES[x.res]&&RES[x.res].done);if(seg==="open"&&done||seg==="closed"&&!done)continue;if(UI.sup&&UI.sec==="doors"&&!supOk(d))continue;
+    if(q&&![r,x.label,x.sup,x.sch,x.comment,d.supplier].join(" ").toLowerCase().includes(q))continue;items.push({r,d,x,done})}
+  items.sort((a,b)=>a.r.localeCompare(b.r)||a.x.label.localeCompare(b.x.label));items.forEach(i=>i.x.by&&want(i.x.by));
+  const opts=x=>`<option value="">Not reviewed</option>`+Object.keys(RES).map(k=>`<option value="${esc(k)}"${x.res===k?" selected":""}>${esc(k)}${RES[k].done?"":" (stays open)"}</option>`).join("");
+  lb.innerHTML=`<div class="lb-top">${adminTabs("diff")}<button class="x" id="lb-x" aria-label="Close">×</button></div><div class="team" style="max-width:980px">
+   <p class="muted" style="margin:0 0 10px;font-size:13px">Differences between the RPS schedule and the supplier designs. Choose an outcome and press <b>Close</b>. Closed items drop off the top of the door's Design tab and are kept in its collapsed “Closed discrepancies” list. “Supplier to revise” and “RFI raised” keep the item open.</p>
+   <div class="filters" style="margin-bottom:10px"><div class="seg" id="dz-seg">${[["open","Open"],["closed","Closed"],["all","All"]].map(([k,l])=>`<button aria-pressed="${seg===k}" data-v="${k}">${l}</button>`).join("")}</div><input type="search" id="dz-q" placeholder="Search door, item, supplier" value="${esc(UI.dzQ||"")}"><span class="muted" style="font-size:12px;align-self:center">${items.length} item${items.length===1?"":"s"}${UI.sup?" · "+esc(UI.sup):""}</span></div>
+   ${items.length?`<div class="tbl-wrap"><table><thead><tr><th>Door</th><th>Item</th><th>Supplier</th><th>Schedule</th><th>Outcome / agreed value / comment</th><th></th></tr></thead><tbody>${items.map(({r,d,x,done})=>`<tr data-cid="${esc(x.cid)}"><td class="ref"><button class="ref" data-dzopen="${esc(r)}">${esc(r)}</button><br><span class="muted" style="font-size:11px">${esc(d.supplier||"")}</span></td><td>${esc(x.label)}</td><td><b>${esc(x.sup)}</b></td><td>${esc(x.sch)}</td>
+     <td style="min-width:260px"><select data-dz="res" style="width:100%">${opts(x)}</select><input type="text" data-dz="agreed" placeholder="Agreed value (optional)" value="${esc(x.agreed||"")}" style="width:100%;margin-top:4px"><input type="text" data-dz="comment" placeholder="Comment" value="${esc(x.comment||"")}" style="width:100%;margin-top:4px">${x.by?`<div class="muted" style="font-size:11px;margin-top:2px">${esc(name(x.by))}, ${fmt(x.at)}</div>`:""}</td>
+     <td style="white-space:nowrap">${done?`<span class="pill green">Closed</span><br><button class="btn sm" data-dzsave="save" style="margin-top:4px">Save</button> <button class="btn sm" data-dzsave="reopen" style="margin-top:4px">Reopen</button>`:`<button class="btn sm primary" data-dzsave="close">Close</button> <button class="btn sm" data-dzsave="save">Save</button>`}</td></tr>`).join("")}</tbody></table></div>`:`<div class="empty">${seg==="open"?"No open discrepancies 🎉":"Nothing here."}</div>`}</div>`;
+  $("#lb-x").onclick=()=>{lb.hidden=true;lb.innerHTML=""};
+  $("#dz-seg").onclick=e=>{const b=e.target.closest("[data-v]");if(b){UI.dzSeg=b.dataset.v;renderDiscrep()}};
+  const qi=$("#dz-q");qi.oninput=()=>{UI.dzQ=qi.value;clearTimeout(UI.dzT);UI.dzT=setTimeout(()=>{renderDiscrep();const n=$("#dz-q");if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length)}},300)};
+  lb.querySelectorAll("[data-dzopen]").forEach(b=>b.onclick=()=>{lb.hidden=true;lb.innerHTML="";if(UI.sec!=="doors")applySection("doors");UI.dtab="design";openDoor(b.dataset.dzopen)});
+  lb.querySelectorAll("[data-dzsave]").forEach(b=>b.onclick=async()=>{const tr=b.closest("tr");const cid=tr.dataset.cid;const g=k=>tr.querySelector(`[data-dz="${k}"]`).value.trim();let res=g("res");const mode=b.dataset.dzsave;
+    if(mode==="close"&&!(RES[res]&&RES[res].done)){toast(res?"That outcome keeps the item open – use Save, or pick a closing outcome.":"Pick an outcome first (e.g. Accept supplier design).");return}
+    if(mode==="reopen")res="";
+    await save(()=>put("diffres",cid,{res,agreed:g("agreed"),comment:g("comment"),by:meId,at:Date.now()}),mode==="close"?"Discrepancy closed":mode==="reopen"?"Discrepancy reopened":"Saved")})}
 
 /* ---------- export ---------- */
 async function exportCsv(){
