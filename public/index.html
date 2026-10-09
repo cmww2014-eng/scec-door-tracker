@@ -425,7 +425,7 @@ async function boot(){
     live=true;
     if(!canWrite)banner("You have view-only access. Ask the tracker owner for Contributor access to update doors.");
     db.collection("users").onSnapshot(snap=>{users=new Map(snap.docs.map(d=>[d.id,{id:d.id,...d.data()}]));renderWho();renderAll()},()=>{});
-    db.collection("diffres").onSnapshot(snap=>{applyDiffRes(new Map(snap.docs.map(d=>[d.id,d.data()])));renderAll();if(UI.door)renderDrawer();if(!$("#lightbox").hidden&&UI.adminTab==="diff")renderDiscrep()},()=>{});
+    db.collection("diffres").onSnapshot(snap=>{applyDiffRes(new Map(snap.docs.map(d=>[d.id,d.data()])));renderAll();if(!$("#lightbox").hidden&&UI.adminTab==="diff")renderDiscrep()},()=>{});
     db.collection("overrides").onSnapshot(snap=>{applyOverrides(snap.docs.map(d=>({id:d.id,...d.data()})));renderAll();if(!$("#lightbox").hidden&&UI.adminTab==="diff")renderDiscrep()},()=>{});
     for(const col of["doors","louvres","defects","requests","thresholds","firedocs"]){
       db.collection(col).onSnapshot(snap=>{const m=new Map(snap.docs.map(d=>[d.id,migrate(col,{id:d.id,...d.data()})]));if(col==="doors"||col==="louvres"){S.prog[col]=m;S.doors=S.prog[SEC[UI.sec].pcol]}else S[col]=m;renderAll()},e=>banner("Lost connection to the shared tracker ("+(e&&e.code||"error")+"). Reload the page to reconnect.","warn"));
@@ -551,7 +551,7 @@ function consOf(d){return d.ctype||""}
 /* ---------- render ---------- */
 function renderAll(){if(!S.data)return;renderHeader();renderDwgList();renderPins();
   if(UI.view==="doors")renderDoors();if(UI.view==="defects")renderDefects();if(UI.view==="requests")renderRequests();if(UI.view==="reports")renderReports();if(UI.view==="thresh")renderThresh();else if(S.data&&UI.sec==="doors"){const n=[...S.thresholds.values()].filter(t=>{const c=thCalc(t);return c&&!c.ok&&S.data.doors[t.id]&&supOk(S.data.doors[t.id])}).length;$("#c-th").textContent=n}
-  if(UI.door)renderDrawer()}
+  softDrawer()}
 function counts(refs){const c=STAGES.map(()=>0);for(const r of refs)c[stageOf(r)]++;return c}
 function bar(c,total,cls){return `<div class="${cls}">`+c.map((n,i)=>n?`<i style="width:${(n/total*100).toFixed(2)}%;background:${css(STAGES[i].c)}" title="${esc(STAGES[i].k)}: ${n}"></i>`:"").join("")+`</div>`}
 function renderHeader(){
@@ -711,8 +711,11 @@ function openDoor(ref){UI.door=ref;UI.confirm=null;$("#drawer").hidden=false;$("
 function closeDoor(){UI.door=null;$("#drawer").hidden=true;$("#scrim").hidden=true;if(photoUnsub){photoUnsub();photoUnsub=null}renderPins()}
 function subscribePhotos(ref){if(photoUnsub){photoUnsub();photoUnsub=null}S.photos=S.photos.filter(p=>!live&&p.ref===ref);
   if(!db){renderDrawer();return}
-  photoUnsub=db.collection("photos").where("ref","==",ref).onSnapshot(snap=>{S.photos=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.at||0)-(a.at||0));renderDrawer()},()=>{})}
-function renderDrawer(){
+  photoUnsub=db.collection("photos").where("ref","==",ref).onSnapshot(snap=>{S.photos=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.at||0)-(a.at||0));softDrawer()},()=>{})}
+function typingInDrawer(){const a=document.activeElement;return !!(a&&a.closest&&a.closest("#drawer")&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&!/^(checkbox|radio|file|button)$/.test(a.type||""))}
+document.addEventListener("focusout",e=>{if(!UI.drawerDirty)return;setTimeout(()=>{if(UI.drawerDirty&&!typingInDrawer()){UI.drawerDirty=false;if(UI.door)renderDrawer()}},250)});
+function softDrawer(){if(!UI.door)return;if(typingInDrawer()){UI.drawerDirty=true;return}renderDrawer()}
+function renderDrawer(){UI.drawerDirty=false;
   const ref=UI.door,d=S.data.doors[ref];if(!d)return;const s=stageOf(ref);const st=S.doors.get(ref)||{};
   const defs=[...S.defects.values()].filter(x=>x.ref===ref).sort((a,b)=>(a.status==="Closed")-(b.status==="Closed")||(b.at||0)-(a.at||0));
   const reqs=[...S.requests.values()].filter(x=>x.ref===ref).sort((a,b)=>(b.at||0)-(a.at||0));
@@ -1021,25 +1024,28 @@ function tabLevels(ref,d){
   <div class="form"><b>Threshold level readings</b>
     <div class="row">${inp("h","Hinge side (H)","Expected "+G.exp)}${inp("l","Latch side (L)","Expected "+G.exp)}${inp("s","High spot in swing (S)","Optional – lowest reading in the swing arc")}</div>
     <div class="row"><label>Leaf clearance over threshold<span style="display:flex;align-items:center;gap:6px"><input type="number" inputmode="numeric" min="0" max="30" id="th-clr" value="${esc(t.clr??8)}" ${canWrite?"":"disabled"} style="max-width:80px"><span class="muted">mm</span></span></label>${f&&f.allow?`<label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="th-fin" ${t.fin===false?"":"checked"} ${canWrite?"":"disabled"}> Include ${f.allow} mm floor finish build-up</label>`:""}</div>
-    <div id="th-out">${thOut(c)}</div>
+    ${canWrite?`<div class="row" style="flex:0;align-items:center;gap:10px"><button class="btn primary" id="th-save" style="flex:0">${t.at?"Update readings":"Submit readings"}</button><span class="muted" id="th-dirty" style="font-size:12px" hidden>Changed – submit to update the proposal</span></div>`:""}
+    <div id="th-out">${t.at?`<div class="muted" style="font-size:12px;margin-bottom:4px">Proposed remedial for the submitted readings (${esc(name(t.by))}, ${fmt(t.at)}):</div>`+thOut(c):'<p class="muted" style="margin:0;font-size:13px">Enter the readings and press <b>Submit readings</b> to see the proposed remedial.</p>'}</div>
     <label>Remedy decided<select id="th-rem" ${canWrite?"":"disabled"}>${TH_REM.map(r=>`<option value="${esc(r)}"${(t.remedy||"")===r?" selected":""}>${r?esc(r):"Not decided – use proposal"}</option>`).join("")}</select></label>
     <label>Note<input type="text" id="th-note" data-keep="th-note-${ref}" value="${esc(t.note||"")}" placeholder="e.g. Slab dips toward latch, drainage channel nearby" ${canWrite?"":"disabled"}></label>
-    ${canWrite?`<div class="row" style="flex:0"><button class="btn primary" id="th-save" style="flex:0">Save readings</button></div>`:""}
+    ${canWrite&&t.at?`<div class="row" style="flex:0"><button class="btn" id="th-save2" style="flex:0">Save remedy & note</button></div>`:""}
     ${t.at?`<p class="muted" style="margin:0;font-size:12px">Last saved by ${esc(name(t.by))}, ${fmt(t.at)}${(t.hist||[]).length?` · ${t.hist.length} earlier reading${t.hist.length>1?"s":""}`:""}</p>`:""}
   </div>
   ${(t.hist||[]).length?`<div class="grp" style="margin-top:12px"><h4>Earlier readings</h4>${t.hist.slice().reverse().map(x=>`<div class="muted" style="font-size:12px">${fmt(x.at)} · ${esc(name(x.by))}: H ${x.h??"–"} / L ${x.l??"–"} / S ${x.s??"–"}${x.remedy?" · "+esc(x.remedy):""}</div>`).join("")}</div>`:""}`;
 }
 function bindLevels(ref){const d=S.data.doors[ref];
   const vals=()=>({h:$("#th-h").value,l:$("#th-l").value,s:$("#th-s").value,clr:$("#th-clr").value,fin:$("#th-fin")?$("#th-fin").checked:true});
-  const live=()=>{const o=$("#th-out");if(o)o.innerHTML=thOut(thCalc(vals(),d))};
-  ["h","l","s","clr"].forEach(k=>{const e=$("#th-"+k);if(e)e.oninput=live});const fe=$("#th-fin");if(fe)fe.onchange=live;
+  const mark=()=>{const o=$("#th-dirty");if(o)o.hidden=false};
+  ["h","l","s","clr"].forEach(k=>{const e=$("#th-"+k);if(e){e.oninput=mark;e.onkeydown=ev=>{if(ev.key==="Enter"){ev.preventDefault();const b=$("#th-save");if(b)b.click()}}}});const fe=$("#th-fin");if(fe)fe.onchange=mark;
   const b=$("#th-save");if(!b)return;
+  const b2=$("#th-save2");if(b2)b2.onclick=()=>{if(!guard())return;const cur=S.thresholds.get(ref);if(!cur)return;save(()=>put("thresholds",ref,{...strip(cur),remedy:$("#th-rem").value,note:$("#th-note").value.trim()}),"Remedy saved")};
   b.onclick=()=>{if(!guard())return;const r=vals();const v={h:thNum(r.h),l:thNum(r.l),s:thNum(r.s),clr:thNum(r.clr)??8,fin:r.fin};
     if(v.h==null||v.l==null){toast("Enter both the hinge and latch side readings");return}
     const e=thGeom(d).exp;const bad=[v.h,v.l,v.s].filter(x=>x!=null&&(x<0||x>e+200));if(bad.length){toast("A reading looks out of range – check the values");return}
     const old=S.thresholds.get(ref);const hist=old?[...(old.hist||[]),{h:old.h,l:old.l,s:old.s,remedy:old.remedy||"",by:old.by,at:old.at}].slice(-20):[];
     const c=thCalc(v,d);
-    save(()=>put("thresholds",ref,{ref,...v,remedy:$("#th-rem").value,note:$("#th-note").value.trim(),sug:c.sug,by:meId,at:Date.now(),hist}),`${ref} readings saved`+(Math.min(v.h,v.l,v.s??999)<e-40||Math.max(v.h,v.l,v.s??0)>e+40?" – unusually large variance, please double-check":""))}}
+    document.activeElement&&document.activeElement.blur&&document.activeElement.blur();
+    save(()=>put("thresholds",ref,{ref,...v,remedy:$("#th-rem").value,note:$("#th-note").value.trim(),sug:c.sug,by:meId,at:Date.now(),hist}).then(()=>{renderDrawer();const o=$("#th-out");if(o)o.scrollIntoView({behavior:"smooth",block:"start"})}),`${ref} readings submitted`+(Math.min(v.h,v.l,v.s??999)<e-40||Math.max(v.h,v.l,v.s??0)>e+40?" – unusually large variance, please double-check":""))}}
 /* threshold report view */
 function thRows(){return [...S.data?Object.keys(S.data.doors):[]].filter(r=>supOk(S.data.doors[r])).map(r=>{const t=S.thresholds.get(r);return {r,d:S.data.doors[r],t,c:thCalc(t)}})}
 function renderThresh(){

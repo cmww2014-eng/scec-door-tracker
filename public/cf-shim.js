@@ -8,7 +8,7 @@
     if(cols[name])return cols[name];
     const st={docs:new Map(),since:0,subs:new Set(),timer:null,busy:false};
     st.refresh=async()=>{if(st.busy)return;st.busy=true;try{const r=await J(`/api/col/${encodeURIComponent(name)}?since=${st.since}`);
-        for(const d of r.docs){if(d.deleted)st.docs.delete(d.id);else st.docs.set(d.id,d.data)}st.since=r.now;st.emit()}catch(e){st.subs.forEach(s=>s.err&&s.err(e))}finally{st.busy=false}};
+        const first=!st.loaded;for(const d of r.docs){if(d.deleted)st.docs.delete(d.id);else st.docs.set(d.id,d.data)}st.since=r.now;st.loaded=true;if(first||r.docs.length)st.emit()}catch(e){st.subs.forEach(s=>s.err&&s.err(e))}finally{st.busy=false}};
     st.emit=()=>{const all=[...st.docs].map(([id,data])=>({id,data:()=>data}));st.subs.forEach(s=>s.cb({docs:s.filter?all.filter(d=>s.filter(d.data())):all}))};
     st.start=()=>{if(!st.timer){st.refresh();st.timer=setInterval(()=>{if(!document.hidden)st.refresh()},POLL)}};
     return cols[name]=st;
