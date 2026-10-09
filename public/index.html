@@ -333,7 +333,7 @@ table.rp tr.tot td{font-weight:700;border-top:2px solid var(--line)}table.rp tr.
       <input type="search" id="th-q" placeholder="Search ref, room, remedy, note" aria-label="Search threshold surveys">
       <button class="btn" id="th-export">Export CSV</button>
     </div>
-    <p class="muted" style="margin:0;font-size:12px">Readings are taken down from a 2050 mm mark to the floor; 50 mm = level (2100 opening). Tolerance ±5 mm. Suggested remedies are a guide – set the decided remedy on each door.</p>
+    <p class="muted" style="margin:0;font-size:12px">Readings are taken down from a 2050 mm mark to the floor (expected = structural opening − 2050). The proposal sets the door to the highest jamb (least screed), checks the swing, and gives the resulting head gap. Tolerance ±5 mm. Set the decided remedy on each door.</p>
     <div id="th-list"></div>
   </section>
 </main>
@@ -935,82 +935,94 @@ function floorLine(d){const f=floorInfo(d);if(!f)return"";
 function floorCsv(d){const f=floorInfo(d);if(!f)return["","",""];const t=fs=>fs?fs.map(({c,x})=>"F"+c+" "+(x?x.name:"")).join(" + "):"";return[f.ra+": "+t(f.A)+(f.boldA?" (dominant)":""),f.rb+": "+t(f.B)+(f.boldB?" (dominant)":""),f.allow||0]}
 
 /* ---------- threshold level survey ---------- */
-const TH_NOM=50,TH_TOL=5;
-const TH_REM=["","No action","Screed through threshold","Reduce door height & pack head","Grind / break out floor","Screed + reduce door height","Other (see note)"];
+const TH_TOL=5,TH_MARK=2050,TH_MARGIN=3;
+const TH_REM=["","No action","Screed threshold","Screed threshold + fill head gap","Lower door + fill head gap","Build up threshold for swing","Grind high spot in swing","Reduce door height (supplier)","Other (see note)"];
 const thNum=v=>{if(v===""||v==null)return null;const n=+v;return isFinite(n)?Math.round(n):null};
-function thCalc(v){
-  if(!v)return null;const h=thNum(v.h),l=thNum(v.l),s=thNum(v.s);if(h==null||l==null)return null;
-  const T=TH_TOL,N=TH_NOM,jmin=Math.min(h,l),jmax=Math.max(h,l),fall=jmax-jmin;
-  const high=Math.max(0,N-jmin),low=Math.max(0,jmax-N),hiSide=h<l?"hinge":h>l?"latch":"both";
-  const acts=[];let need={screed:false,reduce:false,grind:false};
-  let fin=N;
-  if(high>T){fin=jmin;need.reduce=true;acts.push(`Floor is <b>${high} mm high</b> at the ${hiSide==="both"?"jambs":hiSide+" side"}: clear opening is ${2050+jmin} mm, not 2100. <b>Reduce the door height by ${high} mm and pack at the head</b> (or break out the floor by ${high} mm).`)}
-  else fin=N;
-  const toScreed=Math.max(0,jmax-fin);
-  if(toScreed>T){need.screed=true;acts.push(`<b>Screed through the threshold</b>: up to ${toScreed} mm at the ${h>l?"hinge":"latch"} side${fall>T?` to take out the ${fall} mm fall across the opening`:` to bring it up to door level`}.`)}
-  if(s!=null){const fl=need.reduce||!need.screed?Math.min(fin,jmin):fin;const over=fl-s;if(over>T){need.grind=true;acts.push(`High spot in the door swing is <b>${over} mm above</b> the threshold: <b>grind it down</b> or the leaf will foul.`)}}
-  const ok=!need.screed&&!need.reduce&&!need.grind;
-  if(ok)acts.push(`Within ±${T} mm of the 2100 opening, so no remedial work needed.`);
-  const sug=ok?"No action":need.screed&&need.reduce?"Screed + reduce door height":need.reduce?"Reduce door height & pack head":need.screed?"Screed through threshold":"Grind / break out floor";
-  return {h,l,s,high,low,fall,ok,need,acts,sug,dev:Math.max(high,low,s!=null?Math.abs(s-N):0)};
-}
-const thCls=v=>v==null?"":v<TH_NOM-TH_TOL?"hi":v>TH_NOM+TH_TOL?"lo":"";
-const thDev=v=>v==null?"":v===TH_NOM?"on level":v<TH_NOM?`${TH_NOM-v} high`:`${v-TH_NOM} low`;
+function thGeom(d){d=d||{};const sp=d.sup||{};const so=+(sp.soH||d.soH)||2100;const fh=+sp.frameH||null;
+  return {so,soSrc:sp.soH?(sp.src||d.supplier||"supplier design"):(d.soH?"RPS schedule":"assumed"),fh:fh||so-10,fhAssumed:!fh,dgap:so-(fh||so-10),exp:so-TH_MARK,fr:isFR(d)}}
+function thCalc(v,d){
+  if(!v)return null;d=d||(S.data&&S.data.doors[v.ref||v.id])||{};const h=thNum(v.h),l=thNum(v.l),s=thNum(v.s);if(h==null||l==null)return null;
+  const G=thGeom(d);const f=floorInfo(d);const A=(v.fin!==false&&f&&f.allow)?f.allow:0;const clr=thNum(v.clr)??8;
+  const hiJ=Math.min(h,l),loJ=Math.max(h,l),fall=loJ-hiJ,loSide=h>l?"hinge":"latch",hiSide=h>l?"latch":"hinge";
+  const t0=hiJ;                                 // frame/threshold set to the highest jamb = least screed (screed only at the lower jamb)
+  const sw=s!=null?s:hiJ;const floorSw=sw-A;       // finished floor at the worst point in the swing (slab reading less finish build-up)
+  const tMax=floorSw+clr-TH_MARGIN;               // leaf bottom (threshold − clearance) must clear the finished floor
+  let t=t0,swingUp=0;if(tMax<t0){swingUp=t0-tMax;t=tMax}
+  const sH=h-t,sL=l-t,smax=Math.max(sH,sL);
+  const MINGAP=3,headGap=TH_MARK+t-G.fh,extra=headGap-G.dgap;  // extra >0: door sits lower than design → bigger gap at head
+  const acts=[],need={screed:false,headfill:false,reduce:false,swing:false};
+  if(headGap<MINGAP){need.reduce=true;acts.push(`<b>Opening too short.</b> With the threshold ${swingUp?"raised for the swing":"at the highest jamb"} the opening is ${TH_MARK+t} mm but the frame is ${G.fh} mm (min ${MINGAP} mm fixing gap). <b>Reduce the frame/door height by ${MINGAP-headGap} mm</b> (supplier)${swingUp?`, or grind the floor in the swing by ${swingUp} mm so the threshold can stay down`:` or break out the floor by ${MINGAP-headGap} mm`}.`)}
+  if(fall>2){need.screed=true;acts.push(`<b>Jambs differ by ${fall} mm</b> (hinge ${h}, latch ${l}). Screed the threshold level: <b>${fall} mm at the ${loSide} side</b>, feathered to 0 at the ${hiSide} side.`)}
+  if(swingUp){need.screed=need.swing=true;acts.push(`<b>Door swing:</b> ${s!=null?`the high spot in the swing (${s} mm)`:`the floor next to the threshold`}${A?` plus the ${A} mm floor finish`:""} would leave the leaf (${clr} mm clearance) short by <b>${swingUp} mm</b> – it would scrape. Build the threshold screed up a further ${swingUp} mm${s!=null?`, or grind the high spot by ${swingUp} mm to keep the door lower`:""}.`)}
+  else acts.push(`Door swing checked${A?` (incl. ${A} mm floor finish)`:""}: ${(floorSw)-(t-clr)} mm under the leaf – no scraping.`);
+  if(smax>2)acts.push(`<b>Screed to threshold: hinge ${sH} mm, latch ${sL} mm</b> (minimised – the door is set to the highest jamb${swingUp?" plus the swing allowance":""}).`);
+  if(!need.reduce&&extra>3){need.headfill=true;const board=headGap>20;acts.push(`The door sits <b>${extra} mm lower</b> than the ${G.so} mm design opening, leaving a <b>${headGap} mm gap at the head</b> (design ${G.dgap} mm). Pack and fix the frame at the head and fill the gap with ${board?`a ${G.fr?"fire-rated (e.g. calcium silicate) ":""}board/timber packer, sealed with ${G.fr?"intumescent ":""}mastic`:`${G.fr?"intumescent ":""}mastic${headGap>10?" over a backing rod":""}`}.`)}
+  else if(!need.reduce&&extra<-3)acts.push(`Head gap ${headGap} mm (design ${G.dgap} mm) – door sits ${-extra} mm higher than design; check the frame still fits with the screed.`);
+  const ok=!need.reduce&&smax<=TH_TOL&&!swingUp&&Math.abs(extra)<=TH_TOL;
+  if(ok)acts.unshift(`Within ±${TH_TOL} mm – no remedial work needed.`);
+  const sug=ok?"No action":need.reduce?"Reduce door height (supplier)":swingUp?"Build up threshold for swing":need.headfill&&smax>2?"Screed threshold + fill head gap":need.headfill?"Lower door + fill head gap":smax>2?"Screed threshold":"No action";
+  return {h,l,s,A,clr,G,fall,t,sH,sL,smax,headGap,extra,swingUp,ok,need,acts,sug,reduceBy:need.reduce?MINGAP-headGap:0,dev:Math.max(smax,Math.abs(extra),swingUp)}}
+const thCls=(v,e)=>v==null?"":v<e-TH_TOL?"hi":v>e+TH_TOL?"lo":"";
+const thDev=(v,e)=>v==null?"":v===e?"on level":v<e?`${e-v} high`:`${v-e} low`;
 function thPill(ref){const t=S.thresholds&&S.thresholds.get(ref);const c=t&&thCalc(t);if(!c)return"";return `<span class="pill ${c.ok?"green":"warn"}" title="Threshold level survey">${c.ok?"Levels OK":"Levels: "+esc(t.remedy||c.sug)}</span>`}
-function thDiagram(){return `<svg viewBox="0 0 300 150" style="width:100%;max-width:340px;display:block;margin:4px 0 2px" role="img" aria-label="Measure down from the 2050 mark to the floor at the hinge side, latch side and any high spot in the swing">
+function thDiagram(e){return `<svg viewBox="0 0 300 150" style="width:100%;max-width:340px;display:block;margin:4px 0 2px" role="img" aria-label="Measure down from the 2050 mark to the floor at the hinge side, latch side and any high spot in the swing">
   <g fill="none" stroke="currentColor" stroke-width="2"><path d="M60 140V18h120v122"/></g>
   <line x1="40" y1="40" x2="200" y2="40" stroke="#1F5FA8" stroke-width="1.5" stroke-dasharray="5 4"/><text x="204" y="44" font-size="11" fill="#1F5FA8">2050 mark</text>
   <path d="M30 138 Q120 132 210 141" fill="none" stroke="#B4232C" stroke-width="2"/><text x="214" y="146" font-size="10" fill="#B4232C">floor (varies)</text>
   <g stroke="#2F9E62" stroke-width="1.5"><path d="M66 42v94M62 42h8M62 136h8"/><path d="M174 42v97M170 42h8M170 139h8"/><path d="M120 42v91M116 42h8M116 133h8" stroke-dasharray="3 3"/></g>
   <g font-size="12" font-weight="700" fill="#2F9E62"><text x="70" y="96">H</text><text x="152" y="96">L</text><text x="124" y="118">S</text></g>
-  <text x="62" y="14" font-size="10" fill="currentColor">hinge</text><text x="150" y="14" font-size="10" fill="currentColor">latch</text><text x="0" y="96" font-size="9.5" fill="currentColor">expect</text><text x="0" y="108" font-size="9.5" fill="currentColor">50 mm</text></svg>`}
-function thOut(c){if(!c)return `<p class="muted" style="margin:0;font-size:13px">Enter the hinge and latch side readings to see the assessment.</p>`;
-  return `<div class="kv"><div>Hinge side</div><div>${c.h} mm · ${thDev(c.h)}</div><div>Latch side</div><div>${c.l} mm · ${thDev(c.l)}</div>${c.s!=null?`<div>High spot in swing</div><div>${c.s} mm · ${thDev(c.s)}</div>`:""}<div>Fall across opening</div><div>${c.fall} mm</div><div>Opening height</div><div>${2050+Math.min(c.h,c.l)} mm (design 2100)</div></div>
+  <text x="62" y="14" font-size="10" fill="currentColor">hinge</text><text x="150" y="14" font-size="10" fill="currentColor">latch</text><text x="0" y="96" font-size="9.5" fill="currentColor">expect</text><text x="0" y="108" font-size="9.5" fill="currentColor">${e} mm</text></svg>`}
+function thOut(c){if(!c)return `<p class="muted" style="margin:0;font-size:13px">Enter the hinge and latch side readings to see the proposed remedial.</p>`;const e=c.G.exp;
+  return `<div class="kv"><div>Hinge side</div><div>${c.h} mm · ${thDev(c.h,e)}</div><div>Latch side</div><div>${c.l} mm · ${thDev(c.l,e)}</div>${c.s!=null?`<div>High spot in swing</div><div>${c.s} mm · ${thDev(c.s,e)}</div>`:""}<div>Fall across opening</div><div>${c.fall} mm</div><div>Screed to threshold</div><div><b>hinge ${c.sH} mm · latch ${c.sL} mm</b></div><div>Resulting head gap</div><div><b>${c.headGap} mm</b> (design ${c.G.dgap} mm)</div></div>
   <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">${c.acts.map(a=>`<div class="th-act ${c.ok?"ok":""}">${a}</div>`).join("")}</div>
-  <p class="muted" style="margin:6px 0 0;font-size:12px">Suggested: <b>${esc(c.sug)}</b></p>`}
+  <p class="muted" style="margin:6px 0 0;font-size:12px">Proposed remedial: <b>${esc(c.sug)}</b></p>`}
 function tabLevels(ref,d){
-  const t=(S.thresholds&&S.thresholds.get(ref))||{};const c=thCalc(t);
-  const inp=(k,lbl,hint)=>`<label>${lbl}<span style="display:flex;align-items:center;gap:6px"><input type="number" inputmode="numeric" min="0" max="200" step="1" id="th-${k}" data-keep="th-${k}-${ref}" value="${t[k]==null?"":esc(t[k])}" placeholder="50" ${canWrite?"":"disabled"} style="font:600 20px var(--f-mono);max-width:110px"><span class="muted">mm</span></span><span class="muted" style="font-weight:400">${hint}</span></label>`;
-  return `<div class="grp"><h4>How to measure</h4><p style="margin:0;font-size:13px">Mark the jambs 2050 mm down from the top of the formed opening, then measure from the mark down to the floor. On a level slab every reading is <b>50 mm</b> (2050 + 50 = 2100 opening). Bigger = floor low, smaller = floor high.</p>${thDiagram()}</div>
-  ${(()=>{const f=floorInfo(d);return f?`<div class="grp"><h4>Floor finishes</h4>${floorLine(d)}<p class="muted" style="margin:4px 0 0;font-size:12px">${f.allow?`Finish build-up allowance <b>${f.allow} mm</b> – the finished floor will sit about ${f.allow} mm above the slab readings below.`:"No build-up allowance (concrete / floor paint) – slab readings are the finished level."}</p></div>`:""})()}<div class="form"><b>Threshold level readings</b>
-    <div class="row">${inp("h","Hinge side (H)","Expected 50")}${inp("l","Latch side (L)","Expected 50")}${inp("s","High spot in swing (S)","Optional – lowest reading")}</div>
+  const t=(S.thresholds&&S.thresholds.get(ref))||{};const c=thCalc(t,d);const G=thGeom(d);const f=floorInfo(d);
+  const inp=(k,lbl,hint)=>`<label>${lbl}<span style="display:flex;align-items:center;gap:6px"><input type="number" inputmode="numeric" min="0" max="1000" step="1" id="th-${k}" data-keep="th-${k}-${ref}" value="${t[k]==null?"":esc(t[k])}" placeholder="${G.exp}" ${canWrite?"":"disabled"} style="font:600 20px var(--f-mono);max-width:110px"><span class="muted">mm</span></span><span class="muted" style="font-weight:400">${hint}</span></label>`;
+  return `<div class="grp"><h4>Door opening</h4>${kv([["Structural opening height",`${G.so} mm (${G.soSrc})`],["Frame height",`${G.fh} mm${G.fhAssumed?" (assumed SO − 10)":""}`],["Design gap at head",`${G.dgap} mm`],["Expected reading",`${G.exp} mm (${G.so} − 2050)`],["Fire rating",d.fire||"–"]])}</div>
+  ${f?`<div class="grp"><h4>Floor finishes</h4>${floorLine(d)}<p class="muted" style="margin:4px 0 0;font-size:12px">${f.allow?`Finish build-up allowance <b>${f.allow} mm</b> – used to check the leaf clears the finished floor in the swing.`:"No build-up allowance (concrete / floor paint) – slab readings are the finished level."}</p></div>`:""}
+  <div class="grp"><h4>How to measure</h4><p style="margin:0;font-size:13px">Mark the jambs 2050 mm down from the top of the formed opening, then measure from the mark down to the floor. On a level slab every reading is <b>${G.exp} mm</b> (2050 + ${G.exp} = ${G.so}). Bigger = floor low, smaller = floor high.</p>${thDiagram(G.exp)}</div>
+  <div class="form"><b>Threshold level readings</b>
+    <div class="row">${inp("h","Hinge side (H)","Expected "+G.exp)}${inp("l","Latch side (L)","Expected "+G.exp)}${inp("s","High spot in swing (S)","Optional – lowest reading in the swing arc")}</div>
+    <div class="row"><label>Leaf clearance over threshold<span style="display:flex;align-items:center;gap:6px"><input type="number" inputmode="numeric" min="0" max="30" id="th-clr" value="${esc(t.clr??8)}" ${canWrite?"":"disabled"} style="max-width:80px"><span class="muted">mm</span></span></label>${f&&f.allow?`<label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="th-fin" ${t.fin===false?"":"checked"} ${canWrite?"":"disabled"}> Include ${f.allow} mm floor finish build-up</label>`:""}</div>
     <div id="th-out">${thOut(c)}</div>
-    <label>Remedy decided<select id="th-rem" ${canWrite?"":"disabled"}>${TH_REM.map(r=>`<option value="${esc(r)}"${(t.remedy||"")===r?" selected":""}>${r?esc(r):"Not decided – use suggestion"}</option>`).join("")}</select></label>
+    <label>Remedy decided<select id="th-rem" ${canWrite?"":"disabled"}>${TH_REM.map(r=>`<option value="${esc(r)}"${(t.remedy||"")===r?" selected":""}>${r?esc(r):"Not decided – use proposal"}</option>`).join("")}</select></label>
     <label>Note<input type="text" id="th-note" data-keep="th-note-${ref}" value="${esc(t.note||"")}" placeholder="e.g. Slab dips toward latch, drainage channel nearby" ${canWrite?"":"disabled"}></label>
     ${canWrite?`<div class="row" style="flex:0"><button class="btn primary" id="th-save" style="flex:0">Save readings</button></div>`:""}
     ${t.at?`<p class="muted" style="margin:0;font-size:12px">Last saved by ${esc(name(t.by))}, ${fmt(t.at)}${(t.hist||[]).length?` · ${t.hist.length} earlier reading${t.hist.length>1?"s":""}`:""}</p>`:""}
   </div>
   ${(t.hist||[]).length?`<div class="grp" style="margin-top:12px"><h4>Earlier readings</h4>${t.hist.slice().reverse().map(x=>`<div class="muted" style="font-size:12px">${fmt(x.at)} · ${esc(name(x.by))}: H ${x.h??"–"} / L ${x.l??"–"} / S ${x.s??"–"}${x.remedy?" · "+esc(x.remedy):""}</div>`).join("")}</div>`:""}`;
 }
-function bindLevels(ref){
-  const live=()=>{const o=$("#th-out");if(o)o.innerHTML=thOut(thCalc({h:$("#th-h").value,l:$("#th-l").value,s:$("#th-s").value}))};
-  ["h","l","s"].forEach(k=>{const e=$("#th-"+k);if(e)e.oninput=live});
+function bindLevels(ref){const d=S.data.doors[ref];
+  const vals=()=>({h:$("#th-h").value,l:$("#th-l").value,s:$("#th-s").value,clr:$("#th-clr").value,fin:$("#th-fin")?$("#th-fin").checked:true});
+  const live=()=>{const o=$("#th-out");if(o)o.innerHTML=thOut(thCalc(vals(),d))};
+  ["h","l","s","clr"].forEach(k=>{const e=$("#th-"+k);if(e)e.oninput=live});const fe=$("#th-fin");if(fe)fe.onchange=live;
   const b=$("#th-save");if(!b)return;
-  b.onclick=()=>{if(!guard())return;const v={h:thNum($("#th-h").value),l:thNum($("#th-l").value),s:thNum($("#th-s").value)};
+  b.onclick=()=>{if(!guard())return;const r=vals();const v={h:thNum(r.h),l:thNum(r.l),s:thNum(r.s),clr:thNum(r.clr)??8,fin:r.fin};
     if(v.h==null||v.l==null){toast("Enter both the hinge and latch side readings");return}
-    const bad=[v.h,v.l,v.s].filter(x=>x!=null&&(x<0||x>200));if(bad.length){toast("Readings should be between 0 and 200 mm – check the values");return}
+    const e=thGeom(d).exp;const bad=[v.h,v.l,v.s].filter(x=>x!=null&&(x<0||x>e+200));if(bad.length){toast("A reading looks out of range – check the values");return}
     const old=S.thresholds.get(ref);const hist=old?[...(old.hist||[]),{h:old.h,l:old.l,s:old.s,remedy:old.remedy||"",by:old.by,at:old.at}].slice(-20):[];
-    const c=thCalc(v);
-    save(()=>put("thresholds",ref,{ref,...v,remedy:$("#th-rem").value,note:$("#th-note").value.trim(),sug:c.sug,by:meId,at:Date.now(),hist}),`${ref} readings saved`+(Math.min(v.h,v.l,v.s??99)<10||Math.max(v.h,v.l,v.s??0)>90?" – unusually large variance, please double-check":""))}}
+    const c=thCalc(v,d);
+    save(()=>put("thresholds",ref,{ref,...v,remedy:$("#th-rem").value,note:$("#th-note").value.trim(),sug:c.sug,by:meId,at:Date.now(),hist}),`${ref} readings saved`+(Math.min(v.h,v.l,v.s??999)<e-40||Math.max(v.h,v.l,v.s??0)>e+40?" – unusually large variance, please double-check":""))}}
 /* threshold report view */
 function thRows(){return [...S.data?Object.keys(S.data.doors):[]].filter(r=>supOk(S.data.doors[r])).map(r=>{const t=S.thresholds.get(r);return {r,d:S.data.doors[r],t,c:thCalc(t)}})}
 function renderThresh(){
   if(UI.sec!=="doors"){$("#th-list").innerHTML='<div class="empty">Threshold level surveys are recorded for doors only.</div>';$("#th-kpis").innerHTML="";return}
   const all=thRows(),done=all.filter(x=>x.c),seg=UI.thSeg||"action",q=($("#th-q").value||"").toLowerCase().trim();
   const cnt=k=>done.filter(x=>x.c.need[k]).length;
-  $("#th-kpis").innerHTML=[["Surveyed",`${done.length} / ${all.length}`],["Within tolerance",done.filter(x=>x.c.ok).length],["Screed needed",cnt("screed")],["Door height reduction",cnt("reduce")],["Grind high spot",cnt("grind")]].map(([k,v])=>`<div class="kpi"><b>${v}</b><span>${k}</span></div>`).join("");
+  $("#th-kpis").innerHTML=[["Surveyed",`${done.length} / ${all.length}`],["Within tolerance",done.filter(x=>x.c.ok).length],["Screed needed",cnt("screed")],["Head gap to fill",cnt("headfill")],["Swing build-up",cnt("swing")],["Door height reduction",cnt("reduce")]].map(([k,v])=>`<div class="kpi"><b>${v}</b><span>${k}</span></div>`).join("");
   let list=seg==="todo"?all.filter(x=>!x.c):seg==="action"?done.filter(x=>!x.c.ok):seg==="ok"?done.filter(x=>x.c.ok):done;
   if(q)list=list.filter(x=>[x.r,x.d.from,x.d.to,x.d.supplier,x.t&&x.t.note,x.t&&x.t.remedy,x.c&&x.c.sug].join(" ").toLowerCase().includes(q));
   list.sort((a,b)=>(b.c?b.c.dev:-1)-(a.c?a.c.dev:-1)||a.r.localeCompare(b.r));
   list.forEach(x=>x.t&&want(x.t.by));
   const lvl=d=>d.level==null?"":d.level==="Roof"?"Roof":(d.level>=0?"+":"")+d.level;
-  $("#th-list").innerHTML=list.length?`<div class="tbl-wrap"><table><thead><tr><th>Ref</th><th>Location</th><th>Level</th><th>H</th><th>L</th><th>S</th><th>Fall</th><th>Assessment</th><th>Remedy</th><th>Note</th><th>Measured</th></tr></thead><tbody>${list.map(({r,d,t,c})=>`<tr data-ref="${esc(r)}" data-dt-open="levels"><td class="ref">${esc(r)}</td><td>${esc(d.from&&d.to?d.from+" → "+d.to:d.from||d.desc||(d.table||"").replace(/^Door Schedule - /,""))}<br><span class="muted" style="font-size:11px">${esc(d.supplier||"")}</span></td><td class="mono">${esc(lvl(d))}</td>${c?`<td class="mono th-v ${thCls(c.h)}">${c.h}</td><td class="mono th-v ${thCls(c.l)}">${c.l}</td><td class="mono th-v ${thCls(c.s)}">${c.s??"–"}</td><td class="mono">${c.fall}</td><td>${c.ok?'<span class="pill green">OK</span>':[c.high>TH_TOL?`<span class="pill warn">${c.high} high</span>`:"",c.low>TH_TOL?`<span class="pill blue">${c.low} low</span>`:"",c.need.grind?`<span class="pill red">Swing</span>`:""].join(" ")}</td><td>${t.remedy?`<b>${esc(t.remedy)}</b>`:`<span class="muted">${esc(c.sug)} (suggested)</span>`}</td><td style="max-width:220px">${esc(t.note||"")}</td><td class="muted" style="font-size:12px">${esc(name(t.by))}<br>${fmt(t.at)}</td>`:`<td colspan="8" class="muted">Not surveyed</td>`}</tr>`).join("")}</tbody></table></div>`:`<div class="empty">${seg==="action"?"No doors needing remedial work yet. Readings are entered on each door's Threshold levels tab.":"Nothing here."}</div>`;
+  $("#th-list").innerHTML=list.length?`<div class="tbl-wrap"><table><thead><tr><th>Ref</th><th>Location</th><th>Level</th><th>H</th><th>L</th><th>S</th><th>Fall</th><th>Screed H / L</th><th>Head gap</th><th>Assessment</th><th>Remedy</th><th>Note</th><th>Measured</th></tr></thead><tbody>${list.map(({r,d,t,c})=>`<tr data-ref="${esc(r)}" data-dt-open="levels"><td class="ref">${esc(r)}</td><td>${esc(d.from&&d.to?d.from+" → "+d.to:d.from||d.desc||(d.table||"").replace(/^Door Schedule - /,""))}<br><span class="muted" style="font-size:11px">${esc(d.supplier||"")}</span></td><td class="mono">${esc(lvl(d))}</td>${c?`<td class="mono th-v ${thCls(c.h,c.G.exp)}">${c.h}</td><td class="mono th-v ${thCls(c.l,c.G.exp)}">${c.l}</td><td class="mono th-v ${thCls(c.s,c.G.exp)}">${c.s??"–"}</td><td class="mono">${c.fall}</td><td class="mono">${c.sH} / ${c.sL}</td><td class="mono">${c.headGap}${c.need.reduce?' <span class="pill red">short</span>':""}</td><td>${c.ok?'<span class="pill green">OK</span>':[c.need.screed?`<span class="pill blue">Screed ${c.smax}</span>`:"",c.need.headfill?`<span class="pill warn">Head +${c.extra}</span>`:"",c.swingUp?`<span class="pill red">Swing +${c.swingUp}</span>`:"",c.need.reduce?`<span class="pill red">Reduce ${c.reduceBy}</span>`:""].join(" ")}</td><td>${t.remedy?`<b>${esc(t.remedy)}</b>`:`<span class="muted">${esc(c.sug)} (suggested)</span>`}</td><td style="max-width:220px">${esc(t.note||"")}</td><td class="muted" style="font-size:12px">${esc(name(t.by))}<br>${fmt(t.at)}</td>`:`<td colspan="10" class="muted">Not surveyed</td>`}</tr>`).join("")}</tbody></table></div>`:`<div class="empty">${seg==="action"?"No doors needing remedial work yet. Readings are entered on each door's Threshold levels tab.":"Nothing here."}</div>`;
   $("#c-th").textContent=done.filter(x=>!x.c.ok).length;
 }
 async function exportThresh(){
   const q=v=>{v=v==null?"":String(v);return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
-  const lines=[["Ref","From","To","Supplier","Level","Hinge (mm)","Latch (mm)","Swing high spot (mm)","Fall (mm)","Floor high (mm)","Floor low (mm)","Opening height (mm)","Screed","Reduce door height","Grind high spot","Suggested","Remedy decided","Note","Measured by","Measured","Floor finish side A","Floor finish side B","Finish allowance (mm)"].join(",")];
-  for(const {r,d,t,c} of thRows()){if(!c)continue;lines.push([r,d.from,d.to,d.supplier,d.level,c.h,c.l,c.s,c.fall,c.high,c.low,2050+Math.min(c.h,c.l),c.need.screed?"Yes":"",c.need.reduce?c.high:"",c.need.grind?"Yes":"",c.sug,t.remedy,t.note,name(t.by),new Date(t.at).toLocaleString("en-GB"),...floorCsv(d)].map(q).join(","))}
+  const lines=[["Ref","From","To","Supplier","Level","Fire","Structural opening (mm)","Frame height (mm)","Expected reading (mm)","Hinge (mm)","Latch (mm)","Swing high spot (mm)","Fall (mm)","Finish allowance used (mm)","Leaf clearance (mm)","Screed hinge (mm)","Screed latch (mm)","Swing build-up (mm)","Head gap (mm)","Design head gap (mm)","Extra head gap (mm)","Reduce door height (mm)","Proposed remedial","Remedy decided","Note","Measured by","Measured","Floor finish side A","Floor finish side B","Finish allowance (mm)"].join(",")];
+  for(const {r,d,t,c} of thRows()){if(!c)continue;lines.push([r,d.from,d.to,d.supplier,d.level,d.fire,c.G.so,c.G.fh,c.G.exp,c.h,c.l,c.s,c.fall,c.A,c.clr,c.sH,c.sL,c.swingUp,c.headGap,c.G.dgap,c.extra,c.reduceBy||"",c.acts.map(x=>x.replace(/<[^>]+>/g,"")).join(" "),t.remedy,t.note,name(t.by),new Date(t.at).toLocaleString("en-GB"),...floorCsv(d)].map(q).join(","))}
   const data=lines.join("\n"),fn=`SCEC-threshold-levels-${new Date().toISOString().slice(0,10)}.csv`;
   if(downloads){try{await downloads.save({filename:fn,data})}catch(e){if(e&&e.code!=="declined"&&e.code!=="cancelled")toast("Export didn't complete: "+(e.code||e.message))}}
   else{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type:"text/csv"}));a.download=fn;a.click()}}
