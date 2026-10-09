@@ -1,5 +1,5 @@
 // Door Tracker API (Cloudflare Pages Functions + D1). Requests reach here only for approved users (see _middleware.js).
-import {json,ensureSchema,who,owners} from "../../lib/core.js";
+import {json,ensureSchema,who,owners,niceName} from "../../lib/core.js";
 const ADMIN_ONLY=new Set(["users","overrides","diffres"]);
 const COLS=new Set(["doors","louvres","defects","requests","photos","users","overrides","thresholds","firedocs","diffres"]);
 const isAdm=u=>u.role==="owner"||u.role==="admin";
@@ -8,13 +8,15 @@ export async function onRequest(ctx){
   await ensureSchema(env);
   const u=await who(req,env);if(!u)return json({error:"Not signed in"},401);
   try{
-    if(p[0]==="me")return json(u);
+    if(p[0]==="me"){if(m==="PUT"){const b=await req.json().catch(()=>({}));const n=String(b.name||"").trim().slice(0,60);if(n.length<2)return json({error:"Enter your name"},400);
+        await env.DB.prepare("UPDATE people SET name=? WHERE email=?").bind(n,u.email).run();return json({...u,name:n})}
+      return json({...u,autoName:u.name===niceName(u.email)})}
     if(p[0]==="admin"){
       if(!isAdm(u))return json({error:"Admins only"},403);
       if(p[1]==="people"&&m==="GET"){const {results}=await env.DB.prepare("SELECT email,name,role,first_seen,requested,note,decided_by,decided_at FROM people ORDER BY (role='pending') DESC,requested DESC,email").all();
         const own=owners(env);const adm=new Set((await env.DB.prepare("SELECT id,data FROM docs WHERE col='users' AND deleted=0").all()).results.filter(r=>JSON.parse(r.data).role==="admin").map(r=>r.id));
         return json(results.map(r=>({...r,role:own.includes(r.email)?"owner":(r.role==="member"&&adm.has(r.email)?"admin":r.role)})))}
-      if(p[1]==="people"&&p[2]&&m==="PUT"){const email=p[2].toLowerCase();const b=await req.json();const role=b.role;
+      if(p[1]==="people"&&p[2]&&m==="PUT"){const email=p[2].toLowerCase();const b=await req.json();if(b.name&&!b.role){const n=String(b.name).trim().slice(0,60);await env.DB.prepare("UPDATE people SET name=? WHERE email=?").bind(n,email).run();return json({ok:true})}const role=b.role;
         if(!["member","viewer","admin","rejected","pending"].includes(role))return json({error:"Bad role"},400);
         if(owners(env).includes(email))return json({error:"Owners are set in the site config"},400);
         await env.DB.prepare("UPDATE people SET role=?,decided_by=?,decided_at=? WHERE email=?").bind(role==="admin"?"member":role,u.email,Date.now(),email).run();

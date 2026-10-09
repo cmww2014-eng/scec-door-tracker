@@ -2,7 +2,7 @@
    backed by /api (Pages Functions + D1). Identity comes from Cloudflare Access. */
 (function(){
   const J=(u,o)=>fetch(u,Object.assign({credentials:"same-origin"},o||{})).then(async r=>{if(!r.ok){const e=new Error((await r.text())||r.statusText);e.code=r.status===403?"permission_denied":"http_"+r.status;throw e}return r.headers.get("content-type")?.includes("json")?r.json():r.text()});
-  let mePromise=null;const me=()=>mePromise||(mePromise=J("/api/me"));
+  let mePromise=null;const me=()=>mePromise||(mePromise=J("/api/me").then(m=>(window.__CF_ME=m,m)));
   const POLL=15000;const cols={};
   function colState(name){
     if(cols[name])return cols[name];

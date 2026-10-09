@@ -13,3 +13,5 @@ database_id = "86bc7011-834e-433c-8773-3baa1971ea8e"
 ADMIN_EMAILS = "cmww2014@gmail.com,craig.williams@afry.com"
 # Email domains/addresses let in without approval, e.g. "@afry.com" (leave empty to approve everyone in the app).
 AUTO_APPROVE = ""
+# Display names (replaces the name guessed from the email address until the person sets their own)
+NAMES = "cmww2014@gmail.com=Craig Williams; craig.williams@afry.com=Craig Williams"
