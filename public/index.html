@@ -122,7 +122,7 @@ main{flex:1;min-height:0;position:relative;display:flex}
 .panel-page{flex-direction:column;overflow:auto;padding:14px 16px 24px;gap:12px}
 .filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .filters input[type=search]{flex:1;min-width:180px}
-input[type=text],input[type=search],input[type=date],select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:7px 9px;min-width:0}
+input[type=text],input[type=search],input[type=date],input[type=email],input[type=number],select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:7px 9px;min-width:0}
 textarea{width:100%;min-height:70px;resize:vertical}
 .btn{border:1px solid var(--line);background:var(--surface);border-radius:var(--r);padding:7px 12px;font-weight:500;white-space:nowrap}
 .btn:hover{border-color:var(--muted)}
@@ -244,6 +244,11 @@ td.ref{font:600 13px var(--f-mono);white-space:nowrap}
 }
 @media (prefers-reduced-motion:reduce){.pin.hit i{animation:none}}
 .d-floor{font-size:12.5px;margin:4px 0 2px;line-height:1.5}.fl-side{color:var(--muted)}.fl-side.dom{font-weight:700;color:var(--ink,inherit)}
+.rp-title{display:flex;flex-direction:column;gap:2px;margin:4px 0}.rp-title b{font:600 18px var(--f-display)}
+.rp-h{margin:16px 0 6px;font:600 12px var(--f-body);text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+table.rp tr.tot td{font-weight:700;border-top:2px solid var(--line)}table.rp tr.grp-row td{background:var(--sunk)}table.rp tr[data-ref]{cursor:pointer}
+@media print{header.top,.supbar,nav.tabs,.noprint,#banner,.drawer,.scrim,.toast{display:none!important}body{background:#fff}.panel-page{padding:0!important}.tbl-wrap{overflow:visible!important;max-height:none!important}table.rp{font-size:10px}table.rp tr{break-inside:avoid}}
+.dnotes{margin:6px 0 0;padding-left:18px;font-size:13px}.dnotes li{margin:2px 0}
 .th-act{font-size:13px;border-left:3px solid var(--warn);padding:4px 8px;background:var(--surface)}.th-act.ok{border-color:var(--ok)}
 .th-v.hi{color:var(--warn);font-weight:700}.th-v.lo{color:var(--accent);font-weight:700}
 .pill.batch{background:#5B3FA0;color:#fff}
@@ -263,6 +268,7 @@ td.ref{font:600 13px var(--f-mono);white-space:nowrap}
   <button role="tab" data-v="defects" aria-selected="false">Defects <span class="count" id="c-def">0</span></button>
   <button role="tab" data-v="requests" aria-selected="false">Requests <span class="count" id="c-req">0</span></button>
   <button role="tab" data-v="thresh" aria-selected="false">Threshold levels <span class="count" id="c-th">0</span></button>
+  <button role="tab" data-v="reports" aria-selected="false">Reports</button>
 </nav>
 <div id="banner" class="banner" hidden></div>
 <main>
@@ -312,6 +318,14 @@ td.ref{font:600 13px var(--f-mono);white-space:nowrap}
     </div>
     <div class="cards" id="req-list"></div>
   </section>
+  <section class="view panel-page" id="v-reports" hidden>
+    <div class="filters noprint">
+      <div class="seg" id="rp-seg"><button aria-pressed="true" data-v="comp">Completion status</button><button aria-pressed="false" data-v="def">Open defects</button></div>
+      <select id="rp-group" aria-label="Group by"><option value="level">Group by level</option><option value="supplier">Group by supplier</option><option value="plan">Group by drawing</option></select>
+      <button class="btn" id="rp-csv">Export CSV</button><button class="btn" id="rp-print">Print / save PDF</button>
+    </div>
+    <div id="rp-body"></div>
+  </section>
   <section class="view panel-page" id="v-thresh" hidden>
     <div class="kpis" id="th-kpis" style="display:flex;gap:8px;flex-wrap:wrap"></div>
     <div class="filters">
@@ -333,8 +347,7 @@ td.ref{font:600 13px var(--f-mono);white-space:nowrap}
 const STAGESETS={doors:[
  {k:"Not started",c:"--s0",hint:"Nothing on site yet"},
  {k:"Jamb prepared",c:"--sB",hint:"Reveal flashed / boarded, ready for frame"},
- {k:"Frame installed",c:"--s1",hint:"Frame fixed & packed"},
- {k:"Leaf hung",c:"--s2",hint:"Leaf hung, gaps checked"},
+ {k:"Door installed",c:"--s2",hint:"Frame fixed & packed, leaf hung, gaps checked"},
  {k:"Ironmongery fitted",c:"--s3",hint:"Per supplier design"},
  {k:"Complete",c:"--s4",hint:"Ready for inspection",done:1},
  {k:"Inspected",c:"--s5",hint:"Signed off",done:1}],
@@ -346,8 +359,11 @@ const STAGESETS={doors:[
  {k:"Complete",c:"--s4",hint:"Ready for inspection",done:1},
  {k:"Inspected",c:"--s5",hint:"Signed off",done:1}]};
 const DONE=c=>STAGES.reduce((n,x,i)=>n+(x.done?c[i]:0),0);
-const DOORS_V=3;function migrate(col,o){if(col!=="doors"||(o.v||1)>=DOORS_V)return o;const v=o.v||1;const f=v===1?(x=>x>=1?x+1:x):(x=>x>=2?x-1:0);return {...o,v:DOORS_V,stage:typeof o.stage==="number"?f(o.stage):o.stage,hist:(o.hist||[]).map(h=>({...h,s:f(h.s)}))}}
-const DESIGN={Approved:{t:"Design approved for construction",cls:"green"},Prelim:{t:"Prelim design (P-rev)",cls:"warn"},None:{t:"No supplier design",cls:""}};
+const DOORS_V=4;function migrate(col,o){if(col!=="doors"||(o.v||1)>=DOORS_V)return o;const v=o.v||1;
+  /* v1→v3 (Jamb prepared added), v3→v4 (Frame installed + Leaf hung merged into Door installed) */
+  const f3=v===1?(x=>x>=1?x+1:x):v===2?(x=>x>=2?x-1:0):(x=>x);const f4=x=>x<=2?x:x-1;const f=x=>typeof x==="number"?f4(f3(x)):x;
+  return {...o,v:DOORS_V,stage:f(o.stage),hist:(o.hist||[]).map(h=>({...h,s:f(h.s)}))}}
+const DESIGN={Approved:{t:"Design approved for construction",cls:"green"},Prelim:{t:"Prelim design – not approved",cls:"red"},None:{t:"No supplier design",cls:""}};
 function batchTxt(b){return b&&b.length?"Batch "+b.join(" + "):""}
 function batchPill(d){if(UI.sec!=="doors"||!/almet/i.test(d.supplier||""))return"";return d.batch&&d.batch.length?`<span class="pill batch" title="Almet manufacturing batch${d.batch.length>1?" (issued in batch "+d.batch.join(", reissued in batch ")+")":""}">${batchTxt(d.batch)}</span>`:`<span class="pill" title="Not in Almet batch 1, 2 or 3">No batch</span>`}
 function designPill(d){if(UI.sec!=="doors")return"";const x=DESIGN[d.design||"None"];return `<span class="pill ${x.cls}" title="${esc((d.designRevs||[]).length?"Drawing rev "+d.designRevs.join(", "):"")}">${x.t}</span>`}
@@ -355,7 +371,7 @@ let STAGES=STAGESETS.doors;
 const SEC={doors:{one:"door",many:"doors",title:"Door Tracker",sched:"Door schedule",pcol:"doors"},louvres:{one:"louvre",many:"louvres",title:"COLT Louvres",sched:"Louvre schedule",pcol:"louvres"}};
 const DEF_CATS=["Damage / finish","Gaps / alignment","Ironmongery","Seals / intumescent","Glazing","Signage","Frame / fixing","Other"];
 const REQ_STATES=["Requested","Scheduled","Connected","Declined"];
-const S={data:null,RAW:null,doors:new Map(),prog:{doors:new Map(),louvres:new Map()},defects:new Map(),requests:new Map(),thresholds:new Map(),photos:[],names:{}};
+const S={data:null,RAW:null,doors:new Map(),prog:{doors:new Map(),louvres:new Map()},defects:new Map(),requests:new Map(),thresholds:new Map(),firedocs:new Map(),photos:[],names:{}};
 const UI={sup:"",fires:new Set(),sec:"doors",view:"plans",dwg:null,show:new Set(STAGES.map((_,i)=>i)),door:null,dtab:"progress",defSeg:"Open",reqSeg:"active",confirm:null,level:undefined};
 let db=null,assets=null,userCap=null,downloads=null,meId=null,canWrite=true,live=false,photoUnsub=null,isOwner=false,users=new Map();
 function isAdmin(){if(isOwner)return true;const u=meId&&users.get(meId);return !!(u&&u.role==="admin")}
@@ -408,7 +424,7 @@ async function boot(){
     if(!canWrite)banner("You have view-only access. Ask the tracker owner for Contributor access to update doors.");
     db.collection("users").onSnapshot(snap=>{users=new Map(snap.docs.map(d=>[d.id,{id:d.id,...d.data()}]));renderWho();renderAll()},()=>{});
     db.collection("overrides").onSnapshot(snap=>{applyOverrides(snap.docs.map(d=>({id:d.id,...d.data()})));renderAll()},()=>{});
-    for(const col of["doors","louvres","defects","requests","thresholds"]){
+    for(const col of["doors","louvres","defects","requests","thresholds","firedocs"]){
       db.collection(col).onSnapshot(snap=>{const m=new Map(snap.docs.map(d=>[d.id,migrate(col,{id:d.id,...d.data()})]));if(col==="doors"||col==="louvres"){S.prog[col]=m;S.doors=S.prog[SEC[UI.sec].pcol]}else S[col]=m;renderAll()},e=>banner("Lost connection to the shared tracker ("+(e&&e.code||"error")+"). Reload the page to reconnect.","warn"));
     }
   }
@@ -497,7 +513,10 @@ function bindStatic(){
   $("#door-rows").addEventListener("click",e=>{const tr=e.target.closest("tr[data-ref]");if(tr)openDoor(tr.dataset.ref)});
   $("#th-list").addEventListener("click",e=>{const tr=e.target.closest("tr[data-ref]");if(tr){UI.dtab="levels";openDoor(tr.dataset.ref)}});
   $("#th-seg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;UI.thSeg=b.dataset.v;segSet("#th-seg",b);renderThresh()});
-  $("#th-q").addEventListener("input",()=>renderThresh());$("#th-export").onclick=exportThresh;
+  $("#th-q").addEventListener("input",()=>renderThresh());
+  $("#rp-seg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;UI.rpSeg=b.dataset.v;segSet("#rp-seg",b);renderReports()});
+  $("#rp-group").onchange=()=>renderReports();$("#rp-csv").onclick=exportReport;$("#rp-print").onclick=()=>window.print();
+  $("#rp-body").addEventListener("click",e=>{const tr=e.target.closest("tr[data-ref]");if(tr)openDoor(tr.dataset.ref)});$("#th-export").onclick=exportThresh;
   $("#dwg-list").addEventListener("click",e=>{const b=e.target.closest("[data-dwg]");if(b)showDwg(b.dataset.dwg,true)});
   $("#dwg-select").addEventListener("input",e=>showDwg(e.target.value,true));
   $("#scrim").addEventListener("click",closeDoor);
@@ -509,7 +528,7 @@ function bindStatic(){
 }
 function segSet(sel,b){$(sel).querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"))}
 function setView(v){UI.view=v;$("#tabs").querySelectorAll("button").forEach(b=>b.setAttribute("aria-selected",b.dataset.v===v?"true":"false"));
-  for(const id of["plans","doors","defects","requests","thresh"])$("#v-"+id).hidden=id!==v;
+  for(const id of["plans","doors","defects","requests","thresh","reports"])$("#v-"+id).hidden=id!==v;
   if(v==="plans")requestAnimationFrame(()=>{if(!view.fitted)fit()});renderAll()}
 function fillFilters(){
   const D=S.data.doors;
@@ -528,7 +547,7 @@ function consOf(d){return d.ctype||""}
 
 /* ---------- render ---------- */
 function renderAll(){if(!S.data)return;renderHeader();renderDwgList();renderPins();
-  if(UI.view==="doors")renderDoors();if(UI.view==="defects")renderDefects();if(UI.view==="requests")renderRequests();if(UI.view==="thresh")renderThresh();else if(S.data&&UI.sec==="doors"){const n=[...S.thresholds.values()].filter(t=>{const c=thCalc(t);return c&&!c.ok&&S.data.doors[t.id]&&supOk(S.data.doors[t.id])}).length;$("#c-th").textContent=n}
+  if(UI.view==="doors")renderDoors();if(UI.view==="defects")renderDefects();if(UI.view==="requests")renderRequests();if(UI.view==="reports")renderReports();if(UI.view==="thresh")renderThresh();else if(S.data&&UI.sec==="doors"){const n=[...S.thresholds.values()].filter(t=>{const c=thCalc(t);return c&&!c.ok&&S.data.doors[t.id]&&supOk(S.data.doors[t.id])}).length;$("#c-th").textContent=n}
   if(UI.door)renderDrawer()}
 function counts(refs){const c=STAGES.map(()=>0);for(const r of refs)c[stageOf(r)]++;return c}
 function bar(c,total,cls){return `<div class="${cls}">`+c.map((n,i)=>n?`<i style="width:${(n/total*100).toFixed(2)}%;background:${css(STAGES[i].c)}" title="${esc(STAGES[i].k)}: ${n}"></i>`:"").join("")+`</div>`}
@@ -650,7 +669,9 @@ function renderDefects(){
 function defectCard(d,inDrawer){const sev=d.sev==="High"?"red":d.sev==="Low"?"":"blue";
   return `<div class="card"><div class="card-h">${inDrawer?"":`<button class="ref" data-open="${esc(d.ref)}">${esc(d.ref)}</button>`}<b style="flex:1;min-width:0">${esc(d.title)}</b><span class="pill ${d.status==="Closed"?"green":sev}">${d.status==="Closed"?"Closed":esc(d.sev||"Medium")}</span></div>
   ${d.detail?`<p>${esc(d.detail)}</p>`:""}<div class="meta">${esc(d.cat||"")} · Raised by ${esc(name(d.by))}, ${fmt(d.at)}${d.status==="Closed"?` · Closed by ${esc(name(d.closedBy))}, ${fmt(d.closedAt)}${d.closeNote?" — "+esc(d.closeNote):""}`:""}</div>
-  ${canWrite?`<div class="acts">${d.status==="Closed"?`<button class="btn sm" data-def-reopen="${d.id}">Reopen</button>`:`<button class="btn sm" data-def-close="${d.id}">Close defect</button>`}</div>`:""}</div>`}
+  ${(d.notes||[]).length?`<ul class="dnotes">${d.notes.map(n=>{want(n.by);return `<li>${esc(n.t)}<span class="meta"> — ${esc(name(n.by))}, ${fmt(n.at)}</span></li>`}).join("")}</ul>`:""}
+  ${(d.sent||[]).length?`<div class="meta">✉ Sent for action: ${d.sent.map(x=>`${esc(x.to||"(shared)")} ${fmt(x.at)}`).join("; ")}</div>`:""}
+  ${canWrite?`<div class="acts">${d.status==="Closed"?`<button class="btn sm" data-def-reopen="${d.id}">Reopen</button>`:`<button class="btn sm" data-def-close="${d.id}">Close defect</button>`}<button class="btn sm" data-def-note="${d.id}">Add note</button><button class="btn sm primary" data-def-mail="${d.id}">✉ Email for action</button></div>`:""}</div>`}
 function renderRequests(){
   const k=$("#req-kind").value;
   const list=[...S.requests.values()].filter(r=>inSec(r.ref)&&(!k||r.kind===k)&&(!UI.reqSeg||(UI.reqSeg==="active"?(r.status==="Requested"||r.status==="Scheduled"):(r.status==="Connected"||r.status==="Declined")))).sort((a,b)=>(a.need||"9").localeCompare(b.need||"9")||(b.at||0)-(a.at||0));
@@ -671,6 +692,11 @@ async function listClicks(e){
   if(b=t.closest("[data-def-close]")){if(!guard())return;const d=S.defects.get(b.dataset.defClose);if(!d)return;
     const note=b.closest(".card").querySelector("[data-close-note]");if(!note){b.insertAdjacentHTML("afterend",`<span class="confirm"><input type="text" data-close-note placeholder="How was it fixed? (optional)" aria-label="Close note"><button class="btn sm primary" data-def-close="${d.id}">Confirm close</button></span>`);b.remove();return}
     await save(()=>put("defects",d.id,{...strip(d),status:"Closed",closedBy:meId,closedAt:Date.now(),closeNote:note.value.trim()}),"Defect closed");return}
+  if(b=t.closest("[data-def-note]")){if(!guard())return;const d=S.defects.get(b.dataset.defNote);if(!d)return;const card=b.closest(".card");let box=card.querySelector("[data-note-box]");
+    if(!box){b.insertAdjacentHTML("afterend",`<span class="confirm" data-note-box><input type="text" data-note-in placeholder="Additional information, update or instruction" aria-label="Note" style="min-width:220px"><button class="btn sm primary" data-def-note-save="${d.id}">Save note</button></span>`);card.querySelector("[data-note-in]").focus()}return}
+  if(b=t.closest("[data-def-note-save]")){if(!guard())return;const d=S.defects.get(b.dataset.defNoteSave);const inp=b.closest(".card").querySelector("[data-note-in]");const v=inp&&inp.value.trim();if(!d||!v){toast("Type the note first.");return}
+    await save(()=>put("defects",d.id,{...strip(d),notes:[...(d.notes||[]),{t:v,by:meId,at:Date.now()}]}),"Note added");return}
+  if(b=t.closest("[data-def-mail]")){const d=S.defects.get(b.dataset.defMail);if(d)openMail(d);return}
   if(b=t.closest("[data-def-reopen]")){if(!guard())return;const d=S.defects.get(b.dataset.defReopen);if(d)await save(()=>put("defects",d.id,{...strip(d),status:"Open",closedBy:null,closedAt:null}),"Defect reopened");return}
   if(b=t.closest("[data-req]")){if(!guard())return;const r=S.requests.get(b.dataset.req);if(r)await save(()=>put("requests",r.id,{...strip(r),status:b.dataset.st,upBy:meId,upAt:Date.now()}),"Request marked "+b.dataset.st.toLowerCase());return}
 }
@@ -690,13 +716,13 @@ function renderDrawer(){
   const photos=S.photos.filter(p=>p.ref===ref);
   const od=defs.filter(x=>x.status!=="Closed").length;
   const where=UI.sec==="louvres"?(d.soW?`${d.soW} × ${d.soH} mm`:"COLT"):(d.from&&d.to?`${d.from} → ${d.to}`:(d.from||(d.table||"Not in door schedules").replace(/^Door Schedule - /,"")));
-  const tabs=[["progress","Progress & inspection"],["design","Design"],["photos",`Photos${photos.length?" ("+photos.length+")":""}`],["defects",`Defects${od?" ("+od+")":""}`],["requests",`Requests${reqs.length?" ("+reqs.length+")":""}`]];if(UI.sec==="doors")tabs.splice(1,0,["levels",S.thresholds.has(ref)?"Thresholds ✓":"Thresholds"]);if(UI.dtab==="levels"&&UI.sec!=="doors")UI.dtab="progress";
+  const tabs=[["progress","Progress & inspection"],["design","Design"],["photos",`Photos${photos.length?" ("+photos.length+")":""}`],["defects",`Defects${od?" ("+od+")":""}`],["requests",`Requests${reqs.length?" ("+reqs.length+")":""}`]];if(UI.sec==="doors"&&isFR(d)){const nd=[...S.firedocs.values()].filter(x=>x.ref===ref).length;tabs.push(["fire",`Fire inspection${nd?" ("+nd+")":""}`])}if(UI.dtab==="fire"&&!(UI.sec==="doors"&&isFR(d)))UI.dtab="progress";if(UI.sec==="doors")tabs.splice(1,0,["levels",S.thresholds.has(ref)?"Thresholds & finishes ✓":"Thresholds & finishes"]);if(UI.dtab==="levels"&&UI.sec!=="doors")UI.dtab="progress";
   const prevScroll=$(".d-body")?$(".d-body").scrollTop:0;const keepForm=captureForm();
   $("#drawer").innerHTML=`<div class="d-head"><div class="d-row"><span class="d-ref">${esc(ref)}</span><span class="tag"><i class="dot" style="background:${css(STAGES[s].c)}"></i>${esc(STAGES[s].k)}</span><button class="x" id="d-close" aria-label="Close">×</button></div>
-    <div class="d-sub">${esc(where)}${d.desc?" · "+esc(d.desc):""}</div>${UI.sec==="doors"?floorLine(d):""}
-    <div class="d-row" style="flex-wrap:wrap;gap:6px">${d.fire?`<span class="fire ${/no fr|n\/a/i.test(d.fire)?"":"fr"}">${esc(d.fire)}</span>`:""}${d.type?`<span class="pill">Type ${esc(d.type)}</span>`:""}${d.hw?`<span class="pill">${esc(d.hw)}</span>`:""}${d.supplier?`<span class="pill">${esc(d.supplier)}${d.supInferred?" (assumed)":""}</span>`:""}${d.alert?`<span class="pill" style="background:var(--danger);color:#fff">Open issue</span>`:""}${d.prep?`<span class="pill blue">Threshold prep</span>`:""}${batchPill(d)}${designPill(d)}${thPill(ref)}${d.level!=null?`<span class="pill ${d.levelQ?"warn":""}" title="${esc(d.levelQ||"")}">${esc(d.level==="Roof"?"Roof":"Level "+(d.level>=0?"+":"")+d.level+"m")}${d.levelQ?" · to confirm":""}</span>`:""}${d.conn?`<span class="pill blue">${esc(d.conn==="Controls"?"AOV controls":d.conn)}</span>`:""}${openDiffs(d).length?`<span class="pill warn">${openDiffs(d).length} open conflict${openDiffs(d).length>1?"s":""}</span>`:((d.diffs||[]).length?`<span class="pill green">Conflicts resolved</span>`:"")}${d.locs.length?`<button class="btn sm" id="d-locate">Show on plan</button>`:'<span class="pill">Not on uploaded drawings</span>'}</div></div>
+    <div class="d-sub">${esc(where)}${d.desc?" · "+esc(d.desc):""}</div>
+    <div class="d-row" style="flex-wrap:wrap;gap:6px">${d.fire?`<span class="fire ${/no fr|n\/a/i.test(d.fire)?"":"fr"}">${esc(d.fire)}</span>`:""}${d.hw?`<span class="pill">${esc(d.hw)}</span>`:""}${d.supplier?`<span class="pill">${esc(d.supplier)}${d.supInferred?" (assumed)":""}</span>`:""}${d.alert?`<span class="pill" style="background:var(--danger);color:#fff">Open issue</span>`:""}${d.prep?`<span class="pill blue">Threshold prep</span>`:""}${batchPill(d)}${designPill(d)}${thPill(ref)}${jambOpen(ref,d).length?`<span class="pill red">Jamb issue</span>`:""}${d.level!=null?`<span class="pill ${d.levelQ?"warn":""}" title="${esc(d.levelQ||"")}">${esc(d.level==="Roof"?"Roof":"Level "+(d.level>=0?"+":"")+d.level+"m")}${d.levelQ?" · to confirm":""}</span>`:""}${d.conn?`<span class="pill blue">${esc(d.conn==="Controls"?"AOV controls":d.conn)}</span>`:""}${openDiffs(d).length?`<span class="pill warn">${openDiffs(d).length} open conflict${openDiffs(d).length>1?"s":""}</span>`:((d.diffs||[]).length?`<span class="pill green">Conflicts resolved</span>`:"")}${d.locs.length?`<button class="btn sm" id="d-locate">Show on plan</button>`:'<span class="pill">Not on uploaded drawings</span>'}</div></div>
     <div class="d-tabs" role="tablist">${tabs.map(([k,l])=>`<button role="tab" data-dt="${k}" aria-selected="${UI.dtab===k}">${esc(l)}</button>`).join("")}</div>
-    <div class="d-body">${({progress:tabProgress,design:tabDesign,ldesign:tabLDesign,photos:tabPhotos,defects:tabDefects,requests:tabRequests,levels:tabLevels})[UI.dtab==="design"&&UI.sec==="louvres"?"ldesign":UI.dtab](ref,d,{s,st,defs,reqs,photos})}</div>`;
+    <div class="d-body">${({progress:tabProgress,design:tabDesign,ldesign:tabLDesign,photos:tabPhotos,defects:tabDefects,requests:tabRequests,levels:tabLevels,fire:tabFire})[UI.dtab==="design"&&UI.sec==="louvres"?"ldesign":UI.dtab](ref,d,{s,st,defs,reqs,photos})}</div>`;
   $("#d-close").onclick=closeDoor;const loc=$("#d-locate");if(loc)loc.onclick=()=>{if(window.innerWidth<=900)closeDoorKeep();locate(ref)};
   $("#drawer").querySelector(".d-tabs").onclick=e=>{const b=e.target.closest("[data-dt]");if(b){UI.dtab=b.dataset.dt;renderDrawer();$(".d-body").scrollTop=0}};
   bindDrawer(ref,d);restoreForm(keepForm);$(".d-body").scrollTop=prevScroll;
@@ -710,25 +736,37 @@ function tabProgress(ref,d,{s,st}){
   return top+`<div class="grp"><h4>Installation stage</h4><div class="steps">${STAGES.map((x,i)=>`<button class="step ${i<=s&&i>0?"done":""} ${i===s?"cur":""}" style="--sc:${css(x.c)}" data-stage="${i}" ${canWrite&&!stageBlock(ref,d,i)?"":"disabled"} title="${esc(stageBlock(ref,d,i)||"")}"><span class="n">${i===0?"–":i}</span><span class="lbl">${esc(x.k)}</span><span class="hint">${i===s&&st.at?esc(name(st.by))+"<br>"+fmt(st.at):esc(x.hint)}</span></button>`).join("")}</div></div>
   <p class="muted" style="margin:-4px 0 10px;font-size:12px">Complete and Inspected unlock only once every earlier stage is set and the inspection checklist below is fully ticked and evidenced.</p>
   ${UI.confirm&&UI.confirm.type==="stage"?`<div class="form"><b>Set ${esc(ref)} to “${esc(STAGES[UI.confirm.v].k)}”?</b>${STAGES[UI.confirm.v].k==="Inspected"?'<span class="muted" style="font-size:12px">Use Inspected only once the door has been checked and signed off.</span>':""}<label>Note (optional)<input type="text" id="stage-note" data-keep="stage-note" placeholder="e.g. Frame packed and fixed, gaps 3mm"></label><div class="row"><button class="btn primary" id="stage-ok">Confirm</button><button class="btn" id="stage-cancel">Cancel</button></div></div>`:""}
-  ${ironList(ref,d,st)}
+  ${jambList(ref,d,st)}${ironList(ref,d,st)}${fsealList(ref,d,st)}
   <div class="grp"><h4>History</h4>${(st.hist||[]).length?`<ul class="hist">${[...st.hist].map((h,i)=>({h,i})).reverse().map(({h,i})=>`<li><b style="color:var(--ink)">${esc(STAGES[h.s]?STAGES[h.s].k:"")}</b> · ${esc(name(h.by))} · ${fmt(h.at)}${h.note?" — "+esc(h.note):""}${isAdmin()?`<button class="del" data-hdel="${i}" title="Delete this history entry (admin)">${UI.hdel===i?"confirm delete":"delete"}</button>`:""}</li>`).join("")}</ul>`:'<p class="muted" style="margin:0;font-size:13px">No updates yet. Tap a stage above as work progresses.</p>'}</div>
   <div class="grp"><h4>Quick actions</h4><div class="row" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-dt-go="photos">Add photo</button><button class="btn" data-dt-go="defects">Report defect</button>${d.conn?`<button class="btn" data-dt-go="requests">Hand over for connection</button>`:""}</div></div>`;
 }
 function ironStatus(ref,d,st){const items=UI.sec==="doors"?(d.iron||[]):[];const ck=st.iron||{};const needP=new Set(d.ironPhoto||[]);const hasP=i=>S.photos.some(p=>p.ref===ref&&String(p.item)===String(i));
   const missing=items.map((t,i)=>({t,i})).filter(({i})=>!ck[i]);const noPhoto=items.map((t,i)=>({t,i})).filter(({i})=>needP.has(i)&&!hasP(i));return {total:items.length,missing,noPhoto}}
+function isFR(d){return UI.sec==="doors"&&/^(FD|EI|E\d)|\d+\s*min/i.test(String(d.fire||"").trim())&&!/no\s*fr|n\/a|none/i.test(d.fire||"")}
+function jambItems(d){if(UI.sec!=="doors")return[];const o=[];if(/almet/i.test(d.supplier||""))o.push(["nb","Jamb not boarded"]);if(d.conn==="EL560")o.push(["jb","Access control joint box not present"]);return o}
+function jambOpen(ref,d){const j=(S.doors.get(ref)||{}).jamb||{};return jambItems(d).filter(([k])=>j[k])}
+const FSEAL=[["head","Head"],["hinge","Hinge-side jamb"],["close","Closing-side jamb"]];
+function fsealMissing(ref,d){if(!isFR(d))return[];const f=(S.doors.get(ref)||{}).fseal||{};return FSEAL.filter(([k])=>!f[k])}
 function stageBlock(ref,d,v){const cur=stageOf(ref);const k=STAGES[v].k;if(v<cur)return null;
-  if(d.prepIdx!=null&&v>=STAGES.findIndex(x=>x.k==="Frame installed")&&!((S.doors.get(ref)||{}).iron||{})[d.prepIdx])return "Threshold preparation must be ticked off in the checklist before the frame is installed.";if(!(k==="Complete"||k==="Inspected"))return null;
+  const DI=STAGES.findIndex(x=>x.k==="Door installed");
+  if(DI>0&&v>=DI&&cur<DI&&jambOpen(ref,d).length)return "Clear the jamb preparation issue"+(jambOpen(ref,d).length>1?"s":"")+" ("+jambOpen(ref,d).map(x=>x[1].toLowerCase()).join("; ")+") before the door is installed.";
+  if(d.prepIdx!=null&&v>=DI&&!((S.doors.get(ref)||{}).iron||{})[d.prepIdx])return "Threshold preparation must be ticked off in the checklist before the door is installed.";if(!(k==="Complete"||k==="Inspected"))return null;
   if(cur<v-1)return `${k} can only be set after ${STAGES[v-1].k}.`;
   const st=S.doors.get(ref)||{};const is=ironStatus(ref,d,st);
   if(is.noPhoto.length)return `${is.noPhoto.length} checklist item${is.noPhoto.length>1?"s":""} still need${is.noPhoto.length>1?"":"s"} a photo before ${k}.`;
   if(is.missing.length)return `${is.missing.length} of ${is.total} checklist items are not yet ticked – all must be checked before ${k}.`;
+  const fm=fsealMissing(ref,d);if(fm.length)return `Fire seal around the frame must be ticked (${fm.map(x=>x[1].toLowerCase()).join(", ")}) before ${k}.`;
   return null}
+function jambList(ref,d,st){const it=jambItems(d);if(!it.length)return"";const j=st.jamb||{};const open=it.filter(([k])=>j[k]);
+  return `<div class="grp"><h4>Jamb preparation issues ${open.length?`<span class="pill red">${open.length} open</span>`:'<span class="pill green">None</span>'}</h4><ul class="iron">${it.map(([k,t])=>`<li><label><input type="checkbox" data-jamb="${k}" ${j[k]?"checked":""} ${canWrite?"":"disabled"}><span style="flex:1">${esc(t)}${k==="nb"?' <span class="muted">(Almet)</span>':' <span class="muted">(EL560)</span>'}</span></label></li>`).join("")}</ul><p class="muted" style="margin:6px 0 0;font-size:12px">Tick an issue if found at the jamb. Open issues hold the door at Jamb prepared until they're cleared.${j._by?` Last updated by ${esc(name(j._by))}, ${fmt(j._at)}.`:""}</p></div>`}
+function fsealList(ref,d,st){if(!isFR(d))return"";const f=st.fseal||{};const DI=STAGES.findIndex(x=>x.k==="Door installed");const ok=stageOf(ref)>=DI;const n=FSEAL.filter(([k])=>f[k]).length;
+  return `<div class="grp"><h4>Fire seal around frame · ${esc(d.fire)} <span class="pill ${n===FSEAL.length?"green":""}">${n}/${FSEAL.length}</span></h4><ul class="iron">${FSEAL.map(([k,t])=>`<li><label><input type="checkbox" data-fseal="${k}" ${f[k]?"checked":""} ${canWrite&&ok?"":"disabled"}><span style="flex:1">Fire seal / fire-stopping to frame perimeter – ${esc(t.toLowerCase())}</span></label></li>`).join("")}</ul><p class="muted" style="margin:6px 0 0;font-size:12px">${ok?"Required before Complete.":"Available once the door is installed. Required before Complete."}${f._by?` Last ticked by ${esc(name(f._by))}, ${fmt(f._at)}.`:""}</p></div>`}
 function ironList(ref,d,st){
-  const items=UI.sec==="doors"?(d.iron||[]):[];if(!items.length)return"";const title=d.ctype==="Roller shutter"?"Roller shutter inspection":"Ironmongery inspection";
+  const items=UI.sec==="doors"?(d.iron||[]):[];if(!items.length)return"";const title=d.ctype==="Roller shutter"?"Roller shutter checklist":"Ironmongery checklist";
   const ck=st.iron||{};const n=items.filter((_,i)=>ck[i]).length;
   const src=d.ironSrc||(d.sup&&d.sup.src?d.sup.src:"RPS schedule (no supplier ironmongery list yet)");
   const needP=new Set(d.ironPhoto||[]);const hasP=i=>S.photos.some(p=>p.ref===ref&&String(p.item)===String(i));const gate=d.ironGate||{};const cur=stageOf(ref);
-  return `<div class="grp"><h4>${title} <span class="pill ${n===items.length?"green":""}">${n}/${items.length} checked</span></h4><ul class="iron">${items.map((t,i)=>{const np=needP.has(i),ok=!np||hasP(i);const g=gate[i]!=null&&cur<gate[i];return `<li><label><input type="checkbox" data-iron="${i}" ${ck[i]?"checked":""} ${canWrite&&ok&&!g?"":"disabled"}><span style="flex:1">${esc(t)}${g?` <span class="pill">Released once ${esc(STAGES[gate[i]].k)}</span>`:""}${np?(hasP(i)?' <span class="pill green">Photo uploaded</span>':' <span class="pill warn">Photo needed to tick</span>'):""}</span>${np&&canWrite?`<button class="btn sm" data-iron-photo="${i}" data-label="${esc(t.replace(/\s*\(photo required\)/i,""))}">${hasP(i)?"Add photo":"Upload photo"}</button>`:""}</label></li>`}).join("")}</ul><p class="muted" style="margin:6px 0 0;font-size:12px">From ${esc(src)}.${ck._by?` Last ticked by ${esc(name(ck._by))}, ${fmt(ck._at)}.`:""}</p></div>`}
+  return `<div class="grp"><h4>${title} <span class="pill ${n===items.length?"green":""}">${n}/${items.length} checked</span>${canWrite&&n<items.length?`<button class="btn sm" id="iron-all" style="margin-left:auto">Tick all</button>`:canWrite&&n?`<button class="btn sm" id="iron-none" style="margin-left:auto">Untick all</button>`:""}</h4><ul class="iron">${items.map((t,i)=>{const np=needP.has(i),ok=!np||hasP(i);const g=gate[i]!=null&&cur<gate[i];return `<li><label><input type="checkbox" data-iron="${i}" ${ck[i]?"checked":""} ${canWrite&&ok&&!g?"":"disabled"}><span style="flex:1">${esc(t)}${g?` <span class="pill">Released once ${esc(STAGES[gate[i]].k)}</span>`:""}${np?(hasP(i)?' <span class="pill green">Photo uploaded</span>':' <span class="pill warn">Photo needed to tick</span>'):""}</span>${np&&canWrite?`<button class="btn sm" data-iron-photo="${i}" data-label="${esc(t.replace(/\s*\(photo required\)/i,""))}">${hasP(i)?"Add photo":"Upload photo"}</button>`:""}</label></li>`}).join("")}</ul><p class="muted" style="margin:6px 0 0;font-size:12px">From ${esc(src)}.${ck._by?` Last ticked by ${esc(name(ck._by))}, ${fmt(ck._at)}.`:""}</p></div>`}
 function kvd(d,pairs){const df={};(d.diffs||[]).forEach(x=>df[x.f]=x);const rows=pairs.filter(p=>p[1]!=null&&p[1]!=="");if(!rows.length)return"";
   return `<div class="kv">${rows.map(([k,v,f])=>{const x=f&&df[f];return x?(x.res==="Supplier to revise to schedule"?`<div>${esc(k)}</div><div class="diffv">${esc(v)} <span class="pill warn" style="font-size:10px">schedule governs</span><span class="was">Supplier drawing: ${esc(x.sup)} (to be revised)</span></div>`:`<div>${esc(k)}</div><div class="diffv">${esc(x.agreed||x.sup)} <span class="pill ${RES[x.res]&&RES[x.res].done?"green":"warn"}" style="font-size:10px">${RES[x.res]&&RES[x.res].done?"supplier · agreed":x.res==="Query / RFI raised"?"supplier · RFI open":"supplier"}</span><span class="was">Schedule: ${esc(v)}</span></div>`):`<div>${esc(k)}</div><div>${esc(v)}</div>`}).join("")}</div>`}
 function kv(pairs){const rows=pairs.filter(p=>p[1]!=null&&p[1]!=="");if(!rows.length)return"";return `<div class="kv">${rows.map(([k,v])=>`<div>${esc(k)}</div><div>${esc(v)}</div>`).join("")}</div>`}
@@ -769,11 +807,11 @@ function photoSrc(p){return p.asset?(window.__CF__?"/api/photo/":"/_blob/")+p.as
 function tabPhotos(ref,d,{photos}){
   photos.forEach(p=>want(p.by));
   const pi=UI.photoItem&&UI.photoItem.ref===ref?UI.photoItem:null;
-  return `${canWrite?`<div class="form">${pi?`<div class="check" style="margin-bottom:4px">This upload confirms checklist item: <b>${esc(pi.label)}</b> <button class="btn sm" id="ph-noitem">Cancel</button></div>`:""}<div class="row" style="display:flex;gap:8px;flex-wrap:wrap"><label class="btn primary" style="cursor:pointer">📷 Take photo<input type="file" id="ph-cam" accept="image/*" capture="environment" hidden></label><label class="btn" style="cursor:pointer">Upload photos<input type="file" id="ph-file" accept="image/*" multiple hidden></label><span class="muted" id="ph-sel" style="font-size:12px;align-self:center"></span></div><span class="muted" style="font-size:11px">Photos are reduced to max 1600 px (~0.5 MB) and stamped with the door ref and the date/time taken.</span><label>Caption<input type="text" id="ph-cap" data-keep="ph-cap" placeholder="e.g. Frame fixed, east elevation" ${pi?`value="${esc(pi.label)}"`:""}></label><div class="row"><button class="btn primary" id="ph-up">Upload</button></div><span class="muted" style="font-size:12px" id="ph-msg">On a phone, this opens the camera or your photo library. Photos are resized before upload.</span></div>`:""}
+  return `${canWrite?`<div class="form">${pi?`<div class="check" style="margin-bottom:4px">This upload confirms checklist item: <b>${esc(pi.label)}</b> <button class="btn sm" id="ph-noitem">Cancel</button></div>`:""}<div class="row" style="display:flex;gap:8px;flex-wrap:wrap"><label class="btn primary" style="cursor:pointer">📷 Take photo<input type="file" id="ph-cam" accept="image/*" capture="environment" hidden></label><label class="btn" style="cursor:pointer">🖼 Choose photos (several)<input type="file" id="ph-file" accept="image/*" multiple hidden></label><span class="muted" id="ph-sel" style="font-size:12px;align-self:center"></span></div><span class="muted" style="font-size:11px">Photos are reduced to max 1600 px (~0.5 MB) and stamped with the door ref and the date/time taken.</span><label>Caption (optional – type it first, it's applied to the photos you add)<input type="text" id="ph-cap" data-keep="ph-cap" placeholder="e.g. Frame fixed, east elevation" ${pi?`value="${esc(pi.label)}"`:""}></label><span class="muted" style="font-size:12px" id="ph-msg">Take photos one after another with the camera button, or pick several at once from your library – they upload straight away.</span></div>`:""}
   ${photos.length?`<div class="photos">${photos.map(p=>`<button class="ph" data-photo="${p.id}"><img loading="lazy" alt="${esc(p.cap||"Door photo")}" src="${esc(photoSrc(p))}"><span>${esc(p.cap||name(p.by))} · ${new Date(p.taken||p.at).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</span></button>`).join("")}</div>`:'<div class="empty">No photos of this door yet.</div>'}`;
 }
 function tabDefects(ref,d,{defs}){
-  return `${canWrite?`<div class="form"><b>Report a defect</b><label>What's wrong<input type="text" id="df-title" data-keep="df-title" placeholder="e.g. Leaf binding on head, 2mm gap at lock side"></label><div class="row"><label>Category<select id="df-cat" data-keep="df-cat">${DEF_CATS.map(c=>`<option>${esc(c)}</option>`).join("")}</select></label><label>Severity<select id="df-sev" data-keep="df-sev"><option>Low</option><option selected>Medium</option><option>High</option></select></label></div><label>Details<textarea id="df-detail" data-keep="df-detail" placeholder="Location on the door, who should fix it"></textarea></label><label>Photo (optional)<input type="file" id="df-file" accept="image/*"></label><div class="row"><button class="btn primary" id="df-save">Report defect</button></div></div>`:""}
+  return `${canWrite?`<div class="form"><b>Report a defect</b><label>What's wrong<input type="text" id="df-title" data-keep="df-title" placeholder="e.g. Leaf binding on head, 2mm gap at lock side"></label><div class="row"><label>Category<select id="df-cat" data-keep="df-cat">${DEF_CATS.map(c=>`<option>${esc(c)}</option>`).join("")}</select></label><label>Severity<select id="df-sev" data-keep="df-sev"><option>Low</option><option selected>Medium</option><option>High</option></select></label></div><label>Details<textarea id="df-detail" data-keep="df-detail" placeholder="Location on the door, who should fix it"></textarea></label><label>Photos (optional – choose several)<input type="file" id="df-file" accept="image/*" multiple></label><div class="row"><button class="btn primary" id="df-save">Report defect</button></div></div>`:""}
   ${defs.length?`<div style="display:flex;flex-direction:column;gap:8px">${defs.map(x=>{want(x.by);return defectCard(x,true)}).join("")}</div>`:'<div class="empty">No defects recorded for this door.</div>'}`;
 }
 function tabRequests(ref,d,{reqs}){
@@ -789,7 +827,7 @@ function tabRequests(ref,d,{reqs}){
   <label>Details<textarea id="rq-detail" data-keep="rq-detail" placeholder="${k==="access"?(UI.sec==="louvres"?"e.g. Vent installed, actuator fitted, ready for controls wiring and C&E test.":"e.g. Door hung, EL560 lock fitted, cable at head. Ready for second fix and commissioning."):"e.g. Construction cylinder fitted; swap for permanent suited cylinder."}"></textarea></label><label>Needed by<input type="date" id="rq-need" data-keep="rq-need"></label><div class="row"><button class="btn primary" id="rq-save">Send request</button></div></div>`:""}
   ${reqs.length?`<div style="display:flex;flex-direction:column;gap:8px">${reqs.map(r=>{want(r.by);return reqCard(r,true)}).join("")}</div>`:`<div class="empty">No requests for this ${SEC[UI.sec].one} yet.</div>`}`;
 }
-function bindDrawer(ref,d){if(UI.dtab==="levels")bindLevels(ref);
+function bindDrawer(ref,d){if(UI.dtab==="fire")bindFire(ref,d);if(UI.dtab==="levels")bindLevels(ref);
   const dr=$("#drawer");
   dr.querySelectorAll("[data-dt-go]").forEach(b=>b.onclick=()=>{UI.dtab=b.dataset.dtGo;renderDrawer()});
   dr.querySelectorAll("[data-stage]").forEach(b=>b.onclick=()=>{if(!guard())return;const v=+b.dataset.stage;if(v===stageOf(ref))return;const why=stageBlock(ref,d,v);if(why){toast(why);return}UI.confirm={type:"stage",v};renderDrawer()});
@@ -804,6 +842,11 @@ function bindDrawer(ref,d){if(UI.dtab==="levels")bindLevels(ref);
     $("#ov-reset").onclick=()=>{UI.ovEdit=null;save(()=>del("overrides",ref),"Overrides removed")};$("#ov-cancel").onclick=()=>{UI.ovEdit=null;renderDrawer()}}
   dr.querySelectorAll("[data-iron]").forEach(c=>c.onchange=async()=>{if(!guard()){c.checked=!c.checked;return}const cur=S.doors.get(ref)||{};const iron={...(cur.iron||{})};if(c.checked)iron[c.dataset.iron]=true;else delete iron[c.dataset.iron];iron._by=meId;iron._at=Date.now();
     await save(()=>put(SEC[UI.sec].pcol,ref,{stage:0,hist:[],...strip(cur),iron}))});
+  const setIron=async fn=>{if(!guard())return;const cur=S.doors.get(ref)||{};const iron={...(cur.iron||{})};fn(iron);iron._by=meId;iron._at=Date.now();await save(()=>put(SEC[UI.sec].pcol,ref,{stage:0,hist:[],...strip(cur),iron}))};
+  const ia=$("#iron-all");if(ia)ia.onclick=()=>{const boxes=[...dr.querySelectorAll("[data-iron]")];const can=boxes.filter(b=>!b.disabled).map(b=>b.dataset.iron);const skip=boxes.length-can.length;setIron(o=>can.forEach(i=>o[i]=true)).then(()=>{if(skip)toast(`${skip} item${skip>1?"s":""} still need a photo or a later stage before they can be ticked`)})};
+  const inn=$("#iron-none");if(inn)inn.onclick=()=>setIron(o=>Object.keys(o).forEach(k=>{if(!k.startsWith("_"))delete o[k]}));
+  const tickMap=(attr,key)=>dr.querySelectorAll(`[data-${attr}]`).forEach(c=>c.onchange=async()=>{if(!guard()){c.checked=!c.checked;return}const cur=S.doors.get(ref)||{};const m={...(cur[key]||{})};const k=c.dataset[attr];if(c.checked)m[k]=true;else delete m[k];m._by=meId;m._at=Date.now();await save(()=>put(SEC[UI.sec].pcol,ref,{stage:0,hist:[],...strip(cur),[key]:m}))});
+  tickMap("jamb","jamb");tickMap("fseal","fseal");
   dr.querySelectorAll("[data-iron-photo]").forEach(b=>b.onclick=e=>{e.preventDefault();UI.photoItem={ref,i:b.dataset.ironPhoto,label:b.dataset.label};UI.dtab="photos";renderDrawer()});
   const pni=$("#ph-noitem");if(pni)pni.onclick=()=>{UI.photoItem=null;renderDrawer()};
   dr.querySelectorAll("[data-ds]").forEach(b=>b.onclick=()=>lightbox(b.dataset.ds,`${ref} · ${b.dataset.cap}`));
@@ -812,16 +855,15 @@ function bindDrawer(ref,d){if(UI.dtab==="levels")bindLevels(ref);
   dr.querySelectorAll("[data-photo]").forEach(b=>b.onclick=()=>{const p=S.photos.find(x=>x.id===b.dataset.photo);if(p)lightbox(photoSrc(p),`${ref} · ${p.cap||""} · taken ${fmt(p.taken||p.at)} · uploaded by ${name(p.by)}, ${fmt(p.at)}`,p)});
   const up=$("#ph-up");
   const cam=$("#ph-cam");if(cam)cam.onchange=()=>{if(cam.files.length)doUp([...cam.files])};
-  const pf=$("#ph-file");if(pf)pf.onchange=()=>{$("#ph-sel").textContent=pf.files.length?pf.files.length+" photo"+(pf.files.length>1?"s":"")+" selected":""};
-  if(up)up.onclick=()=>{const files=[...$("#ph-file").files];if(!files.length){toast("Take or choose a photo first.");return}doUp(files)};
+  const pf=$("#ph-file");if(pf)pf.onchange=()=>{if(pf.files.length)doUp([...pf.files])};
   const doUp=async files=>{if(!guard())return;
     if(up)up.disabled=true;const cap=$("#ph-cap").value.trim();let n=0;
     const it=UI.photoItem&&UI.photoItem.ref===ref?UI.photoItem.i:null;
     for(const f of files){$("#ph-msg").textContent=`Uploading ${n+1} of ${files.length}…`;try{await addPhoto(ref,f,cap,null,it);n++}catch(e){toast("Couldn't upload "+f.name+": "+(e.message||e.code||"error"));break}}
-    if(n)toast(`${n} photo${n>1?"s":""} added to ${ref}`+(it!=null?" – you can now tick the checklist item":""));if(n&&it!=null){UI.photoItem=null;UI.dtab="progress";renderDrawer()}const c=$("#ph-cap");if(c)c.value="";if(up)up.disabled=false;$("#ph-msg")&&($("#ph-msg").textContent="Done.")};
+    if(n)toast(`${n} photo${n>1?"s":""} added to ${ref}`+(it!=null?" – you can now tick the checklist item":""));if(n&&it!=null){UI.photoItem=null;UI.dtab="progress";renderDrawer()}if(up)up.disabled=false;$("#ph-msg")&&($("#ph-msg").textContent=`Done – ${n} uploaded. Take or choose more to keep adding.`);[cam,pf].forEach(x=>{if(x)x.value=""})};
   const ds=$("#df-save");if(ds)ds.onclick=async()=>{if(!guard())return;const title=$("#df-title").value.trim();if(!title){toast("Describe the defect first.");$("#df-title").focus();return}
-    ds.disabled=true;const id=uid();const rec={ref,title,cat:$("#df-cat").value,sev:$("#df-sev").value,detail:$("#df-detail").value.trim(),status:"Open",by:meId,at:Date.now()};const f=$("#df-file").files[0];
-    try{await put("defects",id,rec);if(f)await addPhoto(ref,f,"Defect: "+title,id);["df-title","df-detail"].forEach(k=>{const el=$("#"+k);if(el)el.value=""});toast("Defect reported on "+ref)}catch(e){toast("Couldn't save the defect: "+(e.message||e.code||"error"))}ds.disabled=false};
+    ds.disabled=true;const id=uid();const rec={ref,title,cat:$("#df-cat").value,sev:$("#df-sev").value,detail:$("#df-detail").value.trim(),status:"Open",by:meId,at:Date.now()};const fs=[...$("#df-file").files];
+    try{await put("defects",id,rec);for(const f of fs)await addPhoto(ref,f,"Defect: "+title,id);$("#df-file").value="";["df-title","df-detail"].forEach(k=>{const el=$("#"+k);if(el)el.value=""});toast("Defect reported on "+ref)}catch(e){toast("Couldn't save the defect: "+(e.message||e.code||"error"))}ds.disabled=false};
   const rk=$("#rq-kind");if(rk)rk.onclick=e=>{const b=e.target.closest("[data-k]");if(b){UI.reqKind={ref,k:b.dataset.k};renderDrawer()}};
   const rs=$("#rq-save");if(rs)rs.onclick=async()=>{if(!guard())return;const k=$("#rq-kind [aria-pressed=true]").dataset.k;rs.disabled=true;
     const rec={ref,kind:k,detail:$("#rq-detail").value.trim(),need:$("#rq-need").value||"",suite:k==="lock"?($("#rq-suite").value.trim()):"",status:"Requested",by:meId,at:Date.now()};
@@ -970,6 +1012,109 @@ async function exportThresh(){
   const lines=[["Ref","From","To","Supplier","Level","Hinge (mm)","Latch (mm)","Swing high spot (mm)","Fall (mm)","Floor high (mm)","Floor low (mm)","Opening height (mm)","Screed","Reduce door height","Grind high spot","Suggested","Remedy decided","Note","Measured by","Measured","Floor finish side A","Floor finish side B","Finish allowance (mm)"].join(",")];
   for(const {r,d,t,c} of thRows()){if(!c)continue;lines.push([r,d.from,d.to,d.supplier,d.level,c.h,c.l,c.s,c.fall,c.high,c.low,2050+Math.min(c.h,c.l),c.need.screed?"Yes":"",c.need.reduce?c.high:"",c.need.grind?"Yes":"",c.sug,t.remedy,t.note,name(t.by),new Date(t.at).toLocaleString("en-GB"),...floorCsv(d)].map(q).join(","))}
   const data=lines.join("\n"),fn=`SCEC-threshold-levels-${new Date().toISOString().slice(0,10)}.csv`;
+  if(downloads){try{await downloads.save({filename:fn,data})}catch(e){if(e&&e.code!=="declined"&&e.code!=="cancelled")toast("Export didn't complete: "+(e.code||e.message))}}
+  else{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type:"text/csv"}));a.download=fn;a.click()}}
+
+
+/* ---------- fire inspection documents (fire-rated doorsets) ---------- */
+function docSrc(x){return x.asset?(window.__CF__?"/api/photo/":"/_blob/")+x.asset:x.data}
+function fireDocs(ref){return [...S.firedocs.values()].filter(x=>x.ref===ref).sort((a,b)=>(b.at||0)-(a.at||0))}
+function tabFire(ref,d){const docs=fireDocs(ref);docs.forEach(x=>want(x.by));
+  return `<div class="grp"><h4>Fire-rated doorset · ${esc(d.fire)}</h4><p class="muted" style="margin:0;font-size:13px">Upload the fire door inspection record for this doorset (PDF or photo of the signed sheet). It's kept with the door and listed in the reports.</p></div>
+  ${canWrite?`<div class="form"><b>Add inspection document</b><label>Document type<select id="fd-kind" data-keep="fd-kind"><option>Fire door inspection record</option><option>Installation certificate</option><option>Fire-stopping certificate</option><option>Manufacturer certificate / label</option><option>Other</option></select></label><label>Note (optional)<input type="text" id="fd-note" data-keep="fd-note" placeholder="e.g. Inspected by J. Smith, BM TRADA Q-Mark"></label><label class="btn primary" style="cursor:pointer;align-self:flex-start">Choose file(s) – PDF or image<input type="file" id="fd-file" accept="application/pdf,image/*" multiple hidden></label><span class="muted" style="font-size:12px" id="fd-msg">PDFs up to 1.8 MB each; images are reduced automatically.</span></div>`:""}
+  ${docs.length?`<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">${docs.map(x=>`<div class="card"><div class="card-h"><span style="font-size:20px">${/pdf/.test(x.type||"")?"📄":"🖼"}</span><b style="flex:1;min-width:0">${esc(x.kind||"Document")}</b><a class="btn sm" href="${esc(docSrc(x))}" target="_blank" rel="noopener"${/pdf/.test(x.type||"")?"":` data-fdimg="${esc(x.id)}"`}>Open</a>${canWrite&&(isAdmin()||x.by===meId)?` <button class="btn sm" data-fddel="${esc(x.id)}">${UI.fddel===x.id?"Confirm delete":"Delete"}</button>`:""}</div><div class="meta">${esc(x.name||"")}${x.size?" · "+Math.round(x.size/1024)+" KB":""} · ${esc(name(x.by))}, ${fmt(x.at)}${x.note?" — "+esc(x.note):""}</div></div>`).join("")}</div>`:'<div class="empty" style="margin-top:12px">No inspection document uploaded yet.</div>'}`}
+async function addDoc(ref,file,kind,note){
+  let blob=file,type=file.type||"application/octet-stream";
+  if(/^image\//.test(type)){blob=await shrink(file,2000,.85,9e5,null);type="image/jpeg"}
+  if(blob.size>1.8e6)throw new Error(`${file.name} is ${(blob.size/1e6).toFixed(1)} MB – max 1.8 MB. Reduce the PDF size and try again.`);
+  const rec={ref,kind,note,name:file.name,type,size:blob.size,by:meId,at:Date.now()};
+  if(assets){const r=await assets.upload(blob,{type});rec.asset=r.id}
+  else{rec.data=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(blob)})}
+  await put("firedocs",uid(),rec)}
+function bindFire(ref,d){
+  const f=$("#fd-file");if(f)f.onchange=async()=>{if(!guard())return;const files=[...f.files];let n=0;for(const x of files){$("#fd-msg").textContent=`Uploading ${n+1} of ${files.length}…`;try{await addDoc(ref,x,$("#fd-kind").value,$("#fd-note").value.trim());n++}catch(e){toast("Couldn't upload: "+(e.message||e.code||"error"));break}}
+    f.value="";if(n){toast(`${n} document${n>1?"s":""} added to ${ref}`);const nt=$("#fd-note");if(nt)nt.value=""}};
+  document.querySelectorAll("#drawer [data-fdimg]").forEach(a=>a.onclick=e=>{e.preventDefault();const x=S.firedocs.get(a.dataset.fdimg);if(x)lightbox(docSrc(x),`${ref} · ${x.kind} · ${fmt(x.at)}`)});
+  document.querySelectorAll("#drawer [data-fddel]").forEach(b=>b.onclick=async()=>{const id=b.dataset.fddel;if(UI.fddel!==id){UI.fddel=id;renderDrawer();return}UI.fddel=null;const x=S.firedocs.get(id);
+    await save(async()=>{await del("firedocs",id);if(x&&x.asset&&assets&&assets.delete)try{await assets.delete(x.asset)}catch(e){}},"Document deleted")})}
+
+
+/* ---------- email a defect for action ---------- */
+function doorLoc(r){const d=S.data.doors[r]||{};const lv=d.level==null?"":d.level==="Roof"?"Roof":"Level "+(d.level>=0?"+":"")+d.level+"m";
+  return [d.from&&d.to?d.from+" → "+d.to:(d.from||d.desc||""),lv].filter(Boolean).join(", ")}
+function doorDwgs(r){const d=S.data.doors[r]||{};const o=[];if((d.ga||[]).length)o.push("RPS layout "+d.ga.join(", "));if(d.sheet)o.push("RPS door schedule A-"+d.sheet);(d.doorsets||[]).filter(x=>!x.superseded).forEach(x=>o.push(`${/^(almet|ascot|johan|marshall)/i.test(x.no)?"":(x.maker||d.supplier||"Supplier")+" "}${x.no} rev ${x.rev}`));return o}
+function mailText(df,extra,photos){const r=df.ref,d=S.data.doors[r]||{};const me=S.names[meId]||"";
+  const L=[`Hello,`,``,`Please see the defect below, recorded at South Clyde Energy Centre (Fortum Glasgow EfW). Could you please review and provide comment, and confirm the proposed remedial action and timescale.`,``,
+  `Door: ${r}${d.desc?" – "+d.desc:""}`,`Location: ${doorLoc(r)||"–"}`,`Drawings: ${doorDwgs(r).join("; ")||"–"}`,`Supplier: ${d.supplier||"–"}${d.fire?" · Fire rating "+d.fire:""}`,``,
+  `Defect: ${df.title}`,`Category / severity: ${df.cat||"–"} / ${df.sev||"Medium"}`];
+  if(df.detail)L.push(`Details: ${df.detail}`);(df.notes||[]).forEach(n=>L.push(`Note (${new Date(n.at).toLocaleDateString("en-GB")}): ${n.t}`));
+  L.push(`Raised: ${name(df.by)}, ${new Date(df.at).toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}`);
+  if(extra)L.push("",extra);
+  if(photos&&photos.length)L.push("",`Photos: ${photos.length} attached.`);
+  L.push("","Many thanks,",me);return L.join("\n")}
+async function defectPhotos(df){let ps=S.photos.filter(p=>p.defect===df.id);if(ps.length||!db)return ps;
+  return await new Promise(res=>{let un=null;const t=setTimeout(()=>{un&&un();res([])},6000);un=db.collection("photos").where("ref","==",df.ref).onSnapshot(sn=>{clearTimeout(t);un&&un();res(sn.docs.map(x=>({id:x.id,...x.data()})).filter(p=>p.defect===df.id))},()=>{clearTimeout(t);res([])})})}
+async function openMail(df){const lb=$("#lightbox");lb.hidden=false;lb.innerHTML=`<div class="lb-top"><span style="flex:1">Email defect for action · ${esc(df.ref)}</span><button class="x" id="lb-x" aria-label="Close">×</button></div><div class="team" id="mail"><p class="muted">Loading photos…</p></div>`;
+  $("#lb-x").onclick=()=>{lb.hidden=true;lb.innerHTML=""};
+  const all=await defectPhotos(df);const doorPh=S.photos.filter(p=>p.ref===df.ref&&p.defect!==df.id);
+  const subj=`SCEC EfW – Door ${df.ref} – Defect: ${df.title}`;
+  const box=$("#mail");if(!box)return;
+  box.innerHTML=`<div class="form" style="background:none;border:0;padding:0">
+   <div class="row"><label>To<input type="email" id="ml-to" placeholder="name@company.com" multiple value="${esc(UI.lastMailTo||"")}"></label><label>Cc<input type="email" id="ml-cc" multiple placeholder="optional"></label></div>
+   <label>Subject<input type="text" id="ml-subj" value="${esc(subj)}"></label>
+   <label>Additional message (optional)<input type="text" id="ml-extra" placeholder="e.g. Please attend site on Tuesday to rectify"></label>
+   ${all.length||doorPh.length?`<b style="font-size:13px">Photos to include</b><div class="photos" style="grid-template-columns:repeat(auto-fill,minmax(110px,1fr))">${all.concat(doorPh).map(p=>`<label class="ph" style="position:relative"><img alt="" src="${esc(photoSrc(p))}"><span><input type="checkbox" data-mph="${p.id}" ${p.defect===df.id?"checked":""}> ${esc(p.cap||"")}</span></label>`).join("")}</div>`:'<span class="muted" style="font-size:12px">No photos on this defect.</span>'}
+   <label>Message preview<textarea id="ml-body" rows="12" style="font:13px/1.45 var(--f-mono);width:100%;box-sizing:border-box"></textarea></label>
+   <div class="row" style="flex-wrap:wrap;gap:8px"><button class="btn primary" id="ml-share">Share + photos</button><button class="btn" id="ml-open">Open in email app</button><button class="btn" id="ml-dl">Download photos</button><button class="btn" id="ml-copy">Copy message</button></div>
+   <span class="muted" style="font-size:12px" id="ml-help">“Share + photos” opens your phone or PC share sheet – pick Mail/Outlook and the photos are attached automatically (recipients are filled in there). “Open in email app” fills in To, Subject and message; attach the downloaded photos if needed.</span></div>`;
+  const pool=all.concat(doorPh);const sel=()=>pool.filter(p=>{const c=box.querySelector(`[data-mph="${p.id}"]`);return c&&c.checked});
+  const refresh=()=>{$("#ml-body").value=mailText(df,$("#ml-extra").value.trim(),sel())};refresh();
+  $("#ml-extra").oninput=refresh;box.querySelectorAll("[data-mph]").forEach(c=>c.onchange=refresh);
+  const files=async()=>Promise.all(sel().map(async(p,i)=>{const b=await (await fetch(photoSrc(p))).blob();return new File([b],`${df.ref}-defect-${i+1}.jpg`,{type:b.type||"image/jpeg"})}));
+  const log=async to=>{UI.lastMailTo=$("#ml-to").value.trim();if(!canWrite)return;const cur=S.defects.get(df.id)||df;try{await put("defects",df.id,{...strip(cur),sent:[...(cur.sent||[]),{to:to||"",by:meId,at:Date.now()}]})}catch(e){}};
+  $("#ml-share").onclick=async()=>{try{const fs=await files();const data={title:$("#ml-subj").value,text:$("#ml-body").value,files:fs};
+      if(!navigator.canShare||!navigator.canShare(fs.length?data:{text:data.text})){toast("Sharing with attachments isn't supported in this browser – use “Open in email app” and attach the downloaded photos.");return}
+      if(!fs.length)delete data.files;await navigator.share(data);await log($("#ml-to").value.trim()||"(shared)");toast("Shared")}catch(e){if(e&&e.name!=="AbortError")toast("Couldn't share: "+(e.message||e))}};
+  $("#ml-open").onclick=async()=>{const to=$("#ml-to").value.trim(),cc=$("#ml-cc").value.trim();let body=$("#ml-body").value;
+    const ps=sel();if(ps.length)body+=`\n\nPhoto links (tracker sign-in required):\n`+ps.map(p=>new URL(photoSrc(p),location.href).href).join("\n");
+    const q=[cc&&"cc="+encodeURIComponent(cc),"subject="+encodeURIComponent($("#ml-subj").value),"body="+encodeURIComponent(body)].filter(Boolean).join("&");
+    location.href=`mailto:${encodeURIComponent(to).replace(/%40/g,"@").replace(/%2C/g,",")}?${q}`;await log(to)};
+  $("#ml-dl").onclick=async()=>{const fs=await files();if(!fs.length){toast("Tick at least one photo.");return}for(const f of fs){const a=document.createElement("a");a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)}};
+  $("#ml-copy").onclick=async()=>{try{await navigator.clipboard.writeText($("#ml-subj").value+"\n\n"+$("#ml-body").value);toast("Message copied")}catch(e){toast("Couldn't copy – select the text and copy it")}}}
+
+
+/* ---------- reports ---------- */
+function lvlName(d){const L=(S.RAW&&S.RAW.levels)||[];if(d.level==="Roof")return "Roof";if(d.level==null)return "Level not set";const v=+d.level;const x=L.find(l=>v>=l.lo&&v<l.hi);return x?x.k:(v>=0?"+":"")+v+"m"}
+function lvlSort(k){if(k==="Roof")return 999;if(k==="Level not set")return 1000;const L=(S.RAW&&S.RAW.levels)||[];const i=L.findIndex(l=>l.k===k);return i<0?500:i}
+function rpGroupKey(r,d,g){if(g==="supplier")return d.supplier||"Unknown supplier";if(g==="plan"){const l=(d.locs||[])[0];const L=l&&S.data.layouts.find(x=>x.id===l.l);return L?L.title:"Not on drawings"}return lvlName(d)}
+function rpRows(){return Object.entries(S.data.doors).filter(([r,d])=>supOk(d)).map(([r,d])=>{const st=S.doors.get(r)||{};const s=stageOf(r);const is=UI.sec==="doors"?ironStatus(r,d,st):{total:0,missing:[]};
+  const od=[...S.defects.values()].filter(x=>x.ref===r&&x.status!=="Closed");const fr=UI.sec==="doors"&&isFR(d);
+  return {r,d,s,st,ironN:is.total-is.missing.length,ironT:is.total,od,fr,fseal:fr?FSEAL.length-fsealMissing(r,d).length:null,fdocs:fr?fireDocs(r).length:null,jamb:UI.sec==="doors"?jambOpen(r,d).map(x=>x[1]):[]}})}
+function renderReports(){const seg=UI.rpSeg||"comp",g=$("#rp-group").value,rows=rpRows();const supT=UI.sup?` · ${UI.sup}`:"";
+  const head=`<div class="rp-title"><b>${esc(S.data.project||"SCEC")} – ${seg==="comp"?"installation completion status":"open defects"}${esc(supT)}</b><span class="muted">${UI.sec==="doors"?"Doors":"COLT louvres"} · ${new Date().toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}</span></div>`;
+  if(seg==="comp"){
+    const groups={};rows.forEach(x=>{const k=rpGroupKey(x.r,x.d,g);(groups[k]=groups[k]||[]).push(x)});
+    const keys=Object.keys(groups).sort((a,b)=>g==="level"?lvlSort(a)-lvlSort(b):a.localeCompare(b));
+    const cnt=list=>STAGES.map((_,i)=>list.filter(x=>x.s===i).length);
+    const tot=cnt(rows);const done=rows.filter(x=>STAGES[x.s].done).length;
+    const pct=n=>rows.length?Math.round(100*n/rows.length):0;
+    const sumRow=(k,list)=>{const c=cnt(list);const dn=list.filter(x=>STAGES[x.s].done).length;return `<tr><td>${esc(k)}</td><td class="mono">${list.length}</td>${c.map(n=>`<td class="mono">${n||'<span class="muted">·</span>'}</td>`).join("")}<td class="mono"><b>${list.length?Math.round(100*dn/list.length):0}%</b></td><td class="mono">${list.reduce((a,x)=>a+x.od.length,0)||'<span class="muted">·</span>'}</td></tr>`};
+    $("#rp-body").innerHTML=head+`<div class="kpis" style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">${[["Total",rows.length],["Complete / inspected",`${done} (${pct(done)}%)`],["Not started",tot[0]],["Open defects",rows.reduce((a,x)=>a+x.od.length,0)],...(UI.sec==="doors"?[["Jamb issues",rows.filter(x=>x.jamb.length).length],["Fire docs uploaded",`${rows.filter(x=>x.fr&&x.fdocs).length} / ${rows.filter(x=>x.fr).length}`]]:[])].map(([k,v])=>`<div class="kpi"><b>${v}</b><span>${k}</span></div>`).join("")}</div>
+    <h4 class="rp-h">Summary</h4><div class="tbl-wrap"><table class="rp"><thead><tr><th>${g==="level"?"Level":g==="supplier"?"Supplier":"Drawing"}</th><th>Doors</th>${STAGES.map(x=>`<th>${esc(x.k)}</th>`).join("")}<th>Done</th><th>Open defects</th></tr></thead><tbody>${keys.map(k=>sumRow(k,groups[k])).join("")}${sumRow("All",rows).replace("<tr>",'<tr class="tot">')}</tbody></table></div>
+    <h4 class="rp-h">Door by door</h4><div class="tbl-wrap"><table class="rp"><thead><tr><th>Ref</th><th>Location</th><th>Stage</th><th>Updated</th>${UI.sec==="doors"?"<th>Checklist</th><th>Fire seal</th><th>Fire docs</th><th>Jamb issues</th>":""}<th>Open defects</th></tr></thead><tbody>${keys.map(k=>`<tr class="grp-row"><td colspan="9"><b>${esc(k)}</b> · ${groups[k].length}</td></tr>`+groups[k].sort((a,b)=>a.r.localeCompare(b.r)).map(x=>{want(x.st.by);return `<tr data-ref="${esc(x.r)}"><td class="ref">${esc(x.r)}</td><td>${esc(doorLoc(x.r))}<br><span class="muted" style="font-size:11px">${esc(x.d.supplier||"")}</span></td><td><span class="tag"><i class="dot" style="background:${css(STAGES[x.s].c)}"></i>${esc(STAGES[x.s].k)}</span></td><td class="muted" style="font-size:12px">${x.st.at?esc(name(x.st.by))+"<br>"+fmt(x.st.at):""}</td>${UI.sec==="doors"?`<td class="mono">${x.ironT?x.ironN+"/"+x.ironT:"–"}</td><td class="mono">${x.fr?x.fseal+"/"+FSEAL.length:"–"}</td><td class="mono">${x.fr?(x.fdocs?"✓ "+x.fdocs:'<span style="color:var(--warn)">none</span>'):"–"}</td><td>${x.jamb.map(j=>`<span class="pill red">${esc(j)}</span>`).join(" ")}</td>`:""}<td class="mono">${x.od.length||""}</td></tr>`}).join("")).join("")}</tbody></table></div>`;
+  }else{
+    const list=rows.flatMap(x=>x.od.map(df=>({x,df}))).sort((a,b)=>({High:0,Medium:1,Low:2}[a.df.sev]??1)-({High:0,Medium:1,Low:2}[b.df.sev]??1)||(a.df.at||0)-(b.df.at||0));
+    list.forEach(({df})=>want(df.by));const age=t=>Math.floor((Date.now()-t)/864e5);
+    const bySev=k=>list.filter(y=>(y.df.sev||"Medium")===k).length;
+    $("#rp-body").innerHTML=head+`<div class="kpis" style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">${[["Open defects",list.length],["High",bySev("High")],["Medium",bySev("Medium")],["Low",bySev("Low")],["Doors affected",new Set(list.map(y=>y.x.r)).size],["Older than 14 days",list.filter(y=>age(y.df.at)>14).length]].map(([k,v])=>`<div class="kpi"><b>${v}</b><span>${k}</span></div>`).join("")}</div>
+    ${list.length?`<div class="tbl-wrap"><table class="rp"><thead><tr><th>Ref</th><th>Location / drawing</th><th>Defect</th><th>Severity</th><th>Raised</th><th>Age</th><th>Notes / sent</th></tr></thead><tbody>${list.map(({x,df})=>`<tr data-ref="${esc(x.r)}"><td class="ref">${esc(x.r)}</td><td>${esc(doorLoc(x.r))}<br><span class="muted" style="font-size:11px">${esc(doorDwgs(x.r).slice(0,2).join("; "))}</span></td><td><b>${esc(df.title)}</b><br><span class="muted" style="font-size:12px">${esc(df.cat||"")}${df.detail?" – "+esc(df.detail):""}</span>${(df.notes||[]).length?`<br><span style="font-size:12px">Latest note: ${esc(df.notes[df.notes.length-1].t)}</span>`:""}</td><td><span class="pill ${df.sev==="High"?"red":df.sev==="Low"?"":"blue"}">${esc(df.sev||"Medium")}</span></td><td class="muted" style="font-size:12px">${esc(name(df.by))}<br>${fmt(df.at)}</td><td class="mono">${age(df.at)}d</td><td style="font-size:12px">${(df.notes||[]).length?(df.notes.length+" note"+(df.notes.length>1?"s":"")):""}${(df.sent||[]).length?`<br>✉ ${esc(df.sent[df.sent.length-1].to||"shared")} ${fmt(df.sent[df.sent.length-1].at)}`:""}</td></tr>`).join("")}</tbody></table></div>`:'<div class="empty">No open defects.</div>'}`;
+  }}
+async function exportReport(){const seg=UI.rpSeg||"comp",rows=rpRows();const q=v=>{v=v==null?"":String(v);return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};let lines;
+  if(seg==="comp"){lines=[["Ref","Level","Location","Supplier","Fire rating","Stage","Updated by","Updated","Checklist ticked","Checklist items","Fire seal ticked","Fire docs","Jamb issues","Open defects","Drawings"].join(",")];
+    rows.sort((a,b)=>lvlSort(lvlName(a.d))-lvlSort(lvlName(b.d))||a.r.localeCompare(b.r)).forEach(x=>lines.push([x.r,lvlName(x.d),doorLoc(x.r),x.d.supplier,x.d.fire,STAGES[x.s].k,x.st.by?name(x.st.by):"",x.st.at?new Date(x.st.at).toLocaleString("en-GB"):"",x.ironN,x.ironT,x.fr?x.fseal+"/"+FSEAL.length:"",x.fr?x.fdocs:"",x.jamb.join("; "),x.od.length,doorDwgs(x.r).join("; ")].map(q).join(",")))}
+  else{lines=[["Ref","Level","Location","Drawings","Defect","Category","Severity","Details","Notes","Raised by","Raised","Age (days)","Last sent to","Last sent"].join(",")];
+    rows.forEach(x=>x.od.forEach(df=>{const ls=(df.sent||[]).slice(-1)[0];lines.push([x.r,lvlName(x.d),doorLoc(x.r),doorDwgs(x.r).join("; "),df.title,df.cat,df.sev,df.detail,(df.notes||[]).map(n=>new Date(n.at).toLocaleDateString("en-GB")+": "+n.t).join(" | "),name(df.by),new Date(df.at).toLocaleString("en-GB"),Math.floor((Date.now()-df.at)/864e5),ls?ls.to:"",ls?new Date(ls.at).toLocaleString("en-GB"):""].map(q).join(","))}))}
+  const data=lines.join("\n"),fn=`SCEC-${seg==="comp"?"completion":"open-defects"}-${new Date().toISOString().slice(0,10)}.csv`;
   if(downloads){try{await downloads.save({filename:fn,data})}catch(e){if(e&&e.code!=="declined"&&e.code!=="cancelled")toast("Export didn't complete: "+(e.code||e.message))}}
   else{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type:"text/csv"}));a.download=fn;a.click()}}
 
