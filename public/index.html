@@ -243,6 +243,7 @@ td.ref{font:600 13px var(--f-mono);white-space:nowrap}
   .kpi b{font-size:17px}
 }
 @media (prefers-reduced-motion:reduce){.pin.hit i{animation:none}}
+.d-floor{font-size:12.5px;margin:4px 0 2px;line-height:1.5}.fl-side{color:var(--muted)}.fl-side.dom{font-weight:700;color:var(--ink,inherit)}
 .th-act{font-size:13px;border-left:3px solid var(--warn);padding:4px 8px;background:var(--surface)}.th-act.ok{border-color:var(--ok)}
 .th-v.hi{color:var(--warn);font-weight:700}.th-v.lo{color:var(--accent);font-weight:700}
 .pill.batch{background:#5B3FA0;color:#fff}
@@ -692,7 +693,7 @@ function renderDrawer(){
   const tabs=[["progress","Progress & inspection"],["design","Design"],["photos",`Photos${photos.length?" ("+photos.length+")":""}`],["defects",`Defects${od?" ("+od+")":""}`],["requests",`Requests${reqs.length?" ("+reqs.length+")":""}`]];if(UI.sec==="doors")tabs.splice(1,0,["levels",S.thresholds.has(ref)?"Thresholds ✓":"Thresholds"]);if(UI.dtab==="levels"&&UI.sec!=="doors")UI.dtab="progress";
   const prevScroll=$(".d-body")?$(".d-body").scrollTop:0;const keepForm=captureForm();
   $("#drawer").innerHTML=`<div class="d-head"><div class="d-row"><span class="d-ref">${esc(ref)}</span><span class="tag"><i class="dot" style="background:${css(STAGES[s].c)}"></i>${esc(STAGES[s].k)}</span><button class="x" id="d-close" aria-label="Close">×</button></div>
-    <div class="d-sub">${esc(where)}${d.desc?" · "+esc(d.desc):""}</div>
+    <div class="d-sub">${esc(where)}${d.desc?" · "+esc(d.desc):""}</div>${UI.sec==="doors"?floorLine(d):""}
     <div class="d-row" style="flex-wrap:wrap;gap:6px">${d.fire?`<span class="fire ${/no fr|n\/a/i.test(d.fire)?"":"fr"}">${esc(d.fire)}</span>`:""}${d.type?`<span class="pill">Type ${esc(d.type)}</span>`:""}${d.hw?`<span class="pill">${esc(d.hw)}</span>`:""}${d.supplier?`<span class="pill">${esc(d.supplier)}${d.supInferred?" (assumed)":""}</span>`:""}${d.alert?`<span class="pill" style="background:var(--danger);color:#fff">Open issue</span>`:""}${d.prep?`<span class="pill blue">Threshold prep</span>`:""}${batchPill(d)}${designPill(d)}${thPill(ref)}${d.level!=null?`<span class="pill ${d.levelQ?"warn":""}" title="${esc(d.levelQ||"")}">${esc(d.level==="Roof"?"Roof":"Level "+(d.level>=0?"+":"")+d.level+"m")}${d.levelQ?" · to confirm":""}</span>`:""}${d.conn?`<span class="pill blue">${esc(d.conn==="Controls"?"AOV controls":d.conn)}</span>`:""}${openDiffs(d).length?`<span class="pill warn">${openDiffs(d).length} open conflict${openDiffs(d).length>1?"s":""}</span>`:((d.diffs||[]).length?`<span class="pill green">Conflicts resolved</span>`:"")}${d.locs.length?`<button class="btn sm" id="d-locate">Show on plan</button>`:'<span class="pill">Not on uploaded drawings</span>'}</div></div>
     <div class="d-tabs" role="tablist">${tabs.map(([k,l])=>`<button role="tab" data-dt="${k}" aria-selected="${UI.dtab===k}">${esc(l)}</button>`).join("")}</div>
     <div class="d-body">${({progress:tabProgress,design:tabDesign,ldesign:tabLDesign,photos:tabPhotos,defects:tabDefects,requests:tabRequests,levels:tabLevels})[UI.dtab==="design"&&UI.sec==="louvres"?"ldesign":UI.dtab](ref,d,{s,st,defs,reqs,photos})}</div>`;
@@ -876,6 +877,21 @@ function zoomable(vp,img){const v={s:1,x:0,y:0,min:.05,max:8,fit:1};
   new ResizeObserver(()=>{if(Math.abs(v.s-v.fit)<1e-6)fit()}).observe(vp)}
 async function del_(col,id){if(db)await db.collection(col).doc(id).delete();else{S.photos=S.photos.filter(p=>p.id!==id);renderDrawer()}}
 
+
+/* ---------- floor finishes (Tetra Tech schedule, RFI53/54) ---------- */
+function finOf(c){return (S.RAW&&S.RAW.finishes||{})[c]}
+function finSide(sd){if(!sd||!sd.f||!sd.f.length)return null;const fs=sd.f.map(c=>({c,x:finOf(c)}));return fs}
+function finLbl(fs){return fs.map(({c,x})=>`F${esc(c)} ${x?esc(x.name):"(unknown)"}${x&&x.mm?` ${x.mm} mm`:""}`).join(" + ")}
+function finAllow(fs){if(!fs)return null;const a=fs.map(f=>f.x&&f.x.allow).filter(v=>v!=null);return a.length?Math.max(...a):null}
+function floorInfo(d){const fl=d.floor;if(!fl)return null;fl.a=fl.a||{};fl.b=fl.b||{};const A=finSide(fl.a),B=finSide(fl.b);
+  const zero=fs=>fs&&fs.every(f=>f.x&&!f.x.mm&&!f.x.allow);
+  const boldA=fl.dom==="a"||(fl.dom==="="&&!zero(A)),boldB=fl.dom==="b"||(fl.dom==="="&&!zero(B));
+  return {A,B,boldA,boldB,ra:fl.a.room,rb:fl.b.room,extB:!!fl.b.ext,allow:Math.max(finAllow(A)??0,finAllow(B)??0),same:fl.dom==="=",q:fl.q||[],srcA:fl.a.src,srcB:fl.b.src}}
+function floorLine(d){const f=floorInfo(d);if(!f)return"";
+  const side=(room,fs,b,src,ext)=>`<span class="fl-side${b?" dom":""}" title="${esc((fs?fs.map(({c,x})=>"F"+c+": "+(x?x.name+" – "+x.desc+(x.allow!=null?" · allow "+x.allow+" mm":""):"")).join("\n"):"")+(src?"\nSource: "+src:""))}">${ext&&!fs?"":esc(room||"–")+": "}${fs?finLbl(fs):ext?"External":'<span class="muted">not confirmed</span>'}</span>`;
+  return `<div class="d-floor"><span class="muted">Floor</span> ${side(f.ra,f.A,f.boldA,f.srcA)} <span class="muted">|</span> ${side(f.rb,f.B,f.boldB,f.srcB,f.extB)}${f.q.length?` <span class="pill warn" title="${esc(f.q.join("\n"))}">Finish query</span>`:""}${f.allow?` <span class="pill" title="Build-up allowance per Tetra Tech 23/09/26: Type 1 – 10 mm; Types 2/9/11 – 8 mm; Types 3/4/8 – 15 mm; Types 5/6 – none">allow ${f.allow} mm</span>`:""}</div>`}
+function floorCsv(d){const f=floorInfo(d);if(!f)return["","",""];const t=fs=>fs?fs.map(({c,x})=>"F"+c+" "+(x?x.name:"")).join(" + "):"";return[f.ra+": "+t(f.A)+(f.boldA?" (dominant)":""),f.rb+": "+t(f.B)+(f.boldB?" (dominant)":""),f.allow||0]}
+
 /* ---------- threshold level survey ---------- */
 const TH_NOM=50,TH_TOL=5;
 const TH_REM=["","No action","Screed through threshold","Reduce door height & pack head","Grind / break out floor","Screed + reduce door height","Other (see note)"];
@@ -914,7 +930,7 @@ function tabLevels(ref,d){
   const t=(S.thresholds&&S.thresholds.get(ref))||{};const c=thCalc(t);
   const inp=(k,lbl,hint)=>`<label>${lbl}<span style="display:flex;align-items:center;gap:6px"><input type="number" inputmode="numeric" min="0" max="200" step="1" id="th-${k}" data-keep="th-${k}-${ref}" value="${t[k]==null?"":esc(t[k])}" placeholder="50" ${canWrite?"":"disabled"} style="font:600 20px var(--f-mono);max-width:110px"><span class="muted">mm</span></span><span class="muted" style="font-weight:400">${hint}</span></label>`;
   return `<div class="grp"><h4>How to measure</h4><p style="margin:0;font-size:13px">Mark the jambs 2050 mm down from the top of the formed opening, then measure from the mark down to the floor. On a level slab every reading is <b>50 mm</b> (2050 + 50 = 2100 opening). Bigger = floor low, smaller = floor high.</p>${thDiagram()}</div>
-  <div class="form"><b>Threshold level readings</b>
+  ${(()=>{const f=floorInfo(d);return f?`<div class="grp"><h4>Floor finishes</h4>${floorLine(d)}<p class="muted" style="margin:4px 0 0;font-size:12px">${f.allow?`Finish build-up allowance <b>${f.allow} mm</b> – the finished floor will sit about ${f.allow} mm above the slab readings below.`:"No build-up allowance (concrete / floor paint) – slab readings are the finished level."}</p></div>`:""})()}<div class="form"><b>Threshold level readings</b>
     <div class="row">${inp("h","Hinge side (H)","Expected 50")}${inp("l","Latch side (L)","Expected 50")}${inp("s","High spot in swing (S)","Optional – lowest reading")}</div>
     <div id="th-out">${thOut(c)}</div>
     <label>Remedy decided<select id="th-rem" ${canWrite?"":"disabled"}>${TH_REM.map(r=>`<option value="${esc(r)}"${(t.remedy||"")===r?" selected":""}>${r?esc(r):"Not decided – use suggestion"}</option>`).join("")}</select></label>
@@ -951,8 +967,8 @@ function renderThresh(){
 }
 async function exportThresh(){
   const q=v=>{v=v==null?"":String(v);return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
-  const lines=[["Ref","From","To","Supplier","Level","Hinge (mm)","Latch (mm)","Swing high spot (mm)","Fall (mm)","Floor high (mm)","Floor low (mm)","Opening height (mm)","Screed","Reduce door height","Grind high spot","Suggested","Remedy decided","Note","Measured by","Measured"].join(",")];
-  for(const {r,d,t,c} of thRows()){if(!c)continue;lines.push([r,d.from,d.to,d.supplier,d.level,c.h,c.l,c.s,c.fall,c.high,c.low,2050+Math.min(c.h,c.l),c.need.screed?"Yes":"",c.need.reduce?c.high:"",c.need.grind?"Yes":"",c.sug,t.remedy,t.note,name(t.by),new Date(t.at).toLocaleString("en-GB")].map(q).join(","))}
+  const lines=[["Ref","From","To","Supplier","Level","Hinge (mm)","Latch (mm)","Swing high spot (mm)","Fall (mm)","Floor high (mm)","Floor low (mm)","Opening height (mm)","Screed","Reduce door height","Grind high spot","Suggested","Remedy decided","Note","Measured by","Measured","Floor finish side A","Floor finish side B","Finish allowance (mm)"].join(",")];
+  for(const {r,d,t,c} of thRows()){if(!c)continue;lines.push([r,d.from,d.to,d.supplier,d.level,c.h,c.l,c.s,c.fall,c.high,c.low,2050+Math.min(c.h,c.l),c.need.screed?"Yes":"",c.need.reduce?c.high:"",c.need.grind?"Yes":"",c.sug,t.remedy,t.note,name(t.by),new Date(t.at).toLocaleString("en-GB"),...floorCsv(d)].map(q).join(","))}
   const data=lines.join("\n"),fn=`SCEC-threshold-levels-${new Date().toISOString().slice(0,10)}.csv`;
   if(downloads){try{await downloads.save({filename:fn,data})}catch(e){if(e&&e.code!=="declined"&&e.code!=="cancelled")toast("Export didn't complete: "+(e.code||e.message))}}
   else{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type:"text/csv"}));a.download=fn;a.click()}}
