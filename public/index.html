@@ -1116,6 +1116,15 @@ function bindFire(ref,d){
 
 
 /* ---------- email a defect for action ---------- */
+/* build an unsent .eml (opens in Outlook as a new draft with attachments) */
+async function buildEml({to,cc,subject,body,files}){const B="=_scec_"+Math.random().toString(36).slice(2);const nl="\r\n";
+  const enc=s=>"=?UTF-8?B?"+btoa(unescape(encodeURIComponent(s)))+"?=";
+  const b64=async f=>{const buf=new Uint8Array(await f.arrayBuffer());let bin="";for(let i=0;i<buf.length;i+=32768)bin+=String.fromCharCode.apply(null,buf.subarray(i,i+32768));return btoa(bin).replace(/.{1,76}/g,"$&"+nl)};
+  let m=`X-Unsent: 1${nl}To: ${to}${nl}${cc?`Cc: ${cc}${nl}`:""}Subject: ${enc(subject)}${nl}MIME-Version: 1.0${nl}Content-Type: multipart/mixed; boundary="${B}"${nl}${nl}`;
+  m+=`--${B}${nl}Content-Type: text/plain; charset=UTF-8${nl}Content-Transfer-Encoding: base64${nl}${nl}${btoa(unescape(encodeURIComponent(body.replace(/\r?\n/g,nl)))).replace(/.{1,76}/g,"$&"+nl)}${nl}`;
+  for(const f of files)m+=`--${B}${nl}Content-Type: ${f.type||"application/octet-stream"}; name="${f.name}"${nl}Content-Disposition: attachment; filename="${f.name}"${nl}Content-Transfer-Encoding: base64${nl}${nl}${await b64(f)}${nl}`;
+  return new Blob([m+`--${B}--${nl}`],{type:"message/rfc822"})}
+
 /* defect email recipients by contractor */
 const MAIL_GROUPS={
   ms:{greet:"Thomson",to:["thomson.hamilton@morrisandspottiswood.co.uk"],cc:["james.mchattie@morrisandspottiswood.co.uk","nick.paterson@morrisandspottiswood.co.uk"],afry:["colin.langan@afry.com","michael.oconnor@afry.com"],label:"Morris & Spottiswood"},
@@ -1153,8 +1162,8 @@ async function openMail(df){const lb=$("#lightbox");lb.hidden=false;lb.innerHTML
    ${all.length||doorPh.length?`<b style="font-size:13px">Photos to include</b><div class="photos" style="grid-template-columns:repeat(auto-fill,minmax(110px,1fr))">${all.concat(doorPh).map(p=>`<label class="ph" style="position:relative"><img alt="" src="${esc(photoSrc(p))}"><span><input type="checkbox" data-mph="${p.id}" ${p.defect===df.id?"checked":""}> ${esc(p.cap||"")}</span></label>`).join("")}</div>`:'<span class="muted" style="font-size:12px">No photos on this defect.</span>'}
    ${designFiles(df.ref).length?`<b style="font-size:13px">Door design</b><div style="display:flex;flex-direction:column;gap:4px">${designFiles(df.ref).map((f,i)=>`<label style="flex-direction:row;align-items:center;gap:8px;font-weight:400"><input type="checkbox" data-mdw="${i}" checked> Attach ${esc(f.label)} <a href="${esc(f.url)}" target="_blank" rel="noopener" class="muted" style="font-size:12px">view</a></label>`).join("")}</div>`:'<span class="muted" style="font-size:12px">No supplier design drawing for this door.</span>'}
    <label>Message preview<textarea id="ml-body" rows="12" style="font:13px/1.45 var(--f-mono);width:100%;box-sizing:border-box"></textarea></label>
-   <div class="row" style="flex-wrap:wrap;gap:8px"><button class="btn primary" id="ml-share">Share + photos</button><button class="btn" id="ml-open">Open in email app</button><button class="btn" id="ml-dl">Download attachments</button><button class="btn" id="ml-copy">Copy message</button></div>
-   <span class="muted" style="font-size:12px" id="ml-help">“Share + photos” opens your phone or PC share sheet – pick Mail/Outlook and the photos are attached automatically (recipients are filled in there). “Open in email app” fills in To, Subject and message; attach the downloaded photos/drawings if needed.</span></div>`;
+   <div class="row" style="flex-wrap:wrap;gap:8px"><button class="btn primary" id="ml-eml">Outlook draft with attachments</button><button class="btn" id="ml-share">Share + photos</button><button class="btn" id="ml-open">Open in email app (no attachments)</button><button class="btn" id="ml-dl">Download attachments</button><button class="btn" id="ml-copy">Copy message</button></div>
+   <span class="muted" style="font-size:12px" id="ml-help"><b>Outlook draft</b> creates a ready-to-send email (To, Cc, subject, message, photos and drawing all attached) – open the file and Outlook shows it as a new draft; just press Send. “Share + photos” opens your phone or PC share sheet – pick Mail/Outlook and the photos are attached automatically (recipients are filled in there). “Open in email app” fills in To, Subject and message; attach the downloaded photos/drawings if needed.</span></div>`;
   const pool=all.concat(doorPh);const sel=()=>pool.filter(p=>{const c=box.querySelector(`[data-mph="${p.id}"]`);return c&&c.checked});
   const dsel=()=>designFiles(df.ref).filter((f,i)=>{const c=box.querySelector(`[data-mdw="${i}"]`);return c&&c.checked});
   const refresh=()=>{let t=mailText(df,$("#ml-extra").value.trim(),sel());const ds=dsel();if(ds.length)t=t.replace(/\n\nMany thanks,/,`\nDoor design attached: ${ds.map(f=>f.label).join("; ")}.\n\nMany thanks,`);$("#ml-body").value=t};refresh();
@@ -1162,6 +1171,10 @@ async function openMail(df){const lb=$("#lightbox");lb.hidden=false;lb.innerHTML
   const files=async()=>{const ph=await Promise.all(sel().map(async(p,i)=>{const b=await (await fetch(photoSrc(p))).blob();return new File([b],`${df.ref}-defect-${i+1}.jpg`,{type:b.type||"image/jpeg"})}));
     const dw=await Promise.all(dsel().map(async f=>{const b=await (await fetch(f.url)).blob();return new File([b],f.name,{type:b.type||"image/png"})}));return ph.concat(dw)};
   const log=async to=>{if(!mailRecipients(df.ref).to.length)UI.lastMailTo=$("#ml-to").value.trim();if(!canWrite)return;const cur=S.defects.get(df.id)||df;try{await put("defects",df.id,{...strip(cur),sent:[...(cur.sent||[]),{to:to||"",by:meId,at:Date.now()}]})}catch(e){}};
+  $("#ml-eml").onclick=async()=>{try{const norm=v=>v.trim().replace(/\s*[,;]\s*/g,", ").replace(/,\s*$/,"");const fs=await files();
+      const blob=await buildEml({to:norm($("#ml-to").value),cc:norm($("#ml-cc").value),subject:$("#ml-subj").value,body:$("#ml-body").value,files:fs});
+      const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${df.ref}_defect_email.eml`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);
+      await log(norm($("#ml-to").value));toast(`Draft created with ${fs.length} attachment${fs.length===1?"":"s"} – open it to send from Outlook`)}catch(e){toast("Couldn't build the draft: "+(e.message||e))}};
   $("#ml-share").onclick=async()=>{try{const fs=await files();const data={title:$("#ml-subj").value,text:$("#ml-body").value,files:fs};
       if(!navigator.canShare||!navigator.canShare(fs.length?data:{text:data.text})){toast("Sharing with attachments isn't supported in this browser – use “Open in email app” and attach the downloaded photos.");return}
       if(!fs.length)delete data.files;await navigator.share(data);await log($("#ml-to").value.trim()||"(shared)");toast("Shared")}catch(e){if(e&&e.name!=="AbortError")toast("Couldn't share: "+(e.message||e))}};
