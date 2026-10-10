@@ -1140,7 +1140,7 @@ function doorLoc(r){const d=S.data.doors[r]||{};const lv=d.level==null?"":d.leve
   return [d.from&&d.to?d.from+" → "+d.to:(d.from||d.desc||""),lv].filter(Boolean).join(", ")}
 function doorDwgs(r){const d=S.data.doors[r]||{};const o=[];if((d.ga||[]).length)o.push("RPS layout "+d.ga.join(", "));if(d.sheet)o.push("RPS door schedule A-"+d.sheet);(d.doorsets||[]).filter(x=>!x.superseded).forEach(x=>o.push(`${/^(almet|ascot|johan|marshall)/i.test(x.no)?"":(x.maker||d.supplier||"Supplier")+" "}${x.no} rev ${x.rev}`));if(d.prod)o.push(`Johan production sheet${d.hw?" ("+d.hw+")":""}`);return o}
 function mailText(df,extra,photos){const r=df.ref,d=S.data.doors[r]||{};const me=S.names[meId]||"";const R=mailRecipients(r);
-  const L=[R.greet?`Hi ${R.greet},`:`Hello,`,``,`Please see the defect below, recorded at South Clyde Energy Centre (Fortum Glasgow EfW). Could you please review and provide comment, and confirm the proposed remedial action and timescale.`,``,
+  const L=[R.greet?`Hi ${R.greet},`:`Hello,`,``,`Please see the defect below. Could you please review and provide comment, and confirm the proposed remedial action and timescale.`,``,
   `Door: ${r}${d.desc?" – "+d.desc:""}`,`Location: ${doorLoc(r)||"–"}`,`Drawings: ${doorDwgs(r).join("; ")||"–"}`,`Supplier: ${d.supplier||"–"}`,``,
   `Defect: ${df.title}`,`Category: ${catTxt(df.cat)||"–"}`,`Severity: ${df.sev||"Medium"}`];
   if(df.detail)L.push(`Details: ${df.detail}`);(df.notes||[]).forEach(n=>L.push(`Note (${new Date(n.at).toLocaleDateString("en-GB")}): ${n.t}`));
