@@ -727,7 +727,7 @@ function renderDrawer(){UI.drawerDirty=false;
   const od=defs.filter(x=>x.status!=="Closed").length;
   const where=UI.sec==="louvres"?(d.soW?`${d.soW} × ${d.soH} mm`:"COLT"):(d.from&&d.to?`${d.from} → ${d.to}`:(d.from||(d.table||"Not in door schedules").replace(/^Door Schedule - /,"")));
   const SUB=["progress","photos","defects","requests"];const subs=[["progress","Installation"],["photos",`Photos${photos.length?" ("+photos.length+")":""}`],["defects",`Defects${od?" ("+od+")":""}`],["requests",`Requests${reqs.length?" ("+reqs.length+")":""}`]];
-  const tabs=[["progress",`Progress & inspection${od?" · "+od+" defect"+(od>1?"s":""):""}`],["design","Design"]];if(UI.sec==="doors"&&isFR(d)){const nd=[...S.firedocs.values()].filter(x=>x.ref===ref).length;tabs.push(["fire",`Fire inspection${nd?" ("+nd+")":""}`])}if(UI.dtab==="fire"&&!(UI.sec==="doors"&&isFR(d)))UI.dtab="progress";if(UI.sec==="doors")tabs.splice(2,0,["levels",!thApplies(d)?"Finishes":S.thresholds.has(ref)?"Thresholds & finishes ✓":"Thresholds & finishes"]);const topT=SUB.includes(UI.dtab)?"progress":UI.dtab;if(UI.dtab==="levels"&&UI.sec!=="doors")UI.dtab="progress";
+  const tabs=[["progress",`Progress & inspection${od?" · "+od+" defect"+(od>1?"s":""):""}`],["design","Design"]];if(UI.sec==="doors"&&isFR(d)){const nd=[...S.firedocs.values()].filter(x=>x.ref===ref).length;tabs.push(["fire",`Fire inspection${nd?" ("+nd+")":""}`])}if(UI.dtab==="fire"&&!(UI.sec==="doors"&&isFR(d)))UI.dtab="progress";if(UI.sec==="doors")tabs.splice(2,0,["levels",isScreenDoor(d)?(S.thresholds.has(ref)?"Floor & finishes ✓":"Floor & finishes"):!thApplies(d)?"Finishes":S.thresholds.has(ref)?"Thresholds & finishes ✓":"Thresholds & finishes"]);const topT=SUB.includes(UI.dtab)?"progress":UI.dtab;if(UI.dtab==="levels"&&UI.sec!=="doors")UI.dtab="progress";
   const prevScroll=$(".d-body")?$(".d-body").scrollTop:0;const keepForm=captureForm();
   $("#drawer").innerHTML=`<div class="d-head"><div class="d-row"><span class="d-ref">${esc(ref)}</span><span class="tag"><i class="dot" style="background:${css(STAGES[s].c)}"></i>${esc(STAGES[s].k)}</span><button class="x" id="d-close" aria-label="Close">×</button></div>
     <div class="d-sub">${esc(where)}${d.desc?" · "+esc(d.desc):""}</div>
@@ -971,14 +971,15 @@ const TH_TOL=5,TH_MARK=2050,TH_MARGIN=3;
 const TH_REM=["","No action","Screed threshold","Screed threshold + fill head gap","Lower door + fill head gap","Build up threshold for swing","Grind high spot in swing","Reduce door height (supplier)","Other (see note)"];
 const thNum=v=>{if(v===""||v==null)return null;const n=+v;return isFinite(n)?Math.round(n):null};
 function supGap(d){return /johan/i.test(d.supplier||"")?7:/almet/i.test(d.supplier||"")?5:/ascot/i.test(d.supplier||"")?3:null}
-function thApplies(d){return !/Roller shutter|Roof hatch/i.test((d&&d.ctype)||"")}
+function isScreenDoor(d){return /marshall|planet/i.test((d&&d.supplier)||"")}
+function thApplies(d){return !/Roller shutter|Roof hatch/i.test((d&&d.ctype)||"")&&!isScreenDoor(d)}
 function thGeom(d){d=d||{};const sp=d.sup||{};const so=+(sp.soH||d.soH)||2100;const g0=supGap(d),g=g0??5;
   const asc=/ascot/i.test(d.supplier||"")&&!!sp.soH;   // Ascot drawings give the structural opening; frame = SO − 3 mm head allowance
   const fhC=+d.frameH||null,fhS=+sp.frameH||null,fhA=asc?so-3:null,fh=fhC||fhS||fhA;const fhUse=fh||so-g;
   return {so,soSrc:sp.soH?(sp.src||d.supplier||"supplier design"):(d.soH?"RPS schedule":"assumed"),fh:fhUse,fhAssumed:!fh,fhSrc:fhC?"confirmed in tracker":fhS?(sp.src||d.supplier+" drawing"):fhA?`${sp.src||"Ascot drawing"} – SO − 3 mm head allowance`:`assumed SO − ${g} mm`,
     gap:g,gapAssumed:g0==null,dgap:g,finAllow:fh?so-g-fh:null,exp:so-TH_MARK,tDesign:g+fhUse-TH_MARK,fr:isFR(d)}}
 function thCalc(v,d){
-  if(!v)return null;d=d||(S.data&&S.data.doors[v.ref||v.id])||{};const h=thNum(v.h),l=thNum(v.l),s=thNum(v.s);if(h==null||l==null)return null;
+  if(!v||v.mode==="screen")return null;d=d||(S.data&&S.data.doors[v.ref||v.id])||{};const h=thNum(v.h),l=thNum(v.l),s=thNum(v.s);if(h==null||l==null)return null;
   const G=thGeom(d);const f=floorInfo(d);const A=(v.fin!==false&&f&&f.allow)?f.allow:0;const clr=thNum(v.clr)??8;
   const hiJ=Math.min(h,l),loJ=Math.max(h,l),fall=loJ-hiJ,loSide=h>l?"hinge":"latch",hiSide=h>l?"latch":"hinge";
   const MINGAP=3;
@@ -1009,7 +1010,7 @@ function thCalc(v,d){
   return {h,l,s,A,clr,G,fall,t,sH,sL,sDH,sDL,lowered,smax,headGap,extra,swingUp,ok,need,acts,sug,reduceBy:need.reduce?MINGAP-headGap:0,dev:Math.max(smax,Math.abs(extra),swingUp)}}
 const thCls=(v,e)=>v==null?"":v<e-TH_TOL?"hi":v>e+TH_TOL?"lo":"";
 const thDev=(v,e)=>v==null?"":v===e?"on level":v<e?`${e-v} high`:`${v-e} low`;
-function thPill(ref){const t=S.thresholds&&S.thresholds.get(ref);const c=t&&thCalc(t);if(!c)return"";return `<span class="pill ${c.ok?"green":"warn"}" title="Threshold level survey">${c.ok?"Levels OK":"Levels: "+esc(t.remedy||c.sug)}</span>`}
+function thPill(ref){const t=S.thresholds&&S.thresholds.get(ref);if(t&&t.mode==="screen")return t.issue||(t.hs||0)>3?`<span class="pill warn" title="${esc(t.note||"")}">Floor issue</span>`:"";const c=t&&thCalc(t);if(!c)return"";return `<span class="pill ${c.ok?"green":"warn"}" title="Threshold level survey">${c.ok?"Levels OK":"Levels: "+esc(t.remedy||c.sug)}</span>`}
 function thDiagram(e){return `<svg viewBox="0 0 300 150" style="width:100%;max-width:340px;display:block;margin:4px 0 2px" role="img" aria-label="Measure down from the 2050 mark to the floor at the hinge side, latch side and any high spot in the swing">
   <g fill="none" stroke="currentColor" stroke-width="2"><path d="M60 140V18h120v122"/></g>
   <line x1="40" y1="40" x2="200" y2="40" stroke="#1F5FA8" stroke-width="1.5" stroke-dasharray="5 4"/><text x="204" y="44" font-size="11" fill="#1F5FA8">2050 mark</text>
@@ -1021,7 +1022,16 @@ function thOut(c){if(!c)return `<p class="muted" style="margin:0;font-size:13px"
   return `<div class="kv"><div>Hinge side</div><div>${c.h} mm · ${thDev(c.h,e)}</div><div>Latch side</div><div>${c.l} mm · ${thDev(c.l,e)}</div>${c.s!=null?`<div>High spot in swing</div><div>${c.s} mm · ${thDev(c.s,e)}</div>`:""}<div>Fall across opening</div><div>${c.fall} mm</div><div>Screed to threshold</div><div><b>hinge ${c.sH} mm · latch ${c.sL} mm</b></div><div>Resulting head gap</div><div><b>${c.headGap} mm</b> (design ${c.G.dgap} mm)</div></div>
   <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">${c.acts.map(a=>`<div class="th-act ${c.ok?"ok":""}">${a}</div>`).join("")}</div>
   <p class="muted" style="margin:6px 0 0;font-size:12px">Proposed remedial: <b>${esc(c.sug)}</b></p>`}
-function tabLevels(ref,d){if(!thApplies(d)){const f=floorInfo(d);return `<div class="empty" style="padding:12px;text-align:left">Threshold level check not required for ${esc((d.ctype||"").toLowerCase())}s.</div>${f?`<div class="grp"><h4>Floor finishes</h4>${floorLine(d)}</div>`:""}`}
+function tabScreenLevels(ref,d){const t=(S.thresholds&&S.thresholds.get(ref))||{};const f=floorInfo(d);
+  return `<div class="empty" style="padding:12px;text-align:left">Door built into the ${esc(d.supplier)} glazed screen – no structural opening or frame height check needed.</div>
+  ${f?`<div class="grp"><h4>Floor finishes</h4>${floorLine(d)}</div>`:""}
+  <div class="form"><b>Floor check at the door</b>
+   <label>High spot in the door swing / at the threshold<span style="display:flex;align-items:center;gap:6px"><input type="number" inputmode="numeric" min="0" max="100" id="sc-hs" data-keep="sc-hs-${ref}" value="${t.hs??""}" placeholder="0" ${canWrite?"":"disabled"} style="font:600 20px var(--f-mono);max-width:110px"><span class="muted">mm above the floor at the threshold</span></span></label>
+   <label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="sc-iss" ${t.issue?"checked":""} ${canWrite?"":"disabled"}> Floor level issue at this door</label>
+   <label>Issue / note<input type="text" id="sc-note" data-keep="sc-note-${ref}" value="${esc(t.note||"")}" placeholder="e.g. 6 mm hump in swing, leaf rubs at 60° open" ${canWrite?"":"disabled"}></label>
+   ${canWrite?`<div class="row" style="flex:0"><button class="btn primary" id="sc-save" style="flex:0">Save</button></div>`:""}
+   ${t.at?`<p class="muted" style="margin:0;font-size:12px">${t.issue||(t.hs||0)>3?'<span class="pill warn">Issue recorded</span> ':'<span class="pill green">No issue</span> '}Saved by ${esc(name(t.by))}, ${fmt(t.at)}</p>`:""}</div>`}
+function tabLevels(ref,d){if(isScreenDoor(d))return tabScreenLevels(ref,d);if(!thApplies(d)){const f=floorInfo(d);return `<div class="empty" style="padding:12px;text-align:left">Threshold level check not required for ${esc((d.ctype||"").toLowerCase())}s.</div>${f?`<div class="grp"><h4>Floor finishes</h4>${floorLine(d)}</div>`:""}`}
   const t=(S.thresholds&&S.thresholds.get(ref))||{};const c=thCalc(t,d);const G=thGeom(d);const f=floorInfo(d);
   const inp=(k,lbl,hint)=>`<label>${lbl}<span style="display:flex;align-items:center;gap:6px"><input type="number" inputmode="numeric" min="0" max="1000" step="1" id="th-${k}" data-keep="th-${k}-${ref}" value="${t[k]==null?"":esc(t[k])}" placeholder="${G.exp}" ${canWrite?"":"disabled"} style="font:600 20px var(--f-mono);max-width:110px"><span class="muted">mm</span></span><span class="muted" style="font-weight:400">${hint}</span></label>`;
   return `<div class="grp"><h4>Door opening</h4>${kv([["Structural opening height",`${G.so} mm (${G.soSrc})`],["Frame height",`${G.fh} mm (${G.fhSrc})`],["Design gap",`${G.dgap} mm at head${/ascot/i.test(d.supplier||"")?", 5 mm sides":` and sides`}${G.gapAssumed?" (assumed)":` (${d.supplier})`}`],["Floor finish allowance in frame",G.finAllow!=null?`${G.finAllow} mm`:"unknown"],["Expected reading",`${G.exp} mm (${G.so} − 2050)`],["Fire rating",d.fire||"–"]])}</div>
@@ -1039,7 +1049,11 @@ function tabLevels(ref,d){if(!thApplies(d)){const f=floorInfo(d);return `<div cl
   </div>
   ${(t.hist||[]).length?`<div class="grp" style="margin-top:12px"><h4>Earlier readings</h4>${t.hist.slice().reverse().map(x=>`<div class="muted" style="font-size:12px">${fmt(x.at)} · ${esc(name(x.by))}: H ${x.h??"–"} / L ${x.l??"–"} / S ${x.s??"–"}${x.remedy?" · "+esc(x.remedy):""}</div>`).join("")}</div>`:""}`;
 }
-function bindLevels(ref){const d=S.data.doors[ref];if(!thApplies(d))return;
+function bindLevels(ref){const d=S.data.doors[ref];
+  if(isScreenDoor(d)){const b=$("#sc-save");if(b)b.onclick=()=>{if(!guard())return;const hs=thNum($("#sc-hs").value);const old=S.thresholds.get(ref);
+    document.activeElement&&document.activeElement.blur&&document.activeElement.blur();
+    save(()=>put("thresholds",ref,{ref,mode:"screen",hs,issue:$("#sc-iss").checked,note:$("#sc-note").value.trim(),by:meId,at:Date.now(),hist:old?[...(old.hist||[]),{hs:old.hs,issue:old.issue,note:old.note,by:old.by,at:old.at}].slice(-20):[]}).then(()=>renderDrawer()),`${ref} floor check saved`)};return}
+  if(!thApplies(d))return;
   const vals=()=>({h:$("#th-h").value,l:$("#th-l").value,s:$("#th-s").value,clr:$("#th-clr").value,fin:$("#th-fin")?$("#th-fin").checked:true});
   const mark=()=>{const o=$("#th-dirty");if(o)o.hidden=false};
   ["h","l","s","clr"].forEach(k=>{const e=$("#th-"+k);if(e){e.oninput=mark;e.onkeydown=ev=>{if(ev.key==="Enter"){ev.preventDefault();const b=$("#th-save");if(b)b.click()}}}});const fe=$("#th-fin");if(fe)fe.onchange=mark;
