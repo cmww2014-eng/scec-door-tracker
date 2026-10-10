@@ -1121,6 +1121,8 @@ const MAIL_GROUPS={
   ms:{greet:"Thomson",to:["thomson.hamilton@morrisandspottiswood.co.uk"],cc:["james.mchattie@morrisandspottiswood.co.uk","nick.paterson@morrisandspottiswood.co.uk"],afry:["colin.langan@afry.com","michael.oconnor@afry.com"],label:"Morris & Spottiswood"},
   cm:{greet:"Jim",to:["jim.hamilton@curtismoore.co.uk"],cc:["chaz.davis@curtismoore.co.uk"],afry:["michael.oconnor@afry.com","tony.malone@afry.com"],label:"Curtis Moore"}};
 const SUP_MAIL={Almet:["ald@almetdoors.co.uk","liamd@almetdoors.co.uk"],Johan:["louie@johandoors.co.uk"]};
+function designFiles(r){const d=S.data.doors[r]||{};const o=[];(d.doorsets||[]).filter(x=>!x.superseded).forEach(x=>o.push({url:x.file,name:`${r}_design_${x.no}_rev${x.rev}.png`.replace(/[^A-Za-z0-9._-]+/g,"_"),label:`${x.no} rev ${x.rev}`}));
+  if(d.prod)(d.prod.pages||[]).forEach((n,i)=>o.push({url:`prod/${n}.png`,name:`${r}_Johan_production_sheet${d.prod.pages.length>1?"_"+(i+1):""}.png`,label:`Johan production sheet${d.prod.pages.length>1?" "+(i+1):""}`}));return o}
 function mailRecipients(r){const d=S.data.doors[r]||{};const sup=d.supplier||"";
   const g=/almet|johan/i.test(sup)?MAIL_GROUPS.ms:/ascot/i.test(sup)?MAIL_GROUPS.cm:null;if(!g)return {greet:"",to:[],cc:[],label:""};
   return {greet:g.greet,to:g.to,cc:[...g.cc,...(SUP_MAIL[sup]||[]),...g.afry],label:g.label}}
@@ -1149,22 +1151,26 @@ async function openMail(df){const lb=$("#lightbox");lb.hidden=false;lb.innerHTML
    <label>Subject<input type="text" id="ml-subj" value="${esc(subj)}"></label>
    <label>Additional message (optional)<input type="text" id="ml-extra" placeholder="e.g. Please attend site on Tuesday to rectify"></label>
    ${all.length||doorPh.length?`<b style="font-size:13px">Photos to include</b><div class="photos" style="grid-template-columns:repeat(auto-fill,minmax(110px,1fr))">${all.concat(doorPh).map(p=>`<label class="ph" style="position:relative"><img alt="" src="${esc(photoSrc(p))}"><span><input type="checkbox" data-mph="${p.id}" ${p.defect===df.id?"checked":""}> ${esc(p.cap||"")}</span></label>`).join("")}</div>`:'<span class="muted" style="font-size:12px">No photos on this defect.</span>'}
+   ${designFiles(df.ref).length?`<b style="font-size:13px">Door design</b><div style="display:flex;flex-direction:column;gap:4px">${designFiles(df.ref).map((f,i)=>`<label style="flex-direction:row;align-items:center;gap:8px;font-weight:400"><input type="checkbox" data-mdw="${i}" checked> Attach ${esc(f.label)} <a href="${esc(f.url)}" target="_blank" rel="noopener" class="muted" style="font-size:12px">view</a></label>`).join("")}</div>`:'<span class="muted" style="font-size:12px">No supplier design drawing for this door.</span>'}
    <label>Message preview<textarea id="ml-body" rows="12" style="font:13px/1.45 var(--f-mono);width:100%;box-sizing:border-box"></textarea></label>
-   <div class="row" style="flex-wrap:wrap;gap:8px"><button class="btn primary" id="ml-share">Share + photos</button><button class="btn" id="ml-open">Open in email app</button><button class="btn" id="ml-dl">Download photos</button><button class="btn" id="ml-copy">Copy message</button></div>
-   <span class="muted" style="font-size:12px" id="ml-help">“Share + photos” opens your phone or PC share sheet – pick Mail/Outlook and the photos are attached automatically (recipients are filled in there). “Open in email app” fills in To, Subject and message; attach the downloaded photos if needed.</span></div>`;
+   <div class="row" style="flex-wrap:wrap;gap:8px"><button class="btn primary" id="ml-share">Share + photos</button><button class="btn" id="ml-open">Open in email app</button><button class="btn" id="ml-dl">Download attachments</button><button class="btn" id="ml-copy">Copy message</button></div>
+   <span class="muted" style="font-size:12px" id="ml-help">“Share + photos” opens your phone or PC share sheet – pick Mail/Outlook and the photos are attached automatically (recipients are filled in there). “Open in email app” fills in To, Subject and message; attach the downloaded photos/drawings if needed.</span></div>`;
   const pool=all.concat(doorPh);const sel=()=>pool.filter(p=>{const c=box.querySelector(`[data-mph="${p.id}"]`);return c&&c.checked});
-  const refresh=()=>{$("#ml-body").value=mailText(df,$("#ml-extra").value.trim(),sel())};refresh();
-  $("#ml-extra").oninput=refresh;box.querySelectorAll("[data-mph]").forEach(c=>c.onchange=refresh);
-  const files=async()=>Promise.all(sel().map(async(p,i)=>{const b=await (await fetch(photoSrc(p))).blob();return new File([b],`${df.ref}-defect-${i+1}.jpg`,{type:b.type||"image/jpeg"})}));
+  const dsel=()=>designFiles(df.ref).filter((f,i)=>{const c=box.querySelector(`[data-mdw="${i}"]`);return c&&c.checked});
+  const refresh=()=>{let t=mailText(df,$("#ml-extra").value.trim(),sel());const ds=dsel();if(ds.length)t=t.replace(/\n\nMany thanks,/,`\nDoor design attached: ${ds.map(f=>f.label).join("; ")}.\n\nMany thanks,`);$("#ml-body").value=t};refresh();
+  $("#ml-extra").oninput=refresh;box.querySelectorAll("[data-mph],[data-mdw]").forEach(c=>c.onchange=refresh);
+  const files=async()=>{const ph=await Promise.all(sel().map(async(p,i)=>{const b=await (await fetch(photoSrc(p))).blob();return new File([b],`${df.ref}-defect-${i+1}.jpg`,{type:b.type||"image/jpeg"})}));
+    const dw=await Promise.all(dsel().map(async f=>{const b=await (await fetch(f.url)).blob();return new File([b],f.name,{type:b.type||"image/png"})}));return ph.concat(dw)};
   const log=async to=>{if(!mailRecipients(df.ref).to.length)UI.lastMailTo=$("#ml-to").value.trim();if(!canWrite)return;const cur=S.defects.get(df.id)||df;try{await put("defects",df.id,{...strip(cur),sent:[...(cur.sent||[]),{to:to||"",by:meId,at:Date.now()}]})}catch(e){}};
   $("#ml-share").onclick=async()=>{try{const fs=await files();const data={title:$("#ml-subj").value,text:$("#ml-body").value,files:fs};
       if(!navigator.canShare||!navigator.canShare(fs.length?data:{text:data.text})){toast("Sharing with attachments isn't supported in this browser – use “Open in email app” and attach the downloaded photos.");return}
       if(!fs.length)delete data.files;await navigator.share(data);await log($("#ml-to").value.trim()||"(shared)");toast("Shared")}catch(e){if(e&&e.name!=="AbortError")toast("Couldn't share: "+(e.message||e))}};
   $("#ml-open").onclick=async()=>{const norm=v=>v.trim().replace(/\s*[,;]\s*/g,",").replace(/,+$/,"");const to=norm($("#ml-to").value),cc=norm($("#ml-cc").value);let body=$("#ml-body").value;
     const ps=sel();if(ps.length)body+=`\n\nPhoto links (tracker sign-in required):\n`+ps.map(p=>new URL(photoSrc(p),location.href).href).join("\n");
+    const ds=dsel();if(ds.length)body+=`\n\nDoor design (tracker sign-in required):\n`+ds.map(f=>new URL(f.url,location.href).href).join("\n");
     const q=[cc&&"cc="+encodeURIComponent(cc).replace(/%40/g,"@").replace(/%2C/g,","),"subject="+encodeURIComponent($("#ml-subj").value),"body="+encodeURIComponent(body)].filter(Boolean).join("&");
     location.href=`mailto:${encodeURIComponent(to).replace(/%40/g,"@").replace(/%2C/g,",")}?${q}`;await log(to)};
-  $("#ml-dl").onclick=async()=>{const fs=await files();if(!fs.length){toast("Tick at least one photo.");return}for(const f of fs){const a=document.createElement("a");a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)}};
+  $("#ml-dl").onclick=async()=>{const fs=await files();if(!fs.length){toast("Tick at least one photo or drawing.");return}for(const f of fs){const a=document.createElement("a");a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)}};
   $("#ml-copy").onclick=async()=>{try{await navigator.clipboard.writeText($("#ml-subj").value+"\n\n"+$("#ml-body").value);toast("Message copied")}catch(e){toast("Couldn't copy – select the text and copy it")}}}
 
 
