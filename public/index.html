@@ -371,7 +371,8 @@ function batchPill(d){if(UI.sec!=="doors"||!/almet/i.test(d.supplier||""))return
 function designPill(d){if(UI.sec!=="doors")return"";const x=DESIGN[d.design||"None"];return `<span class="pill ${x.cls}" title="${esc((d.designRevs||[]).length?"Drawing rev "+d.designRevs.join(", "):"")}">${x.t}</span>`}
 let STAGES=STAGESETS.doors;
 const SEC={doors:{one:"door",many:"doors",title:"Door Tracker",sched:"Door schedule",pcol:"doors"},louvres:{one:"louvre",many:"louvres",title:"COLT Louvres",sched:"Louvre schedule",pcol:"louvres"}};
-const DEF_CATS=["Damage / finish","Gaps / alignment","Ironmongery","Seals / intumescent","Glazing","Signage","Frame / fixing","Other"];
+const DEF_CATS=["Damage & finish","Gaps & alignment","Ironmongery","Seals & intumescent","Glazing","Signage","Frame & fixing","Other"];
+const catTxt=c=>String(c||"").replace(/ \/ /g," & ");
 const REQ_STATES=["Requested","Scheduled","Connected","Declined"];
 const S={data:null,RAW:null,doors:new Map(),prog:{doors:new Map(),louvres:new Map()},defects:new Map(),requests:new Map(),thresholds:new Map(),firedocs:new Map(),prelim:new Map(),photos:[],names:{}};
 const UI={sup:"",fires:new Set(),sec:"doors",view:"plans",dwg:null,show:new Set(STAGES.map((_,i)=>i)),door:null,dtab:"progress",defSeg:"Open",reqSeg:"active",confirm:null,level:undefined};
@@ -675,7 +676,7 @@ function renderDefects(){
 }
 function defectCard(d,inDrawer){const sev=d.sev==="High"?"red":d.sev==="Low"?"":"blue";
   return `<div class="card"><div class="card-h">${inDrawer?"":`<button class="ref" data-open="${esc(d.ref)}">${esc(d.ref)}</button>`}<b style="flex:1;min-width:0">${esc(d.title)}</b><span class="pill ${d.status==="Closed"?"green":sev}">${d.status==="Closed"?"Closed":esc(d.sev||"Medium")}</span></div>
-  ${d.detail?`<p>${esc(d.detail)}</p>`:""}<div class="meta">${esc(d.cat||"")} · Raised by ${esc(name(d.by))}, ${fmt(d.at)}${d.status==="Closed"?` · Closed by ${esc(name(d.closedBy))}, ${fmt(d.closedAt)}${d.closeNote?" — "+esc(d.closeNote):""}`:""}</div>
+  ${d.detail?`<p>${esc(d.detail)}</p>`:""}<div class="meta">${esc(catTxt(d.cat))} · Raised by ${esc(name(d.by))}, ${fmt(d.at)}${d.status==="Closed"?` · Closed by ${esc(name(d.closedBy))}, ${fmt(d.closedAt)}${d.closeNote?" — "+esc(d.closeNote):""}`:""}</div>
   ${(d.notes||[]).length?`<ul class="dnotes">${d.notes.map(n=>{want(n.by);return `<li>${esc(n.t)}<span class="meta"> — ${esc(name(n.by))}, ${fmt(n.at)}</span></li>`}).join("")}</ul>`:""}
   ${(d.sent||[]).length?`<div class="meta">✉ Sent for action: ${d.sent.map(x=>`${esc(x.to||"(shared)")} ${fmt(x.at)}`).join("; ")}</div>`:""}
   ${canWrite?`<div class="acts">${d.status==="Closed"?`<button class="btn sm" data-def-reopen="${d.id}">Reopen</button>`:`<button class="btn sm" data-def-close="${d.id}">Close defect</button>`}<button class="btn sm" data-def-note="${d.id}">Add note</button><button class="btn sm primary" data-def-mail="${d.id}">✉ Email for action</button></div>`:""}</div>`}
@@ -1115,13 +1116,22 @@ function bindFire(ref,d){
 
 
 /* ---------- email a defect for action ---------- */
+/* defect email recipients by contractor */
+const MAIL_GROUPS={
+  ms:{greet:"Thomson",to:["thomson.hamilton@morrisandspottiswood.co.uk"],cc:["james.mchattie@morrisandspottiswood.co.uk","nick.paterson@morrisandspottiswood.co.uk"],afry:["colin.langan@afry.com","michael.oconnor@afry.com"],label:"Morris & Spottiswood"},
+  cm:{greet:"Jim",to:["jim.hamilton@curtismoore.co.uk"],cc:["chaz.davis@curtismoore.co.uk"],afry:["michael.oconnor@afry.com","tony.malone@afry.com"],label:"Curtis Moore"}};
+const SUP_MAIL={Almet:["ald@almetdoors.co.uk","liamd@almetdoors.co.uk"],Johan:["louie@johandoors.co.uk"]};
+function mailRecipients(r){const d=S.data.doors[r]||{};const sup=d.supplier||"";
+  const g=/almet|johan/i.test(sup)?MAIL_GROUPS.ms:/ascot/i.test(sup)?MAIL_GROUPS.cm:null;if(!g)return {greet:"",to:[],cc:[],label:""};
+  return {greet:g.greet,to:g.to,cc:[...g.cc,...(SUP_MAIL[sup]||[]),...g.afry],label:g.label}}
+
 function doorLoc(r){const d=S.data.doors[r]||{};const lv=d.level==null?"":d.level==="Roof"?"Roof":"Level "+(d.level>=0?"+":"")+d.level+"m";
   return [d.from&&d.to?d.from+" → "+d.to:(d.from||d.desc||""),lv].filter(Boolean).join(", ")}
-function doorDwgs(r){const d=S.data.doors[r]||{};const o=[];if((d.ga||[]).length)o.push("RPS layout "+d.ga.join(", "));if(d.sheet)o.push("RPS door schedule A-"+d.sheet);(d.doorsets||[]).filter(x=>!x.superseded).forEach(x=>o.push(`${/^(almet|ascot|johan|marshall)/i.test(x.no)?"":(x.maker||d.supplier||"Supplier")+" "}${x.no} rev ${x.rev}`));return o}
-function mailText(df,extra,photos){const r=df.ref,d=S.data.doors[r]||{};const me=S.names[meId]||"";
-  const L=[`Hello,`,``,`Please see the defect below, recorded at South Clyde Energy Centre (Fortum Glasgow EfW). Could you please review and provide comment, and confirm the proposed remedial action and timescale.`,``,
-  `Door: ${r}${d.desc?" – "+d.desc:""}`,`Location: ${doorLoc(r)||"–"}`,`Drawings: ${doorDwgs(r).join("; ")||"–"}`,`Supplier: ${d.supplier||"–"}${d.fire?" · Fire rating "+d.fire:""}`,``,
-  `Defect: ${df.title}`,`Category / severity: ${df.cat||"–"} / ${df.sev||"Medium"}`];
+function doorDwgs(r){const d=S.data.doors[r]||{};const o=[];if((d.ga||[]).length)o.push("RPS layout "+d.ga.join(", "));if(d.sheet)o.push("RPS door schedule A-"+d.sheet);(d.doorsets||[]).filter(x=>!x.superseded).forEach(x=>o.push(`${/^(almet|ascot|johan|marshall)/i.test(x.no)?"":(x.maker||d.supplier||"Supplier")+" "}${x.no} rev ${x.rev}`));if(d.prod)o.push(`Johan production sheet${d.hw?" ("+d.hw+")":""}`);return o}
+function mailText(df,extra,photos){const r=df.ref,d=S.data.doors[r]||{};const me=S.names[meId]||"";const R=mailRecipients(r);
+  const L=[R.greet?`Hi ${R.greet},`:`Hello,`,``,`Please see the defect below, recorded at South Clyde Energy Centre (Fortum Glasgow EfW). Could you please review and provide comment, and confirm the proposed remedial action and timescale.`,``,
+  `Door: ${r}${d.desc?" – "+d.desc:""}`,`Location: ${doorLoc(r)||"–"}`,`Drawings: ${doorDwgs(r).join("; ")||"–"}`,`Supplier: ${d.supplier||"–"}`,``,
+  `Defect: ${df.title}`,`Category: ${catTxt(df.cat)||"–"}`,`Severity: ${df.sev||"Medium"}`];
   if(df.detail)L.push(`Details: ${df.detail}`);(df.notes||[]).forEach(n=>L.push(`Note (${new Date(n.at).toLocaleDateString("en-GB")}): ${n.t}`));
   L.push(`Raised: ${name(df.by)}, ${new Date(df.at).toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}`);
   if(extra)L.push("",extra);
@@ -1135,7 +1145,7 @@ async function openMail(df){const lb=$("#lightbox");lb.hidden=false;lb.innerHTML
   const subj=`SCEC EfW – Door ${df.ref} – Defect: ${df.title}`;
   const box=$("#mail");if(!box)return;
   box.innerHTML=`<div class="form" style="background:none;border:0;padding:0">
-   <div class="row"><label>To<input type="email" id="ml-to" placeholder="name@company.com" multiple value="${esc(UI.lastMailTo||"")}"></label><label>Cc<input type="email" id="ml-cc" multiple placeholder="optional"></label></div>
+   <div class="row"><label>To${mailRecipients(df.ref).label?` <span class="muted" style="font-weight:400">(${esc(mailRecipients(df.ref).label)})</span>`:""}<input type="text" id="ml-to" placeholder="name@company.com" value="${esc(mailRecipients(df.ref).to.join(", ")||UI.lastMailTo||"")}"></label><label>Cc<input type="text" id="ml-cc" placeholder="optional" value="${esc(mailRecipients(df.ref).cc.join(", "))}"></label></div>
    <label>Subject<input type="text" id="ml-subj" value="${esc(subj)}"></label>
    <label>Additional message (optional)<input type="text" id="ml-extra" placeholder="e.g. Please attend site on Tuesday to rectify"></label>
    ${all.length||doorPh.length?`<b style="font-size:13px">Photos to include</b><div class="photos" style="grid-template-columns:repeat(auto-fill,minmax(110px,1fr))">${all.concat(doorPh).map(p=>`<label class="ph" style="position:relative"><img alt="" src="${esc(photoSrc(p))}"><span><input type="checkbox" data-mph="${p.id}" ${p.defect===df.id?"checked":""}> ${esc(p.cap||"")}</span></label>`).join("")}</div>`:'<span class="muted" style="font-size:12px">No photos on this defect.</span>'}
@@ -1146,13 +1156,13 @@ async function openMail(df){const lb=$("#lightbox");lb.hidden=false;lb.innerHTML
   const refresh=()=>{$("#ml-body").value=mailText(df,$("#ml-extra").value.trim(),sel())};refresh();
   $("#ml-extra").oninput=refresh;box.querySelectorAll("[data-mph]").forEach(c=>c.onchange=refresh);
   const files=async()=>Promise.all(sel().map(async(p,i)=>{const b=await (await fetch(photoSrc(p))).blob();return new File([b],`${df.ref}-defect-${i+1}.jpg`,{type:b.type||"image/jpeg"})}));
-  const log=async to=>{UI.lastMailTo=$("#ml-to").value.trim();if(!canWrite)return;const cur=S.defects.get(df.id)||df;try{await put("defects",df.id,{...strip(cur),sent:[...(cur.sent||[]),{to:to||"",by:meId,at:Date.now()}]})}catch(e){}};
+  const log=async to=>{if(!mailRecipients(df.ref).to.length)UI.lastMailTo=$("#ml-to").value.trim();if(!canWrite)return;const cur=S.defects.get(df.id)||df;try{await put("defects",df.id,{...strip(cur),sent:[...(cur.sent||[]),{to:to||"",by:meId,at:Date.now()}]})}catch(e){}};
   $("#ml-share").onclick=async()=>{try{const fs=await files();const data={title:$("#ml-subj").value,text:$("#ml-body").value,files:fs};
       if(!navigator.canShare||!navigator.canShare(fs.length?data:{text:data.text})){toast("Sharing with attachments isn't supported in this browser – use “Open in email app” and attach the downloaded photos.");return}
       if(!fs.length)delete data.files;await navigator.share(data);await log($("#ml-to").value.trim()||"(shared)");toast("Shared")}catch(e){if(e&&e.name!=="AbortError")toast("Couldn't share: "+(e.message||e))}};
-  $("#ml-open").onclick=async()=>{const to=$("#ml-to").value.trim(),cc=$("#ml-cc").value.trim();let body=$("#ml-body").value;
+  $("#ml-open").onclick=async()=>{const norm=v=>v.trim().replace(/\s*[,;]\s*/g,",").replace(/,+$/,"");const to=norm($("#ml-to").value),cc=norm($("#ml-cc").value);let body=$("#ml-body").value;
     const ps=sel();if(ps.length)body+=`\n\nPhoto links (tracker sign-in required):\n`+ps.map(p=>new URL(photoSrc(p),location.href).href).join("\n");
-    const q=[cc&&"cc="+encodeURIComponent(cc),"subject="+encodeURIComponent($("#ml-subj").value),"body="+encodeURIComponent(body)].filter(Boolean).join("&");
+    const q=[cc&&"cc="+encodeURIComponent(cc).replace(/%40/g,"@").replace(/%2C/g,","),"subject="+encodeURIComponent($("#ml-subj").value),"body="+encodeURIComponent(body)].filter(Boolean).join("&");
     location.href=`mailto:${encodeURIComponent(to).replace(/%40/g,"@").replace(/%2C/g,",")}?${q}`;await log(to)};
   $("#ml-dl").onclick=async()=>{const fs=await files();if(!fs.length){toast("Tick at least one photo.");return}for(const f of fs){const a=document.createElement("a");a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)}};
   $("#ml-copy").onclick=async()=>{try{await navigator.clipboard.writeText($("#ml-subj").value+"\n\n"+$("#ml-body").value);toast("Message copied")}catch(e){toast("Couldn't copy – select the text and copy it")}}}
@@ -1182,7 +1192,7 @@ function renderReports(){const seg=UI.rpSeg||"comp",g=$("#rp-group").value,rows=
     list.forEach(({df})=>want(df.by));const age=t=>Math.floor((Date.now()-t)/864e5);
     const bySev=k=>list.filter(y=>(y.df.sev||"Medium")===k).length;
     $("#rp-body").innerHTML=head+`<div class="kpis" style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">${[["Open defects",list.length],["High",bySev("High")],["Medium",bySev("Medium")],["Low",bySev("Low")],["Doors affected",new Set(list.map(y=>y.x.r)).size],["Older than 14 days",list.filter(y=>age(y.df.at)>14).length]].map(([k,v])=>`<div class="kpi"><b>${v}</b><span>${k}</span></div>`).join("")}</div>
-    ${list.length?`<div class="tbl-wrap"><table class="rp"><thead><tr><th>Ref</th><th>Location / drawing</th><th>Defect</th><th>Severity</th><th>Raised</th><th>Age</th><th>Notes / sent</th></tr></thead><tbody>${list.map(({x,df})=>`<tr data-ref="${esc(x.r)}"><td class="ref">${esc(x.r)}</td><td>${esc(doorLoc(x.r))}<br><span class="muted" style="font-size:11px">${esc(doorDwgs(x.r).slice(0,2).join("; "))}</span></td><td><b>${esc(df.title)}</b><br><span class="muted" style="font-size:12px">${esc(df.cat||"")}${df.detail?" – "+esc(df.detail):""}</span>${(df.notes||[]).length?`<br><span style="font-size:12px">Latest note: ${esc(df.notes[df.notes.length-1].t)}</span>`:""}</td><td><span class="pill ${df.sev==="High"?"red":df.sev==="Low"?"":"blue"}">${esc(df.sev||"Medium")}</span></td><td class="muted" style="font-size:12px">${esc(name(df.by))}<br>${fmt(df.at)}</td><td class="mono">${age(df.at)}d</td><td style="font-size:12px">${(df.notes||[]).length?(df.notes.length+" note"+(df.notes.length>1?"s":"")):""}${(df.sent||[]).length?`<br>✉ ${esc(df.sent[df.sent.length-1].to||"shared")} ${fmt(df.sent[df.sent.length-1].at)}`:""}</td></tr>`).join("")}</tbody></table></div>`:'<div class="empty">No open defects.</div>'}`;
+    ${list.length?`<div class="tbl-wrap"><table class="rp"><thead><tr><th>Ref</th><th>Location / drawing</th><th>Defect</th><th>Severity</th><th>Raised</th><th>Age</th><th>Notes / sent</th></tr></thead><tbody>${list.map(({x,df})=>`<tr data-ref="${esc(x.r)}"><td class="ref">${esc(x.r)}</td><td>${esc(doorLoc(x.r))}<br><span class="muted" style="font-size:11px">${esc(doorDwgs(x.r).slice(0,2).join("; "))}</span></td><td><b>${esc(df.title)}</b><br><span class="muted" style="font-size:12px">${esc(catTxt(df.cat))}${df.detail?" – "+esc(df.detail):""}</span>${(df.notes||[]).length?`<br><span style="font-size:12px">Latest note: ${esc(df.notes[df.notes.length-1].t)}</span>`:""}</td><td><span class="pill ${df.sev==="High"?"red":df.sev==="Low"?"":"blue"}">${esc(df.sev||"Medium")}</span></td><td class="muted" style="font-size:12px">${esc(name(df.by))}<br>${fmt(df.at)}</td><td class="mono">${age(df.at)}d</td><td style="font-size:12px">${(df.notes||[]).length?(df.notes.length+" note"+(df.notes.length>1?"s":"")):""}${(df.sent||[]).length?`<br>✉ ${esc(df.sent[df.sent.length-1].to||"shared")} ${fmt(df.sent[df.sent.length-1].at)}`:""}</td></tr>`).join("")}</tbody></table></div>`:'<div class="empty">No open defects.</div>'}`;
   }}
 async function exportReport(){const seg=UI.rpSeg||"comp",rows=rpRows();const q=v=>{v=v==null?"":String(v);return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};let lines;
   if(seg==="comp"){lines=[["Ref","Level","Location","Supplier","Fire rating","Stage","Updated by","Updated","Checklist ticked","Checklist items","Fire seal ticked","Fire docs","Jamb issues","Open defects","Drawings"].join(",")];
