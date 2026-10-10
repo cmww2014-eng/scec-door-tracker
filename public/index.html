@@ -1204,6 +1204,7 @@ function renderDiscrep(){const lb=$("#lightbox");if(!isAdmin()){openTeam("team")
   lb.querySelectorAll("[data-dzopen]").forEach(b=>b.onclick=()=>{lb.hidden=true;lb.innerHTML="";if(UI.sec!=="doors")applySection("doors");UI.dtab="design";openDoor(b.dataset.dzopen)});
   lb.querySelectorAll("[data-dzsave]").forEach(b=>b.onclick=async()=>{const tr=b.closest("tr");const cid=tr.dataset.cid;const g=k=>tr.querySelector(`[data-dz="${k}"]`).value.trim();let res=g("res");const mode=b.dataset.dzsave;
     if(mode==="close"&&!(RES[res]&&RES[res].done)){toast(res?"That outcome keeps the item open – use Save, or pick a closing outcome.":"Pick an outcome first (e.g. Accept supplier design).");return}
+    if(mode==="close"&&/clearW|clear opening width/i.test(cid)){const r=cid.split("|")[0],d=S.RAW.doors[r]||{},sp=d.sup||{},cw=parseInt(sp.clearW||d.clearW);if(cw&&cw<800&&!/architect/i.test(g("comment"))){toast(`Clear opening ${cw} mm is below 800 mm – it stays open until the architect has reviewed it. Add the architect's response in the comment (mention “architect”) to close.`);return}}
     if(mode==="reopen")res="";
     await save(()=>put("diffres",cid,{res,agreed:g("agreed"),comment:g("comment"),by:meId,at:Date.now()}),mode==="close"?"Discrepancy closed":mode==="reopen"?"Discrepancy reopened":"Saved")})}
 
