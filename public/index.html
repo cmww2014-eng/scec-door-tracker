@@ -374,7 +374,7 @@ const SEC={doors:{one:"door",many:"doors",title:"Door Tracker",sched:"Door sched
 const DEF_CATS=["Damage & finish","Gaps & alignment","Ironmongery","Seals & intumescent","Glazing","Signage","Frame & fixing","Other"];
 const catTxt=c=>String(c||"").replace(/ \/ /g," & ");
 const REQ_STATES=["Requested","Scheduled","Connected","Declined"];
-const S={data:null,RAW:null,doors:new Map(),prog:{doors:new Map(),louvres:new Map()},defects:new Map(),requests:new Map(),thresholds:new Map(),firedocs:new Map(),prelim:new Map(),photos:[],names:{}};
+const S={data:null,RAW:null,doors:new Map(),prog:{doors:new Map(),louvres:new Map()},defects:new Map(),requests:new Map(),thresholds:new Map(),firedocs:new Map(),prelim:new Map(),points:new Map(),photos:[],names:{}};
 const UI={sup:"",fires:new Set(),sec:"doors",view:"plans",dwg:null,show:new Set(STAGES.map((_,i)=>i)),door:null,dtab:"progress",defSeg:"Open",reqSeg:"active",confirm:null,level:undefined};
 let db=null,assets=null,userCap=null,downloads=null,meId=null,canWrite=true,live=false,photoUnsub=null,isOwner=false,users=new Map();
 function isAdmin(){if(isOwner)return true;const u=meId&&users.get(meId);return !!(u&&u.role==="admin")}
@@ -428,7 +428,7 @@ async function boot(){
     db.collection("users").onSnapshot(snap=>{users=new Map(snap.docs.map(d=>[d.id,{id:d.id,...d.data()}]));renderWho();renderAll()},()=>{});
     db.collection("diffres").onSnapshot(snap=>{applyDiffRes(new Map(snap.docs.map(d=>[d.id,d.data()])));renderAll();if(!$("#lightbox").hidden&&UI.adminTab==="diff")renderDiscrep()},()=>{});
     db.collection("overrides").onSnapshot(snap=>{applyOverrides(snap.docs.map(d=>({id:d.id,...d.data()})));renderAll();if(!$("#lightbox").hidden&&UI.adminTab==="diff")renderDiscrep()},()=>{});
-    for(const col of["doors","louvres","defects","requests","thresholds","firedocs","prelim"]){
+    for(const col of["doors","louvres","defects","requests","thresholds","firedocs","prelim","points"]){
       db.collection(col).onSnapshot(snap=>{const m=new Map(snap.docs.map(d=>[d.id,migrate(col,{id:d.id,...d.data()})]));if(col==="doors"||col==="louvres"){S.prog[col]=m;S.doors=S.prog[SEC[UI.sec].pcol]}else S[col]=m;renderAll()},e=>banner("Lost connection to the shared tracker ("+(e&&e.code||"error")+"). Reload the page to reconnect.","warn"));
     }
   }
@@ -556,7 +556,7 @@ function consOf(d){return d.ctype||""}
 /* ---------- render ---------- */
 function renderAll(){if(!S.data)return;renderHeader();renderDwgList();renderPins();
   if(UI.view==="doors")renderDoors();if(UI.view==="defects")renderDefects();if(UI.view==="requests")renderRequests();if(UI.view==="reports")renderReports();if(UI.view==="thresh")renderThresh();else if(S.data&&UI.sec==="doors"){const n=[...S.thresholds.values()].filter(t=>{const c=thCalc(t);return c&&!c.ok&&S.data.doors[t.id]&&supOk(S.data.doors[t.id])}).length;$("#c-th").textContent=n}
-  softDrawer();if(!$("#lightbox").hidden&&UI.adminTab==="diff"&&UI.dzSeg==="prelim"&&!document.activeElement.closest("#lightbox input,#lightbox select"))renderPrelim()}
+  softDrawer();if(!$("#lightbox").hidden&&UI.adminTab==="diff"&&(UI.dzSeg==="prelim"||UI.dzSeg==="points")&&!document.activeElement.closest("#lightbox input,#lightbox select"))renderDiscrep()}
 function counts(refs){const c=STAGES.map(()=>0);for(const r of refs)c[stageOf(r)]++;return c}
 function bar(c,total,cls){return `<div class="${cls}">`+c.map((n,i)=>n?`<i style="width:${(n/total*100).toFixed(2)}%;background:${css(STAGES[i].c)}" title="${esc(STAGES[i].k)}: ${n}"></i>`:"").join("")+`</div>`}
 function renderHeader(){
@@ -750,7 +750,9 @@ function tabProgress(ref,d,{s,st}){
   const dvLate=dv&&!dvd&&dv.date<new Date().toISOString().slice(0,10);
   const delBox=dv?`<div class="grp"><h4>Delivery ${dvd?'<span class="pill green">Delivered</span>':dvLate?'<span class="pill warn">Due – not yet confirmed</span>':'<span class="pill">Scheduled</span>'}</h4><div style="font-size:14px"><b>${esc(dv.supplier||d.supplier||"")} delivery ${esc(dv.batch)}</b> – ${esc(dvTxt)}</div>
     <label style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:13px"><input type="checkbox" id="dv-ok" ${dvd?"checked":""} ${canWrite?"":"disabled"}> Delivered to site${dvd?` <span class="muted">– ${esc(name(dvd.by))}, ${fmt(dvd.at)}</span>`:""}</label></div>`:"";
-  return top+delBox+`<div class="grp"><h4>Installation stage</h4><div class="steps">${STAGES.map((x,i)=>`<button class="step ${i<=s&&i>0?"done":""} ${i===s?"cur":""}" style="--sc:${css(x.c)}" data-stage="${i}" ${canWrite&&!stageBlock(ref,d,i)?"":"disabled"} title="${esc(stageBlock(ref,d,i)||"")}"><span class="n">${i===0?"–":i}</span><span class="lbl">${esc(x.k)}</span><span class="hint">${i===s&&st.at?esc(name(st.by))+"<br>"+fmt(st.at):esc(x.hint)}</span></button>`).join("")}</div></div>
+  const dq=(d.queries||[]).find(q=>q.id==="delivery");const dqs=dq&&S.points.get(ref+"|delivery");
+  const delQ=!dv&&dq?`<div class="grp"><h4>Delivery ${dqs&&dqs.status==="Closed"?'<span class="pill green">Answered</span>':'<span class="pill warn">Query open</span>'}</h4><div style="font-size:13px">${esc(dq.text)}${dqs&&dqs.response?`<br><b>Response:</b> ${esc(dqs.response)}`:""}</div></div>`:"";
+  return top+delBox+delQ+`<div class="grp"><h4>Installation stage</h4><div class="steps">${STAGES.map((x,i)=>`<button class="step ${i<=s&&i>0?"done":""} ${i===s?"cur":""}" style="--sc:${css(x.c)}" data-stage="${i}" ${canWrite&&!stageBlock(ref,d,i)?"":"disabled"} title="${esc(stageBlock(ref,d,i)||"")}"><span class="n">${i===0?"–":i}</span><span class="lbl">${esc(x.k)}</span><span class="hint">${i===s&&st.at?esc(name(st.by))+"<br>"+fmt(st.at):esc(x.hint)}</span></button>`).join("")}</div></div>
   <p class="muted" style="margin:-4px 0 10px;font-size:12px">Complete and Inspected unlock only once every earlier stage is set and the inspection checklist below is fully ticked and evidenced.</p>
   ${UI.confirm&&UI.confirm.type==="stage"?`<div class="form"><b>Set ${esc(ref)} to “${esc(STAGES[UI.confirm.v].k)}”?</b>${STAGES[UI.confirm.v].k==="Inspected"?'<span class="muted" style="font-size:12px">Use Inspected only once the door has been checked and signed off.</span>':""}<label>Note (optional)<input type="text" id="stage-note" data-keep="stage-note" placeholder="e.g. Frame packed and fixed, gaps 3mm"></label><div class="row"><button class="btn primary" id="stage-ok">Confirm</button><button class="btn" id="stage-cancel">Cancel</button></div></div>`:""}
   ${jambList(ref,d,st)}${ironList(ref,d,st)}${fsealList(ref,d,st)}
@@ -1224,8 +1226,9 @@ RES["Closed – other (see comment)"]={cls:"green",t:"Closed",done:1};
 let DIFFRES=new Map();
 function applyDiffRes(m){DIFFRES=m;for(const d of Object.values(S.RAW.doors||{}))for(const x of d.diffs||[]){const b=x._b||{res:x.res||"",agreed:x.agreed||"",comment:x.comment||""};x._b=b;const o=m.get(x.cid);
   Object.assign(x,b,{by:null,at:null});if(o)Object.assign(x,{res:o.res||"",agreed:o.agreed??b.agreed,comment:o.comment??b.comment,by:o.by,at:o.at})}}
+function queryPoints(){const o=[];for(const [r,d] of Object.entries(S.RAW.doors||{}))for(const q of d.queries||[]){const st=S.points.get(r+"|"+q.id)||{};o.push({r,d,q,st,closed:st.status==="Closed"})}return o}
 function framePoints(){return Object.entries(S.data&&UI.sec==="doors"?S.data.doors:(S.RAW.doors||{})).filter(([r,d])=>thApplies(d)&&thGeom(d).fhAssumed)}
-function adminTabs(cur){if(!isAdmin())return `<span style="flex:1">Team &amp; access</span>`;const n=Object.values(S.RAW.doors||{}).reduce((a,d)=>a+openDiffs(d).length,0)+framePoints().length+prelimOpen();
+function adminTabs(cur){if(!isAdmin())return `<span style="flex:1">Team &amp; access</span>`;const n=Object.values(S.RAW.doors||{}).reduce((a,d)=>a+openDiffs(d).length,0)+framePoints().length+queryPoints().filter(x=>!x.closed).length+prelimOpen();
   return `<span style="flex:1;display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm ${cur==="team"?"primary":""}" style="${cur==="team"?"":"color:var(--ink)"}" data-admtab="team">Team &amp; access</button><button class="btn sm ${cur==="diff"?"primary":""}" style="${cur==="diff"?"":"color:var(--ink)"}" data-admtab="diff">Design review${n?` · ${n} open`:""}</button></span>`}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-admtab]");if(b)openTeam(b.dataset.admtab)});
 function renderDiscrep(){const lb=$("#lightbox");if(!isAdmin()){openTeam("team");return}UI.adminTab="diff";const seg=UI.dzSeg||"open";const q=(UI.dzQ||"").toLowerCase();
@@ -1253,17 +1256,24 @@ function renderDiscrep(){const lb=$("#lightbox");if(!isAdmin()){openTeam("team")
 
 function prelimList(){return Object.entries(S.RAW.doors||{}).filter(([r,d])=>(d.design==="Prelim"||d.design==="None"||d.design==="NotAccepted"||!d.design)&&UI.sec==="doors").filter(([r])=>S.data&&S.data.doors[r])}
 function prelimOpen(){return prelimList().filter(([r])=>((S.prelim.get(r)||{}).status||"Open")!=="Closed").length}
-function dzSegHtml(seg){const np=framePoints().length,pp=prelimOpen();return `<div class="seg" id="dz-seg">${[["open","Open discrepancies"],["closed","Closed"],["all","All"],["points",`Open points${np?" ("+np+")":""}`],["prelim",`Prelim designs${pp?" ("+pp+")":""}`]].map(([k,l])=>`<button aria-pressed="${seg===k}" data-v="${k}">${l}</button>`).join("")}</div>`}
+function dzSegHtml(seg){const np=framePoints().length+queryPoints().filter(x=>!x.closed).length,pp=prelimOpen();return `<div class="seg" id="dz-seg">${[["open","Open discrepancies"],["closed","Closed"],["all","All"],["points",`Open points & queries${np?" ("+np+")":""}`],["prelim",`Prelim designs${pp?" ("+pp+")":""}`]].map(([k,l])=>`<button aria-pressed="${seg===k}" data-v="${k}">${l}</button>`).join("")}</div>`}
 function renderPoints(){const lb=$("#lightbox");const q=(UI.dzQ||"").toLowerCase();
   const list=framePoints().filter(([r,d])=>(!UI.sup||supOk(d))&&(!q||[r,d.supplier,d.from,d.to].join(" ").toLowerCase().includes(q))).sort((a,b)=>(a[1].supplier||"").localeCompare(b[1].supplier||"")||a[0].localeCompare(b[0]));
   lb.innerHTML=`<div class="lb-top">${adminTabs("diff")}<button class="x" id="lb-x" aria-label="Close">×</button></div><div class="team" style="max-width:980px">
    <p class="muted" style="margin:0 0 10px;font-size:13px"><b>Open point – frame height not confirmed.</b> Every door needs a frame height for the threshold / head-gap check. Until it's confirmed the tracker assumes structural opening − supplier head gap (Johan 7 mm, Almet 5 mm, Ascot 3 mm from the drawn structural opening, others 5 mm). Roller shutters and roof hatches don't need one. Enter the frame height from the supplier drawing to close the point.</p>
+   ${(()=>{const qs=queryPoints().filter(x=>!x.closed||UI.qAll);if(!qs.length&&!queryPoints().length)return"";qs.forEach(x=>x.st.by&&want(x.st.by));
+     return `<h4 style="margin:0 0 6px">Queries (${queryPoints().filter(x=>!x.closed).length} open) <label style="font-weight:400;font-size:12px;margin-left:8px"><input type="checkbox" id="q-all" ${UI.qAll?"checked":""}> show closed</label></h4>
+     <div class="tbl-wrap" style="margin-bottom:16px"><table><thead><tr><th>Door</th><th>Query</th><th>With</th><th>Response</th><th></th></tr></thead><tbody>${qs.map(x=>`<tr data-qid="${esc(x.r+"|"+x.q.id)}"><td class="ref"><button class="ref" data-dzopen="${esc(x.r)}">${esc(x.r)}</button><br><span class="muted" style="font-size:11px">${esc(x.d.supplier||"")}</span></td><td>${esc(x.q.text)}</td><td>${esc(x.q.with||"")}</td><td style="min-width:240px"><input type="text" data-qresp value="${esc(x.st.response||"")}" placeholder="Response / answer" style="width:100%">${x.st.by?`<div class="muted" style="font-size:11px">${esc(name(x.st.by))}, ${fmt(x.st.at)}</div>`:""}</td><td style="white-space:nowrap">${x.closed?`<span class="pill green">Closed</span> <button class="btn sm" data-qsave="reopen">Reopen</button>`:`<button class="btn sm primary" data-qsave="close">Close</button> <button class="btn sm" data-qsave="save">Save</button>`}</td></tr>`).join("")}</tbody></table></div><h4 style="margin:0 0 6px">Frame height not confirmed</h4>`})()}
    <div class="filters" style="margin-bottom:10px">${dzSegHtml("points")}<input type="search" id="dz-q" placeholder="Search door, supplier" value="${esc(UI.dzQ||"")}"><span class="muted" style="font-size:12px;align-self:center">${list.length} door${list.length===1?"":"s"}</span></div>
    ${list.length?`<div class="tbl-wrap"><table><thead><tr><th>Door</th><th>Supplier</th><th>Structural opening</th><th>Assumed frame height</th><th>Confirmed frame height</th><th></th></tr></thead><tbody>${list.map(([r,d])=>{const G=thGeom(d);return `<tr data-fref="${esc(r)}"><td class="ref"><button class="ref" data-dzopen="${esc(r)}">${esc(r)}</button></td><td>${esc(d.supplier||"–")}</td><td class="mono">${G.so} mm<br><span class="muted" style="font-size:11px">${esc(G.soSrc)}</span></td><td class="mono">${G.fh} mm</td><td><input type="number" inputmode="numeric" min="500" max="5000" data-fh placeholder="e.g. ${G.fh}" style="width:110px"> mm</td><td><button class="btn sm primary" data-fhsave>Confirm</button></td></tr>`}).join("")}</tbody></table></div>`:'<div class="empty">All doors have a confirmed frame height.</div>'}</div>`;
   $("#lb-x").onclick=()=>{lb.hidden=true;lb.innerHTML=""};
   $("#dz-seg").onclick=e=>{const b=e.target.closest("[data-v]");if(b){UI.dzSeg=b.dataset.v;renderDiscrep()}};
   const qi=$("#dz-q");qi.oninput=()=>{UI.dzQ=qi.value;clearTimeout(UI.dzT);UI.dzT=setTimeout(()=>{renderDiscrep();const n=$("#dz-q");if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length)}},300)};
   lb.querySelectorAll("[data-dzopen]").forEach(b=>b.onclick=()=>{lb.hidden=true;lb.innerHTML="";if(UI.sec!=="doors")applySection("doors");UI.dtab="levels";openDoor(b.dataset.dzopen)});
+  const qa=$("#q-all");if(qa)qa.onchange=()=>{UI.qAll=qa.checked;renderPoints()};
+  lb.querySelectorAll("[data-qsave]").forEach(b=>b.onclick=async()=>{const tr=b.closest("tr");const id=tr.dataset.qid;const resp=tr.querySelector("[data-qresp]").value.trim();const m=b.dataset.qsave;
+    if(m==="close"&&!resp){toast("Add the response before closing.");return}
+    await save(()=>put("points",id,{response:resp,status:m==="close"?"Closed":"Open",by:meId,at:Date.now()}),m==="close"?"Query closed":m==="reopen"?"Query reopened":"Saved")});
   lb.querySelectorAll("[data-fhsave]").forEach(b=>b.onclick=async()=>{const tr=b.closest("tr");const r=tr.dataset.fref;const v=+tr.querySelector("[data-fh]").value;
     if(!(v>500&&v<5000)){toast("Enter the frame height in mm");return}const d=S.RAW.doors[r];const f={};((d.ov&&d.ov.keys)||[]).forEach(k=>f[k]=d[k]);f.frameH=String(v);
     await save(()=>put("overrides",r,{f,by:meId,at:Date.now()}),`${r} frame height confirmed`)})}
