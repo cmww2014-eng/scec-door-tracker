@@ -1242,7 +1242,7 @@ async function exportReport(){const seg=UI.rpSeg||"comp",rows=rpRows();const q=v
 RES["Closed – other (see comment)"]={cls:"green",t:"Closed",done:1};
 let DIFFRES=new Map();
 function applyDiffRes(m){DIFFRES=m;for(const d of Object.values(S.RAW.doors||{}))for(const x of d.diffs||[]){const b=x._b||{res:x.res||"",agreed:x.agreed||"",comment:x.comment||""};x._b=b;const o=m.get(x.cid);
-  Object.assign(x,b,{by:null,at:null});if(o)Object.assign(x,{res:o.res||"",agreed:o.agreed??b.agreed,comment:o.comment??b.comment,by:o.by,at:o.at})}}
+  Object.assign(x,b,{by:null,at:null});if(o&&!(x.dat&&(o.at||0)<x.dat))Object.assign(x,{res:o.res||"",agreed:o.agreed??b.agreed,comment:o.comment??b.comment,by:o.by,at:o.at})}}
 function queryPoints(){const o=[];for(const [r,d] of Object.entries(S.RAW.doors||{}))for(const q of d.queries||[]){const st=S.points.get(r+"|"+q.id)||{};o.push({r,d,q,st,closed:st.status==="Closed"})}return o}
 function framePoints(){return Object.entries(S.data&&UI.sec==="doors"?S.data.doors:(S.RAW.doors||{})).filter(([r,d])=>thApplies(d)&&thGeom(d).fhAssumed)}
 function adminTabs(cur){if(!isAdmin())return `<span style="flex:1">Team &amp; access</span>`;const n=Object.values(S.RAW.doors||{}).reduce((a,d)=>a+openDiffs(d).length,0)+framePoints().length+queryPoints().filter(x=>!x.closed).length+prelimOpen();
