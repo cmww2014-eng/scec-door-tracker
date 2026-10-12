@@ -302,7 +302,7 @@ details.coll{border:1px solid var(--line);border-radius:var(--r);padding:8px 12p
       <select id="f-dwg" aria-label="Drawing"><option value="">All drawings</option></select>
       <select id="f-cons" aria-label="Construction"><option value="">All construction</option></select>
       <details class="ms" id="f-fire"><summary id="f-fire-s">All fire ratings</summary><div class="menu" id="f-fire-m"></div></details>
-      <select id="f-diff" aria-label="Design check"><option value="">Any design check</option><option value="open">Open conflicts</option><option value="rev">Supplier to revise</option><option value="rfi">RFI open</option><option value="diff">Any conflict (incl. resolved)</option><option value="ok">Matches supplier design</option><option value="issue">Open site issues</option><option value="concern">Stud fixing concern</option><option value="prep">Threshold / jamb prep notes</option><option value="levelq">Level to confirm</option><option value="prelim">Prelim design (not approved)</option><option value="approved">Design approved for construction</option></select>
+      <select id="f-diff" aria-label="Design check"><option value="">Any design check</option><option value="open">Open conflicts</option><option value="rev">Supplier to revise</option><option value="rfi">RFI open</option><option value="diff">Any conflict (incl. resolved)</option><option value="ok">Matches supplier design</option><option value="issue">Open site issues</option><option value="concern">Stud fixing concern</option><option value="prep">Threshold / jamb prep notes</option><option value="swsoft">Swings away from vinyl / carpet</option><option value="swunk">Swing not determined</option><option value="levelq">Level to confirm</option><option value="prelim">Prelim design (not approved)</option><option value="approved">Design approved for construction</option></select>
       <button class="btn" id="export" hidden>Export CSV</button>
     </div>
     <div class="muted" id="door-count" style="font-size:12px"></div>
@@ -654,7 +654,7 @@ function filtered(){
     if(fd==="none"&&d.locs.length)return false;if(fd&&fd!=="none"&&!d.locs.some(p=>p.l===fd))return false;
     if(UI.sec==="doors"){if(!supOk(d))return false;if(fc&&consOf(d)!==fc)return false;if(UI.fires.size&&!UI.fires.has(normFire(d.fire)))return false;
       const fdf=$("#f-diff").value;
-      if(fdf==="diff"&&!(d.diffs&&d.diffs.length))return false;if(fdf==="open"&&!openDiffs(d).length)return false;if(fdf==="rfi"&&!(d.diffs||[]).some(x=>x.res==="Query / RFI raised"))return false;if(fdf==="rev"&&!(d.diffs||[]).some(x=>x.res==="Supplier to revise to schedule"))return false;if(fdf==="ok"&&(!d.sup||!Object.keys(d.sup).length||(d.diffs&&d.diffs.length)))return false;if(fdf==="prelim"&&d.design!=="Prelim")return false;if(fdf==="issue"&&!d.alert)return false;if(fdf==="concern"&&!d.concern)return false;if(fdf==="prep"&&!d.prep)return false;if(fdf==="levelq"&&!d.levelQ)return false;if(fdf==="approved"&&d.design!=="Approved")return false}
+      if(fdf==="diff"&&!(d.diffs&&d.diffs.length))return false;if(fdf==="open"&&!openDiffs(d).length)return false;if(fdf==="rfi"&&!(d.diffs||[]).some(x=>x.res==="Query / RFI raised"))return false;if(fdf==="rev"&&!(d.diffs||[]).some(x=>x.res==="Supplier to revise to schedule"))return false;if(fdf==="ok"&&(!d.sup||!Object.keys(d.sup).length||(d.diffs&&d.diffs.length)))return false;if(fdf==="prelim"&&d.design!=="Prelim")return false;if(fdf==="issue"&&!d.alert)return false;if(fdf==="concern"&&!d.concern)return false;if(fdf==="prep"&&!d.prep)return false;if(fdf==="swsoft"){const si=swingInfo(d);if(!si||!si.softAway)return false}if(fdf==="swunk"&&d.swing)return false;if(fdf==="levelq"&&!d.levelQ)return false;if(fdf==="approved"&&d.design!=="Approved")return false}
     if(q){const hay=[r,(d.doorsets||[]).map(x=>x.no).join(" "),d.from,d.to,d.type,d.desc,d.construction,d.lock,d.access,d.hw,d.comments,d.table,d.supplier,(d.drawings||[]).map(x=>x.no).join(" "),batchTxt(d.batch)].join(" ").toLowerCase();if(!hay.includes(q))return false}
     return true})}
 function renderDoors(){
@@ -972,12 +972,24 @@ function finAllow(fs){if(!fs)return null;const a=fs.map(f=>f.x&&f.x.allow).filte
 function floorInfo(d){const fl=d.floor;if(!fl)return null;fl.a=fl.a||{};fl.b=fl.b||{};const A=finSide(fl.a),B=finSide(fl.b);
   const zero=fs=>fs&&fs.every(f=>f.x&&!f.x.mm&&!f.x.allow);
   const boldA=fl.dom==="a"||(fl.dom==="="&&!zero(A)),boldB=fl.dom==="b"||(fl.dom==="="&&!zero(B));
-  return {A,B,boldA,boldB,ra:fl.a.room,rb:fl.b.room,extB:!!fl.b.ext,allow:Math.max(finAllow(A)??0,finAllow(B)??0),same:fl.dom==="=",q:fl.q||[],srcA:fl.a.src,srcB:fl.b.src}}
+  const sw=d.swing&&d.swing.into,swFs=sw==='a'?A:sw==='b'?B:null,allowMax=Math.max(finAllow(A)??0,finAllow(B)??0);
+  return {A,B,boldA,boldB,ra:fl.a.room,rb:fl.b.room,extB:!!fl.b.ext,allow:allowMax,swAllow:swFs?(finAllow(swFs)??0):(sw&&!swFs?0:allowMax),swSide:sw||null,same:fl.dom==="=",q:fl.q||[],srcA:fl.a.src,srcB:fl.b.src}}
 function floorLine(d){const f=floorInfo(d);if(!f)return"";
   const side=(room,fs,b,src,ext)=>`<span class="fl-side${b?" dom":""}" title="${esc((fs?fs.map(({c,x})=>"F"+c+": "+(x?x.name+" – "+x.desc+(x.allow!=null?" · allow "+x.allow+" mm":""):"")).join("\n"):"")+(src?"\nSource: "+src:""))}">${ext&&!fs?"":esc(room||"–")+": "}${fs?finLbl(fs):ext?"External":'<span class="muted">not confirmed</span>'}</span>`;
-  return `<div class="d-floor"><span class="muted">Floor</span> ${side(f.ra,f.A,f.boldA,f.srcA)} <span class="muted">|</span> ${side(f.rb,f.B,f.boldB,f.srcB,f.extB)}${f.q.length?` <span class="pill warn" title="${esc(f.q.join("\n"))}">Finish query</span>`:""}${f.allow?` <span class="pill" title="Build-up allowance per Tetra Tech 23/09/26: Type 1 – 10 mm; Types 2/9/11 – 8 mm; Types 3/4/8 – 15 mm; Types 5/6 – none">allow ${f.allow} mm</span>`:""}</div>`}
+  const swm=k=>f.swSide===k?' <span class="pill blue" title="Door swings into this side">swing ↪</span>':"";
+  return `<div class="d-floor"><span class="muted">Floor</span> ${side(f.ra,f.A,f.boldA,f.srcA)}${swm("a")} <span class="muted">|</span> ${side(f.rb,f.B,f.boldB,f.srcB,f.extB)}${swm("b")}${f.q.length?` <span class="pill warn" title="${esc(f.q.join("\n"))}">Finish query</span>`:""}${f.allow?` <span class="pill" title="Build-up allowance per Tetra Tech 23/09/26: Type 1 – 10 mm; Types 2/9/11 – 8 mm; Types 3/4/8 – 15 mm; Types 5/6 – none">allow ${f.allow} mm</span>`:""}</div>`}
 function floorCsv(d){const f=floorInfo(d);if(!f)return["","",""];const t=fs=>fs?fs.map(({c,x})=>"F"+c+" "+(x?x.name:"")).join(" + "):"";return[f.ra+": "+t(f.A)+(f.boldA?" (dominant)":""),f.rb+": "+t(f.B)+(f.boldB?" (dominant)":""),f.allow||0]}
 
+const SOFTFIN=c=>/^(1[abc]|2[a-e]|9|11|13)$/.test(c);
+function swingInfo(d){const s=d.swing;if(!s)return null;if(s.na)return {na:1};const f=floorInfo(d);let finIn=null,finAway=null;
+  if(f&&s.into){finIn=s.into==="a"?f.A:f.B;finAway=s.into==="a"?f.B:f.A}
+  return {...s,finIn,finAway,softAway:!!(finAway&&finAway.some(x=>SOFTFIN(x.c)))}}
+function swingTxt(d){const s=swingInfo(d);if(!s)return "";if(s.na)return "n/a";if(!s.into)return s.note||"";return "Into "+(s.room||"–")+" · away from "+(s.away||"–")}
+function swingRow(d){const s=swingInfo(d);
+  if(!s)return '<span class="muted">Not determined from the layouts – check on site</span>';
+  if(s.na)return '<span class="muted">n/a (roller shutter / hatch)</span>';
+  if(!s.into)return esc(s.note||"");
+  return `Swings into <b>${esc(s.room||"–")}</b>${s.finIn?` <span class="muted">(${finLbl(s.finIn)})</span>`:""}<br>Away from <b>${esc(s.away||"–")}</b>${s.finAway?` <span class="muted">(${finLbl(s.finAway)})</span>`:""}${s.softAway?' <span class="pill warn">swings away from vinyl / carpet</span>':""}${s.conf==="low"?' <span class="pill warn" title="Lower confidence – the room labels on the layout were ambiguous">verify on site</span>':""}<div class="muted" style="font-size:11px">Source: ${esc(s.src||"")}</div>`}
 /* ---------- threshold level survey ---------- */
 const TH_TOL=5,TH_MARK=2050,TH_MARGIN=3;
 const TH_REM=["","No action","Screed threshold","Screed threshold + fill head gap","Lower door + fill head gap","Build up threshold for swing","Grind high spot in swing","Reduce door height (supplier)","Other (see note)"];
@@ -992,7 +1004,7 @@ function thGeom(d){d=d||{};const sp=d.sup||{};const so=+(sp.soH||d.soH)||2100;co
     gap:g,gapAssumed:g0==null,dgap:g,finAllow:fh?so-g-fh:null,exp:so-TH_MARK,tDesign:g+fhUse-TH_MARK,fr:isFR(d)}}
 function thCalc(v,d){
   if(!v||v.mode==="screen")return null;d=d||(S.data&&S.data.doors[v.ref||v.id])||{};const h=thNum(v.h),l=thNum(v.l),s=thNum(v.s);if(h==null||l==null)return null;
-  const G=thGeom(d);const f=floorInfo(d);const A=(v.fin!==false&&f&&f.allow)?f.allow:0;const clr=thNum(v.clr)??8;
+  const G=thGeom(d);const f=floorInfo(d);const A=(v.fin!==false&&f)?(f.swAllow??f.allow??0):0;const clr=thNum(v.clr)??8;
   const hiJ=Math.min(h,l),loJ=Math.max(h,l),fall=loJ-hiJ,loSide=h>l?"hinge":"latch",hiSide=h>l?"latch":"hinge";
   const MINGAP=3;
   // design position: frame fixed to the top of the structural opening with the supplier's head gap
@@ -1036,6 +1048,7 @@ function thOut(c){if(!c)return `<p class="muted" style="margin:0;font-size:13px"
   <p class="muted" style="margin:6px 0 0;font-size:12px">Proposed remedial: <b>${esc(c.sug)}</b></p>`}
 function tabScreenLevels(ref,d){const t=(S.thresholds&&S.thresholds.get(ref))||{};const f=floorInfo(d);
   return `<div class="empty" style="padding:12px;text-align:left">Door built into the ${esc(d.supplier)} glazed screen – no structural opening or frame height check needed.</div>
+  <div class="grp"><h4>Door swing</h4><div style="font-size:13px;line-height:1.5">${swingRow(d)}</div></div>
   ${f?`<div class="grp"><h4>Floor finishes</h4>${floorLine(d)}</div>`:""}
   <div class="form"><b>Floor check at the door</b>
    <label>High spot in the door swing / at the threshold<span style="display:flex;align-items:center;gap:6px"><input type="number" inputmode="numeric" min="0" max="100" id="sc-hs" data-keep="sc-hs-${ref}" value="${t.hs??""}" placeholder="0" ${canWrite?"":"disabled"} style="font:600 20px var(--f-mono);max-width:110px"><span class="muted">mm above the floor at the threshold</span></span></label>
@@ -1043,15 +1056,16 @@ function tabScreenLevels(ref,d){const t=(S.thresholds&&S.thresholds.get(ref))||{
    <label>Issue / note<input type="text" id="sc-note" data-keep="sc-note-${ref}" value="${esc(t.note||"")}" placeholder="e.g. 6 mm hump in swing, leaf rubs at 60° open" ${canWrite?"":"disabled"}></label>
    ${canWrite?`<div class="row" style="flex:0"><button class="btn primary" id="sc-save" style="flex:0">Save</button></div>`:""}
    ${t.at?`<p class="muted" style="margin:0;font-size:12px">${t.issue||(t.hs||0)>3?'<span class="pill warn">Issue recorded</span> ':'<span class="pill green">No issue</span> '}Saved by ${esc(name(t.by))}, ${fmt(t.at)}</p>`:""}</div>`}
-function tabLevels(ref,d){if(isScreenDoor(d))return tabScreenLevels(ref,d);if(!thApplies(d)){const f=floorInfo(d);return `<div class="empty" style="padding:12px;text-align:left">Threshold level check not required for ${esc((d.ctype||"").toLowerCase())}s.</div>${f?`<div class="grp"><h4>Floor finishes</h4>${floorLine(d)}</div>`:""}`}
+function tabLevels(ref,d){if(isScreenDoor(d))return tabScreenLevels(ref,d);if(!thApplies(d)){const f=floorInfo(d);return `<div class="empty" style="padding:12px;text-align:left">Threshold level check not required for ${esc((d.ctype||"").toLowerCase())}s.</div>${d.swing&&!d.swing.na?`<div class="grp"><h4>Door swing</h4><div style="font-size:13px;line-height:1.5">${swingRow(d)}</div></div>`:""}${f?`<div class="grp"><h4>Floor finishes</h4>${floorLine(d)}</div>`:""}`}
   const t=(S.thresholds&&S.thresholds.get(ref))||{};const c=thCalc(t,d);const G=thGeom(d);const f=floorInfo(d);
   const inp=(k,lbl,hint)=>`<label>${lbl}<span style="display:flex;align-items:center;gap:6px"><input type="number" inputmode="numeric" min="0" max="1000" step="1" id="th-${k}" data-keep="th-${k}-${ref}" value="${t[k]==null?"":esc(t[k])}" placeholder="${G.exp}" ${canWrite?"":"disabled"} style="font:600 20px var(--f-mono);max-width:110px"><span class="muted">mm</span></span><span class="muted" style="font-weight:400">${hint}</span></label>`;
   return `<div class="grp"><h4>Door opening</h4>${kv([["Structural opening height",`${G.so} mm (${G.soSrc}${d.soSrc?" – "+d.soSrc:""})`],["Frame height",`${G.fh} mm (${G.fhSrc})`],["Design gap",`${G.dgap} mm at head${/ascot/i.test(d.supplier||"")?", 5 mm sides":` and sides`}${G.gapAssumed?" (assumed)":` (${d.supplier})`}`],["Floor finish allowance in frame",G.finAllow!=null?`${G.finAllow} mm`:"unknown"],["Expected reading",`${G.exp} mm (${G.so} − 2050)`],["Fire rating",d.fire||"–"]])}</div>
-  ${f?`<div class="grp"><h4>Floor finishes</h4>${floorLine(d)}<p class="muted" style="margin:4px 0 0;font-size:12px">${f.allow?`Finish build-up allowance <b>${f.allow} mm</b> – used to check the leaf clears the finished floor in the swing.`:"No build-up allowance (concrete / floor paint) – slab readings are the finished level."}</p></div>`:""}
+  <div class="grp"><h4>Door swing</h4><div style="font-size:13px;line-height:1.5">${swingRow(d)}</div></div>
+  ${f?`<div class="grp"><h4>Floor finishes</h4>${floorLine(d)}<p class="muted" style="margin:4px 0 0;font-size:12px">${f.swSide?(f.swAllow?`Finish in the swing (${f.swSide==="a"?esc(f.ra||"side A"):esc(f.rb||"side B")}) allowance <b>${f.swAllow} mm</b> – used to check the leaf clears the finished floor in the swing.`:"No build-up in the swing (concrete / floor paint) – slab readings are the finished level for the swing check."):(f.allow?`Finish build-up allowance <b>${f.allow} mm</b> (swing side not known – thicker finish used) – used to check the leaf clears the finished floor in the swing.`:"No build-up allowance (concrete / floor paint) – slab readings are the finished level.")}</p></div>`:""}
   <div class="grp"><h4>How to measure</h4><p style="margin:0;font-size:13px">Mark the jambs 2050 mm down from the top of the formed opening, then measure from the mark down to the floor. On a level slab every reading is <b>${G.exp} mm</b> (2050 + ${G.exp} = ${G.so}). Bigger = floor low, smaller = floor high.</p>${thDiagram(G.exp)}</div>
   <div class="form"><b>Threshold level readings</b>
     <div class="row">${inp("h","Hinge side (H)","Expected "+G.exp)}${inp("l","Latch side (L)","Expected "+G.exp)}${inp("s","High spot in swing (S)","Optional – lowest reading in the swing arc")}</div>
-    <div class="row"><label>Leaf clearance over threshold<span style="display:flex;align-items:center;gap:6px"><input type="number" inputmode="numeric" min="0" max="30" id="th-clr" value="${esc(t.clr??8)}" ${canWrite?"":"disabled"} style="max-width:80px"><span class="muted">mm</span></span></label>${f&&f.allow?`<label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="th-fin" ${t.fin===false?"":"checked"} ${canWrite?"":"disabled"}> Include ${f.allow} mm floor finish build-up</label>`:""}</div>
+    <div class="row"><label>Leaf clearance over threshold<span style="display:flex;align-items:center;gap:6px"><input type="number" inputmode="numeric" min="0" max="30" id="th-clr" value="${esc(t.clr??8)}" ${canWrite?"":"disabled"} style="max-width:80px"><span class="muted">mm</span></span></label>${f&&(f.swAllow??f.allow)?`<label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="th-fin" ${t.fin===false?"":"checked"} ${canWrite?"":"disabled"}> Include ${f.swAllow??f.allow} mm floor finish build-up in the swing</label>`:""}</div>
     ${canWrite?`<div class="row" style="flex:0;align-items:center;gap:10px"><button class="btn primary" id="th-save" style="flex:0">${t.at?"Update readings":"Submit readings"}</button><span class="muted" id="th-dirty" style="font-size:12px" hidden>Changed – submit to update the proposal</span></div>`:""}
     <div id="th-out">${t.at?`<div class="muted" style="font-size:12px;margin-bottom:4px">Proposed remedial for the submitted readings (${esc(name(t.by))}, ${fmt(t.at)}):</div>`+thOut(c):'<p class="muted" style="margin:0;font-size:13px">Enter the readings and press <b>Submit readings</b> to see the proposed remedial.</p>'}</div>
     <label>Remedy decided<select id="th-rem" ${canWrite?"":"disabled"}>${TH_REM.map(r=>`<option value="${esc(r)}"${(t.remedy||"")===r?" selected":""}>${r?esc(r):"Not decided – use proposal"}</option>`).join("")}</select></label>
@@ -1318,10 +1332,10 @@ function renderPrelim(){const lb=$("#lightbox");const q=(UI.dzQ||"").toLowerCase
 
 /* ---------- export ---------- */
 async function exportCsv(){
-  const cols=["Ref","From","To","Supplier","Type","Description","Construction","SO width","SO height","Fire","Access control","Lock/latch","Ironmongery set","Connection","Design status","Design conflicts","Drawings","Stage","Stage updated","Open defects","Active requests"];
+  const cols=["Ref","From","To","Supplier","Type","Description","Construction","SO width","SO height","Fire","Access control","Lock/latch","Ironmongery set","Connection","Design status","Design conflicts","Drawings","Stage","Stage updated","Open defects","Active requests","Door swing"];
   const q=v=>{v=v==null?"":String(v);return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
   const lines=[cols.join(",")];
-  for(const[r,d]of filtered()){const st=S.doors.get(r)||{};lines.push([r,d.from,d.to,d.supplier,d.type,d.desc,d.construction,d.soW,d.soH,d.fire,d.access,d.lock,d.hw,d.conn,(DESIGN[d.design||"None"]||{}).t,(d.diffs||[]).map(x=>x.label+": supplier "+x.sup+" / schedule "+x.sch+(x.res?" ["+x.res+(x.comment?" – "+x.comment:"")+"]":"")).join("; "),[...new Set(d.locs.map(l=>l.l))].join(" "),STAGES[stageOf(r)].k,st.at?new Date(st.at).toISOString().slice(0,16).replace("T"," "):"",openDefects(r),activeReqs(r)].map(q).join(","))}
+  for(const[r,d]of filtered()){const st=S.doors.get(r)||{};lines.push([r,d.from,d.to,d.supplier,d.type,d.desc,d.construction,d.soW,d.soH,d.fire,d.access,d.lock,d.hw,d.conn,(DESIGN[d.design||"None"]||{}).t,(d.diffs||[]).map(x=>x.label+": supplier "+x.sup+" / schedule "+x.sch+(x.res?" ["+x.res+(x.comment?" – "+x.comment:"")+"]":"")).join("; "),[...new Set(d.locs.map(l=>l.l))].join(" "),STAGES[stageOf(r)].k,st.at?new Date(st.at).toISOString().slice(0,16).replace("T"," "):"",openDefects(r),activeReqs(r),swingTxt(d)].map(q).join(","))}
   try{await downloads.save({filename:`SCEC-${SEC[UI.sec].many}-progress-${new Date().toISOString().slice(0,10)}.csv`,data:lines.join("\n")})}catch(e){if(e&&e.code!=="declined"&&e.code!=="cancelled")toast("Export didn't complete: "+(e.code||e.message))}
 }
 boot();
