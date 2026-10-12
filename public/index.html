@@ -813,6 +813,7 @@ function tabDesign(ref,d){
     <p style="margin:8px 0 0;font-size:13px">${keyLine(d)}</p></div>`);
   if(d.unscheduled)out.push(`<div class="empty" style="padding:14px;text-align:left">${esc(ref)} ${d.locs.length?"appears on the layout drawings":"has a supplier doorset drawing"} but isn't listed in the uploaded door schedules.</div>`);
   if(d.note)out.push(`<div class="empty" style="padding:12px;text-align:left">${esc(d.note)}</div>`);
+  for(const q of (d.queries||[]).filter(q=>q.id!=="delivery")){const st=S.points.get(ref+"|"+q.id)||{};out.push(`<div class="check"${st.status==="Closed"?' style="border-color:var(--ok)"':""}><b>Query${q.with?" – "+esc(q.with):""}:</b> ${esc(q.text)} ${st.status==="Closed"?'<span class="pill green">Answered</span>':'<span class="pill warn">Open</span>'}${st.response?`<br><b>Response:</b> ${esc(st.response)}`:""}</div>`)}
   {const pa=S.prelim.get(ref);if((d.design==="Prelim"||d.design==="None"||d.design==="NotAccepted")&&pa&&pa.action)out.push(`<div class="check"><b>Design not yet approved – action:</b> ${esc(pa.action)}${pa.owner?` <span class="muted">(with ${esc(pa.owner)})</span>`:""}${pa.due?` · target ${esc(new Date(pa.due).toLocaleDateString("en-GB"))}`:""} <span class="pill">${esc(pa.status||"Open")}</span></div>`)}
   // 2. open discrepancies only
   const od=openDiffs(d),cd=(d.diffs||[]).filter(x=>!od.includes(x));
