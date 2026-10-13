@@ -413,6 +413,11 @@ async function put(col,id,data){
 async function del(col,id){if(db)await db.collection(col).doc(id).delete();else{S[col].delete(id);renderAll()}}
 function guard(){if(!canWrite){toast("You have view-only access to this tracker.");return false}return true}
 
+/* ---------- render batching / stable DOM (less flicker on site) ---------- */
+let renderT=0;function scheduleRender(){if(renderT)return;renderT=setTimeout(()=>{renderT=0;renderAll()},80)}
+function stableHTML(id){const el=document.getElementById(id);if(!el||el.__stable)return;el.__stable=1;const d=Object.getOwnPropertyDescriptor(Element.prototype,"innerHTML");let last=null;
+  Object.defineProperty(el,"innerHTML",{configurable:true,get(){return d.get.call(el)},set(v){if(v===last)return;last=v;d.set.call(el,v)}})}
+function doorSig(ref){try{const f=m=>[...(m&&m.values?m.values():[])].filter(x=>x&&x.ref===ref);return JSON.stringify([UI.sec,UI.dtab,ref,S.data.doors[ref],S.doors.get(ref),f(S.defects),f(S.requests),f(S.firedocs),S.thresholds&&S.thresholds.get(ref),S.prelim&&S.prelim.get(ref),[...(S.points||new Map())].filter(([k])=>k.startsWith(ref+"|")),S.photos.filter(p=>p.ref===ref).map(p=>[p.id,p.cap,p.defect,p.item]),canWrite,UI.photoItem,UI.fddel])}catch(e){return Math.random()+""}}
 /* ---------- boot ---------- */
 async function boot(){
   bindStatic();
@@ -427,11 +432,11 @@ async function boot(){
   else{
     live=true;
     if(!canWrite)banner("You have view-only access. Ask the tracker owner for Contributor access to update doors.");
-    db.collection("users").onSnapshot(snap=>{users=new Map(snap.docs.map(d=>[d.id,{id:d.id,...d.data()}]));renderWho();renderAll()},()=>{});
-    db.collection("diffres").onSnapshot(snap=>{applyDiffRes(new Map(snap.docs.map(d=>[d.id,d.data()])));renderAll();dzRefresh()},()=>{});
-    db.collection("overrides").onSnapshot(snap=>{applyOverrides(snap.docs.map(d=>({id:d.id,...d.data()})));renderAll();dzRefresh()},()=>{});
+    db.collection("users").onSnapshot(snap=>{users=new Map(snap.docs.map(d=>[d.id,{id:d.id,...d.data()}]));renderWho();scheduleRender()},()=>{});
+    db.collection("diffres").onSnapshot(snap=>{applyDiffRes(new Map(snap.docs.map(d=>[d.id,d.data()])));scheduleRender()},()=>{});
+    db.collection("overrides").onSnapshot(snap=>{applyOverrides(snap.docs.map(d=>({id:d.id,...d.data()})));scheduleRender()},()=>{});
     for(const col of["doors","louvres","defects","requests","thresholds","firedocs","prelim","points"]){
-      db.collection(col).onSnapshot(snap=>{const m=new Map(snap.docs.map(d=>[d.id,migrate(col,{id:d.id,...d.data()})]));if(col==="doors"||col==="louvres"){S.prog[col]=m;S.doors=S.prog[SEC[UI.sec].pcol]}else S[col]=m;renderAll()},e=>banner("Lost connection to the shared tracker ("+(e&&e.code||"error")+"). Reload the page to reconnect.","warn"));
+      db.collection(col).onSnapshot(snap=>{const m=new Map(snap.docs.map(d=>[d.id,migrate(col,{id:d.id,...d.data()})]));if(col==="doors"||col==="louvres"){S.prog[col]=m;S.doors=S.prog[SEC[UI.sec].pcol]}else S[col]=m;scheduleRender()},e=>banner("Lost connection to the shared tracker ("+(e&&e.code||"error")+"). Reload the page to reconnect.","warn"));
     }
   }
 }
@@ -509,7 +514,7 @@ async function renderTeamCF(){const lb=$("#lightbox");const adm=isAdmin();
 function banner(msg,kind){const b=$("#banner");b.textContent=msg;b.dataset.kind=kind||"";b.hidden=false}
 
 /* ---------- static bindings ---------- */
-function bindStatic(){
+function bindStatic(){window.addEventListener("beforeunload",e=>{if(Object.values(UI.trays||{}).some(t=>t.files.length)){e.preventDefault();e.returnValue="Photos not uploaded yet"}});if(window.__CF__&&"serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js").catch(()=>{})}["door-rows","def-list","req-list","th-list","th-kpis","rp-body","dwg-list","status-chips","prog","kpis"].forEach(stableHTML);
   $("#supbar").addEventListener("click",e=>{const b=e.target.closest("[data-sup]");if(!b)return;UI.sup=b.dataset.sup;renderAll()});
   $("#f-fire-m").addEventListener("change",e=>{const c=e.target.closest("input[data-fire]");if(!c)return;c.checked?UI.fires.add(c.dataset.fire):UI.fires.delete(c.dataset.fire);$("#f-fire-s").textContent=UI.fires.size?[...UI.fires].join(", "):"All fire ratings";renderDoors()});
   document.addEventListener("click",e=>{const m=$("#f-fire");if(m.open&&!m.contains(e.target))m.open=false});
@@ -583,17 +588,23 @@ function showDwg(id,doFit){UI.dwg=id;const L=S.data.layouts.find(l=>l.id===id);c
   $("#dwg-meta").textContent=L.kind?L.title+" · "+L.no:L.overall?"A-1080 P02 Site layout · all doors placed by gridline (upper floors shown at plan position) · click a numbered pin to zoom":L.no+(L.rev?" rev "+L.rev:"")+" · "+L.title;
   renderDwgList();renderLevels();renderPins();if(doFit){view.fitted=false;fit()}}
 function fit(){const v=$("#viewer");const W=v.clientWidth,H=v.clientHeight;if(!W||!H)return;const s=Math.min(W/view.w,H/view.h)*.96;view.s=s;view.fitS=s;view.min=s*.6;view.tx=(W-view.w*s)/2;view.ty=(H-view.h*s)/2;view.fitted=true;apply()}
-function apply(){$("#stage").style.transform=`translate(${view.tx}px,${view.ty}px) scale(${view.s})`;
-  if(UI.dwg==="overall"&&clusterScale&&Math.abs(view.s-clusterScale)/clusterScale>.3){renderPins();return}
+let reclusterT=0;
+function apply(noRecluster){$("#stage").style.transform=`translate(${view.tx}px,${view.ty}px) scale(${view.s})`;
+  if(!noRecluster&&clusteredPlan()&&clusterScale&&Math.abs(view.s-clusterScale)/clusterScale>.25){clearTimeout(reclusterT);reclusterT=setTimeout(()=>renderPins(true),140)}
   const lbl=view.s>Math.min(.38,(view.fitS||.2)*1.7);
   for(const p of $("#pins").querySelectorAll(".pin")){p.style.transform=`translate(${(view.tx+p.dataset.x*view.s).toFixed(1)}px,${(view.ty+p.dataset.y*view.s).toFixed(1)}px)`;p.classList.toggle("lbl",lbl)}}
 function zoomAt(f,cx,cy){const ns=Math.min(view.max,Math.max(view.min,view.s*f));const k=ns/view.s;view.tx=cx-(cx-view.tx)*k;view.ty=cy-(cy-view.ty)*k;view.s=ns;apply()}
 let clusterScale=0;
-function renderPins(){
-  if(!S.data||!UI.dwg)return;const st=$("#pins");st.innerHTML="";hidePop();
-  const frag=document.createDocumentFragment();const items=[];
+let pinSig="";
+function clusteredPlan(){return UI.dwg==="overall"||/^lv/.test(UI.dwg||"")}
+function renderPins(force){
+  if(!S.data||!UI.dwg)return;const st=$("#pins");
+  const items=[];
   for(const[ref,d]of Object.entries(S.data.doors)){if(!supOk(d))continue;for(const p of d.locs){if(p.l!==UI.dwg)continue;if(UI.dwg==="overall"&&d.plan&&d.plan!=="lvG")continue;const s=stageOf(ref);if(!UI.show.has(s))continue;items.push({ref,x:p.x*view.w,y:p.y*view.h,s,via:p.via})}}
-  const overall=UI.dwg==="overall"||/^lv/.test(UI.dwg);clusterScale=view.s;
+  const overall=clusteredPlan();
+  const sig=JSON.stringify([UI.dwg,UI.door,overall?Math.round(Math.log(Math.max(view.s,.001))*4):0,items.map(i=>i.ref+i.s+(openDefects(i.ref)?"!":"")+(S.data.doors[i.ref].alert||S.data.doors[i.ref].concern?"a":""))]);
+  if(!force&&sig===pinSig&&st.childElementCount){apply(true);return}
+  pinSig=sig;st.innerHTML="";hidePop();const frag=document.createDocumentFragment();clusterScale=view.s;
   const mk=(it)=>{const b=document.createElement("button");b.className="pin"+(UI.door===it.ref?" sel":"")+(S.data.doors[it.ref].alert||S.data.doors[it.ref].concern?" alert":"");b.dataset.ref=it.ref;b.dataset.x=it.x;b.dataset.y=it.y;b.style.setProperty("--pc",css(STAGES[it.s].c));
     const od=openDefects(it.ref);b.setAttribute("aria-label",`${it.ref}, ${STAGES[it.s].k}${od?", "+od+" open defects":""}${it.via&&it.via!=="5000"?", position from drawing "+it.via:""}`);
     b.innerHTML=`<i>${esc(it.ref)}${od?'<span class="flag"></span>':""}</i>`;return b};
@@ -680,8 +691,10 @@ function defectCard(d,inDrawer){const sev=d.sev==="High"?"red":d.sev==="Low"?"":
   return `<div class="card"><div class="card-h">${inDrawer?"":`<button class="ref" data-open="${esc(d.ref)}">${esc(d.ref)}</button>`}<b style="flex:1;min-width:0">${esc(d.title)}</b><span class="pill ${d.status==="Closed"?"green":sev}">${d.status==="Closed"?"Closed":esc(d.sev||"Medium")}</span></div>
   ${d.detail?`<p>${esc(d.detail)}</p>`:""}<div class="meta">${esc(catTxt(d.cat))} · Raised by ${esc(name(d.by))}, ${fmt(d.at)}${d.status==="Closed"?` · Closed by ${esc(name(d.closedBy))}, ${fmt(d.closedAt)}${d.closeNote?" — "+esc(d.closeNote):""}`:""}</div>
   ${(d.notes||[]).length?`<ul class="dnotes">${d.notes.map(n=>{want(n.by);return `<li>${esc(n.t)}<span class="meta"> — ${esc(name(n.by))}, ${fmt(n.at)}</span></li>`}).join("")}</ul>`:""}
+  ${inDrawer&&defPhotoList(d).length?`<div class="photos" style="grid-template-columns:repeat(auto-fill,minmax(70px,1fr));margin:6px 0">${defPhotoList(d).map(p=>`<button class="ph" data-photo="${p.id}"><img loading="lazy" alt="" src="${esc(photoSrc(p))}"></button>`).join("")}</div>`:""}
+  ${inDrawer&&UI.defAttach===d.id?`<div class="form" style="margin:6px 0">${doorPhotoPicker(d.ref,"dfatt",d.photos||[],S.photos.filter(p=>p.defect===d.id).map(p=>p.id))}<div class="row" style="flex:0;gap:6px"><button class="btn sm primary" data-def-attsave="${d.id}">Save photos</button><button class="btn sm" data-def-attx="1">Cancel</button></div></div>`:""}
   ${(d.sent||[]).length?`<div class="meta">✉ Sent for action: ${d.sent.map(x=>`${esc(x.to||"(shared)")} ${fmt(x.at)}`).join("; ")}</div>`:""}
-  ${canWrite?`<div class="acts">${d.status==="Closed"?`<button class="btn sm" data-def-reopen="${d.id}">Reopen</button>`:`<button class="btn sm" data-def-close="${d.id}">Close defect</button>`}<button class="btn sm" data-def-note="${d.id}">Add note</button><button class="btn sm primary" data-def-mail="${d.id}">✉ Email for action</button></div>`:""}</div>`}
+  ${canWrite?`<div class="acts">${d.status==="Closed"?`<button class="btn sm" data-def-reopen="${d.id}">Reopen</button>`:`<button class="btn sm" data-def-close="${d.id}">Close defect</button>`}<button class="btn sm" data-def-note="${d.id}">Add note</button>${inDrawer?`<button class="btn sm" data-def-att="${d.id}">📎 Door photos</button>`:""}<button class="btn sm primary" data-def-mail="${d.id}">✉ Email for action</button></div>`:""}</div>`}
 function renderRequests(){
   const k=$("#req-kind").value;
   const list=[...S.requests.values()].filter(r=>inSec(r.ref)&&(!k||r.kind===k)&&(!UI.reqSeg||(UI.reqSeg==="active"?(r.status==="Requested"||r.status==="Scheduled"):(r.status==="Connected"||r.status==="Declined")))).sort((a,b)=>(a.need||"9").localeCompare(b.need||"9")||(b.at||0)-(a.at||0));
@@ -699,6 +712,10 @@ async function listClicks(e){
   if(e.detail===0&&(b=t.closest(".pin[data-ref]"))){openDoor(b.dataset.ref);return}
   if(b=t.closest("[data-chip]")){const i=+b.dataset.chip;UI.show.has(i)?UI.show.delete(i):UI.show.add(i);renderDwgList();renderPins();return}
   if(b=t.closest("[data-open]")){openDoor(b.dataset.open);return}
+  if(b=t.closest("[data-def-att]")){UI.defAttach=UI.defAttach===b.dataset.defAtt?null:b.dataset.defAtt;renderDrawer();return}
+  if(b=t.closest("[data-def-attx]")){UI.defAttach=null;renderDrawer();return}
+  if(b=t.closest("[data-def-attsave]")){if(!guard())return;const d=S.defects.get(b.dataset.defAttsave);if(!d)return;const ids=[...b.closest(".card").querySelectorAll("[data-dfatt]")].filter(c=>c.checked).map(c=>c.dataset.dfatt);UI.defAttach=null;
+    await save(()=>put("defects",d.id,{...strip(d),photos:ids}),ids.length?`${ids.length} door photo${ids.length>1?"s":""} attached`:"Photos updated");return}
   if(b=t.closest("[data-def-close]")){if(!guard())return;const d=S.defects.get(b.dataset.defClose);if(!d)return;
     const note=b.closest(".card").querySelector("[data-close-note]");if(!note){b.insertAdjacentHTML("afterend",`<span class="confirm"><input type="text" data-close-note placeholder="How was it fixed? (optional)" aria-label="Close note"><button class="btn sm primary" data-def-close="${d.id}">Confirm close</button></span>`);b.remove();return}
     await save(()=>put("defects",d.id,{...strip(d),status:"Closed",closedBy:meId,closedAt:Date.now(),closeNote:note.value.trim()}),"Defect closed");return}
@@ -721,8 +738,8 @@ function subscribePhotos(ref){if(photoUnsub){photoUnsub();photoUnsub=null}S.phot
   photoUnsub=db.collection("photos").where("ref","==",ref).onSnapshot(snap=>{S.photos=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.at||0)-(a.at||0));softDrawer()},()=>{})}
 function typingInDrawer(){const a=document.activeElement;return !!(a&&a.closest&&a.closest("#drawer")&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&!/^(checkbox|radio|file|button)$/.test(a.type||""))}
 document.addEventListener("focusout",e=>{if(!UI.drawerDirty)return;setTimeout(()=>{if(UI.drawerDirty&&!typingInDrawer()){UI.drawerDirty=false;if(UI.door)renderDrawer()}},250)});
-function softDrawer(){if(!UI.door)return;if(typingInDrawer()){UI.drawerDirty=true;return}renderDrawer()}
-function renderDrawer(){UI.drawerDirty=false;
+function softDrawer(){if(!UI.door)return;if(typingInDrawer()){UI.drawerDirty=true;return}if(UI.drawerSig&&UI.drawerSig===doorSig(UI.door))return;renderDrawer()}
+function renderDrawer(){UI.drawerDirty=false;UI.drawerSig=UI.door?doorSig(UI.door):"";
   const ref=UI.door,d=S.data.doors[ref];if(!d)return;const s=stageOf(ref);const st=S.doors.get(ref)||{};
   const defs=[...S.defects.values()].filter(x=>x.ref===ref).sort((a,b)=>(a.status==="Closed")-(b.status==="Closed")||(b.at||0)-(a.at||0));
   const reqs=[...S.requests.values()].filter(x=>x.ref===ref).sort((a,b)=>(b.at||0)-(a.at||0));
@@ -850,11 +867,24 @@ function photoSrc(p){return p.asset?(window.__CF__?"/api/photo/":"/_blob/")+p.as
 function tabPhotos(ref,d,{photos}){
   photos.forEach(p=>want(p.by));
   const pi=UI.photoItem&&UI.photoItem.ref===ref?UI.photoItem:null;
-  return `${canWrite?`<div class="form">${pi?`<div class="check" style="margin-bottom:4px">This upload confirms checklist item: <b>${esc(pi.label)}</b> <button class="btn sm" id="ph-noitem">Cancel</button></div>`:""}<div class="row" style="display:flex;gap:8px;flex-wrap:wrap"><label class="btn primary" style="cursor:pointer">📷 Take photo<input type="file" id="ph-cam" accept="image/*" capture="environment" hidden></label><label class="btn" style="cursor:pointer">🖼 Choose photos (several)<input type="file" id="ph-file" accept="image/*" multiple hidden></label><span class="muted" id="ph-sel" style="font-size:12px;align-self:center"></span></div><span class="muted" style="font-size:11px">Photos are reduced to max 1600 px (~0.5 MB) and stamped with the door ref and the date/time taken.</span><label>Caption (optional – type it first, it's applied to the photos you add)<input type="text" id="ph-cap" data-keep="ph-cap" placeholder="e.g. Frame fixed, east elevation" ${pi?`value="${esc(pi.label)}"`:""}></label><span class="muted" style="font-size:12px" id="ph-msg">Take photos one after another with the camera button, or pick several at once from your library – they upload straight away.</span></div>`:""}
+  return `${canWrite?`<div class="form">${pi?`<div class="check" style="margin-bottom:4px">This upload confirms checklist item: <b>${esc(pi.label)}</b> <button class="btn sm" id="ph-noitem">Cancel</button></div>`:""}<div class="row" style="display:flex;gap:8px;flex-wrap:wrap"><label class="btn primary" style="cursor:pointer">📷 Take photo<input type="file" id="ph-cam" accept="image/*" capture="environment" hidden></label><label class="btn" style="cursor:pointer">🖼 From phone (several)<input type="file" id="ph-file" accept="image/*" multiple hidden></label></div>
+  ${trayHtml("ph",trayOf("ph",ref))}
+  <label>Caption (optional – applied to the photos in this batch)<input type="text" id="ph-cap" data-keep="ph-cap" placeholder="e.g. Frame fixed, east elevation" ${pi?`value="${esc(pi.label)}"`:""}></label>
+  <div class="row" style="flex:0;gap:8px;align-items:center"><button class="btn primary" id="ph-up" ${trayOf("ph",ref).length?"":"disabled"} style="flex:0;white-space:nowrap">⬆ Upload ${trayOf("ph",ref).length||""} photo${trayOf("ph",ref).length===1?"":"s"}</button><span class="muted" style="font-size:12px" id="ph-msg">Take as many photos as you need – they wait here until you press Upload. Reduced to max 1600 px and stamped with the door ref and time.</span></div></div>`:""}
   ${photos.length?`<div class="photos">${photos.map(p=>`<button class="ph" data-photo="${p.id}"><img loading="lazy" alt="${esc(p.cap||"Door photo")}" src="${esc(photoSrc(p))}"><span>${esc(p.cap||name(p.by))} · ${new Date(p.taken||p.at).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</span></button>`).join("")}</div>`:'<div class="empty">No photos of this door yet.</div>'}`;
 }
+/* photo trays: photos wait on the phone until Upload is pressed */
+UI.trays=UI.trays||{};
+function trayOf(k,ref){const t=UI.trays[k];return t&&t.ref===ref?t.files:[]}
+function trayAdd(k,ref,files){let t=UI.trays[k];if(!t||t.ref!==ref)t=UI.trays[k]={ref,files:[]};for(const f of files)t.files.push({f,url:URL.createObjectURL(f)})}
+function trayClear(k){const t=UI.trays[k];if(t)t.files.forEach(x=>URL.revokeObjectURL(x.url));delete UI.trays[k]}
+function trayHtml(k,files){return files.length?`<div class="photos tray" style="grid-template-columns:repeat(auto-fill,minmax(84px,1fr))">${files.map((x,i)=>`<div class="ph" style="position:relative"><img alt="" src="${x.url}"><button type="button" class="btn sm" data-trayrm="${k}:${i}" aria-label="Remove photo" style="position:absolute;top:3px;right:3px;padding:0 7px">✕</button></div>`).join("")}</div><span class="muted" style="font-size:12px">${files.length} photo${files.length>1?"s":""} ready – not uploaded yet</span>`:""}
+UI.dfSel=UI.dfSel||{};function dfSel(ref){return UI.dfSel[ref]||(UI.dfSel[ref]=new Set())}
+function doorPhotoPicker(ref,key,sel,exclude){const ps=S.photos.filter(p=>p.ref===ref&&!(exclude||[]).includes(p.id));if(!ps.length)return '<span class="muted" style="font-size:12px">No photos on this door yet – take one above, or add them in the Photos tab first.</span>';
+  return `<span class="muted" style="font-size:12px">Or pick from this door's photos (${ps.length}):</span><div class="photos" style="grid-template-columns:repeat(auto-fill,minmax(84px,1fr));max-height:260px;overflow:auto">${ps.map(p=>`<label class="ph" style="position:relative;cursor:pointer;outline:${sel.includes(p.id)?"3px solid var(--accent)":"none"}"><img loading="lazy" alt="" src="${esc(photoSrc(p))}"><input type="checkbox" data-${key}="${p.id}" ${sel.includes(p.id)?"checked":""} style="position:absolute;top:4px;left:4px;width:20px;height:20px"><span>${esc(p.cap||"")}</span></label>`).join("")}</div>`}
+function defPhotoList(df){return S.photos.filter(p=>p.defect===df.id||(df.photos||[]).includes(p.id))}
 function tabDefects(ref,d,{defs}){
-  return `${canWrite?`<div class="form"><b>Report a defect</b><label>What's wrong<input type="text" id="df-title" data-keep="df-title" placeholder="e.g. Leaf binding on head, 2mm gap at lock side"></label><div class="row"><label>Category<select id="df-cat" data-keep="df-cat">${DEF_CATS.map(c=>`<option>${esc(c)}</option>`).join("")}</select></label><label>Severity<select id="df-sev" data-keep="df-sev"><option>Low</option><option selected>Medium</option><option>High</option></select></label></div><label>Details<textarea id="df-detail" data-keep="df-detail" placeholder="Location on the door, who should fix it"></textarea></label><label>Photos (optional – choose several)<input type="file" id="df-file" accept="image/*" multiple></label><div class="row"><button class="btn primary" id="df-save">Report defect</button></div></div>`:""}
+  return `${canWrite?`<div class="form"><b>Report a defect</b><label>What's wrong<input type="text" id="df-title" data-keep="df-title" placeholder="e.g. Leaf binding on head, 2mm gap at lock side"></label><div class="row"><label>Category<select id="df-cat" data-keep="df-cat">${DEF_CATS.map(c=>`<option>${esc(c)}</option>`).join("")}</select></label><label>Severity<select id="df-sev" data-keep="df-sev"><option>Low</option><option selected>Medium</option><option>High</option></select></label></div><label>Details<textarea id="df-detail" data-keep="df-detail" placeholder="Location on the door, who should fix it"></textarea></label><b style="font-size:13px">Photos</b><div class="row" style="display:flex;gap:8px;flex-wrap:wrap;flex:0"><label class="btn" style="cursor:pointer;flex:0;white-space:nowrap">📷 Take photo<input type="file" id="df-cam" accept="image/*" capture="environment" hidden></label></div>${trayHtml("df",trayOf("df",ref))}${doorPhotoPicker(ref,"dfsel",[...dfSel(ref)])}<div class="row"><button class="btn primary" id="df-save">Report defect</button></div></div>`:""}
   ${defs.length?`<div style="display:flex;flex-direction:column;gap:8px">${defs.map(x=>{want(x.by);return defectCard(x,true)}).join("")}</div>`:'<div class="empty">No defects recorded for this door.</div>'}`;
 }
 function tabRequests(ref,d,{reqs}){
@@ -898,16 +928,21 @@ function bindDrawer(ref,d){if(UI.dtab==="fire")bindFire(ref,d);if(UI.dtab==="lev
   dr.querySelectorAll("[data-goto]").forEach(b=>b.onclick=()=>{if(window.innerWidth<=900)closeDoorKeep();showDwg(b.dataset.goto,false);locate(ref)});
   dr.querySelectorAll("[data-photo]").forEach(b=>b.onclick=()=>{const p=S.photos.find(x=>x.id===b.dataset.photo);if(p)lightbox(photoSrc(p),`${ref} · ${p.cap||""} · taken ${fmt(p.taken||p.at)} · uploaded by ${name(p.by)}, ${fmt(p.at)}`,p)});
   const up=$("#ph-up");
-  const cam=$("#ph-cam");if(cam)cam.onchange=()=>{if(cam.files.length)doUp([...cam.files])};
-  const pf=$("#ph-file");if(pf)pf.onchange=()=>{if(pf.files.length)doUp([...pf.files])};
+  const cam=$("#ph-cam");if(cam)cam.onchange=()=>{if(cam.files.length){trayAdd("ph",ref,[...cam.files]);cam.value="";renderDrawer()}};
+  const pf=$("#ph-file");if(pf)pf.onchange=()=>{if(pf.files.length){trayAdd("ph",ref,[...pf.files]);pf.value="";renderDrawer()}};
+  const dcam=$("#df-cam");if(dcam)dcam.onchange=()=>{if(dcam.files.length){trayAdd("df",ref,[...dcam.files]);dcam.value="";renderDrawer()}};
+  dr.querySelectorAll("[data-trayrm]").forEach(b=>b.onclick=e=>{e.preventDefault();const[k,i]=b.dataset.trayrm.split(":");const t=UI.trays[k];if(t){URL.revokeObjectURL(t.files[i].url);t.files.splice(+i,1)}renderDrawer()});
+  dr.querySelectorAll("[data-dfsel]").forEach(c=>c.onchange=()=>{const S_=dfSel(ref);c.checked?S_.add(c.dataset.dfsel):S_.delete(c.dataset.dfsel);c.closest(".ph").style.outline=c.checked?"3px solid var(--accent)":"none"});
+  if(up)up.onclick=()=>{const fs=trayOf("ph",ref).map(x=>x.f);if(fs.length)doUp(fs)};
   const doUp=async files=>{if(!guard())return;
     if(up)up.disabled=true;const cap=$("#ph-cap").value.trim();let n=0;
     const it=UI.photoItem&&UI.photoItem.ref===ref?UI.photoItem.i:null;
     for(const f of files){$("#ph-msg").textContent=`Uploading ${n+1} of ${files.length}…`;try{await addPhoto(ref,f,cap,null,it);n++}catch(e){toast("Couldn't upload "+f.name+": "+(e.message||e.code||"error"));break}}
-    if(n)toast(`${n} photo${n>1?"s":""} added to ${ref}`+(it!=null?" – you can now tick the checklist item":""));if(n&&it!=null){UI.photoItem=null;UI.dtab="progress";renderDrawer()}if(up)up.disabled=false;$("#ph-msg")&&($("#ph-msg").textContent=`Done – ${n} uploaded. Take or choose more to keep adding.`);[cam,pf].forEach(x=>{if(x)x.value=""})};
+    if(n){const t=UI.trays.ph;if(t&&t.ref===ref){t.files.splice(0,n).forEach(x=>URL.revokeObjectURL(x.url));if(!t.files.length)delete UI.trays.ph}}
+    if(n)toast(`${n} photo${n>1?"s":""} added to ${ref}`+(it!=null?" – you can now tick the checklist item":""));if(n&&it!=null){UI.photoItem=null;UI.dtab="progress"}renderDrawer()};
   const ds=$("#df-save");if(ds)ds.onclick=async()=>{if(!guard())return;const title=$("#df-title").value.trim();if(!title){toast("Describe the defect first.");$("#df-title").focus();return}
-    ds.disabled=true;const id=uid();const rec={ref,title,cat:$("#df-cat").value,sev:$("#df-sev").value,detail:$("#df-detail").value.trim(),status:"Open",by:meId,at:Date.now()};const fs=[...$("#df-file").files];
-    try{await put("defects",id,rec);for(const f of fs)await addPhoto(ref,f,"Defect: "+title,id);$("#df-file").value="";["df-title","df-detail"].forEach(k=>{const el=$("#"+k);if(el)el.value=""});toast("Defect reported on "+ref)}catch(e){toast("Couldn't save the defect: "+(e.message||e.code||"error"))}ds.disabled=false};
+    ds.disabled=true;const id=uid();const rec={ref,title,cat:$("#df-cat").value,sev:$("#df-sev").value,detail:$("#df-detail").value.trim(),status:"Open",by:meId,at:Date.now(),photos:[...dfSel(ref)]};const fs=trayOf("df",ref).map(x=>x.f);
+    try{await put("defects",id,rec);for(const f of fs)await addPhoto(ref,f,"Defect: "+title,id);trayClear("df");UI.dfSel[ref]=new Set();setTimeout(renderDrawer,0);["df-title","df-detail"].forEach(k=>{const el=$("#"+k);if(el)el.value=""});toast("Defect reported on "+ref)}catch(e){toast("Couldn't save the defect: "+(e.message||e.code||"error"))}ds.disabled=false};
   const rk=$("#rq-kind");if(rk)rk.onclick=e=>{const b=e.target.closest("[data-k]");if(b){UI.reqKind={ref,k:b.dataset.k};renderDrawer()}};
   const rs=$("#rq-save");if(rs)rs.onclick=async()=>{if(!guard())return;const k=$("#rq-kind [aria-pressed=true]").dataset.k;rs.disabled=true;
     const rec={ref,kind:k,detail:$("#rq-detail").value.trim(),need:$("#rq-need").value||"",suite:k==="lock"?($("#rq-suite").value.trim()):"",status:"Requested",by:meId,at:Date.now()};
@@ -1163,18 +1198,18 @@ function mailText(df,extra,photos){const r=df.ref,d=S.data.doors[r]||{};const me
   if(extra)L.push("",extra);
   if(photos&&photos.length)L.push("",`Photos: ${photos.length} attached.`);
   L.push("","Many thanks,",me);return L.join("\n")}
-async function defectPhotos(df){let ps=S.photos.filter(p=>p.defect===df.id);if(ps.length||!db)return ps;
-  return await new Promise(res=>{let un=null;const t=setTimeout(()=>{un&&un();res([])},6000);un=db.collection("photos").where("ref","==",df.ref).onSnapshot(sn=>{clearTimeout(t);un&&un();res(sn.docs.map(x=>({id:x.id,...x.data()})).filter(p=>p.defect===df.id))},()=>{clearTimeout(t);res([])})})}
+async function defectPhotos(df){let ps=defPhotoList(df);if(ps.length||!db)return ps;
+  return await new Promise(res=>{let un=null;const t=setTimeout(()=>{un&&un();res([])},6000);un=db.collection("photos").where("ref","==",df.ref).onSnapshot(sn=>{clearTimeout(t);un&&un();res(sn.docs.map(x=>({id:x.id,...x.data()})).filter(p=>p.defect===df.id||(df.photos||[]).includes(x.id)))},()=>{clearTimeout(t);res([])})})}
 async function openMail(df){const lb=$("#lightbox");lb.hidden=false;lb.innerHTML=`<div class="lb-top"><span style="flex:1">Email defect for action · ${esc(df.ref)}</span><button class="x" id="lb-x" aria-label="Close">×</button></div><div class="team" id="mail"><p class="muted">Loading photos…</p></div>`;
   $("#lb-x").onclick=()=>{lb.hidden=true;lb.innerHTML=""};
-  const all=await defectPhotos(df);const doorPh=S.photos.filter(p=>p.ref===df.ref&&p.defect!==df.id);
+  const all=await defectPhotos(df);const doorPh=S.photos.filter(p=>p.ref===df.ref&&!all.some(a=>a.id===p.id));
   const subj=`SCEC EfW – Door ${df.ref} – Defect: ${df.title}`;
   const box=$("#mail");if(!box)return;
   box.innerHTML=`<div class="form" style="background:none;border:0;padding:0">
    <div class="row"><label>To${mailRecipients(df.ref).label?` <span class="muted" style="font-weight:400">(${esc(mailRecipients(df.ref).label)})</span>`:""}<input type="text" id="ml-to" placeholder="name@company.com" value="${esc(mailRecipients(df.ref).to.join(", ")||UI.lastMailTo||"")}"></label><label>Cc<input type="text" id="ml-cc" placeholder="optional" value="${esc(mailRecipients(df.ref).cc.join(", "))}"></label></div>
    <label>Subject<input type="text" id="ml-subj" value="${esc(subj)}"></label>
    <label>Additional message (optional)<input type="text" id="ml-extra" placeholder="e.g. Please attend site on Tuesday to rectify"></label>
-   ${all.length||doorPh.length?`<b style="font-size:13px">Photos to include</b><div class="photos" style="grid-template-columns:repeat(auto-fill,minmax(110px,1fr))">${all.concat(doorPh).map(p=>`<div class="ph" style="position:relative"><img alt="" src="${esc(photoSrc(p))}"><span><label style="display:inline"><input type="checkbox" data-mph="${p.id}" ${p.defect===df.id?"checked":""}> ${esc(p.cap||"")}</label></span><button type="button" class="btn sm" data-mcopy="${esc(photoSrc(p))}" style="position:absolute;top:4px;right:4px;padding:2px 6px">📋 Copy</button></div>`).join("")}</div>`:'<span class="muted" style="font-size:12px">No photos on this defect.</span>'}
+   ${all.length||doorPh.length?`<b style="font-size:13px">Photos to include</b><div class="photos" style="grid-template-columns:repeat(auto-fill,minmax(110px,1fr))">${all.concat(doorPh).map(p=>`<div class="ph" style="position:relative"><img alt="" src="${esc(photoSrc(p))}"><span><label style="display:inline"><input type="checkbox" data-mph="${p.id}" ${all.some(a=>a.id===p.id)?"checked":""}> ${esc(p.cap||"")}</label></span><button type="button" class="btn sm" data-mcopy="${esc(photoSrc(p))}" style="position:absolute;top:4px;right:4px;padding:2px 6px">📋 Copy</button></div>`).join("")}</div>`:'<span class="muted" style="font-size:12px">No photos on this defect.</span>'}
    ${designFiles(df.ref).length?`<b style="font-size:13px">Door design</b><div style="display:flex;flex-direction:column;gap:4px">${designFiles(df.ref).map((f,i)=>`<label style="flex-direction:row;align-items:center;gap:8px;font-weight:400"><input type="checkbox" data-mdw="${i}" checked> Attach ${esc(f.label)} <a href="${esc(f.url)}" target="_blank" rel="noopener" class="muted" style="font-size:12px">view</a> <button type="button" class="btn sm" data-mcopy="${esc(f.url)}" style="padding:2px 6px">📋 Copy</button></label>`).join("")}</div>`:'<span class="muted" style="font-size:12px">No supplier design drawing for this door.</span>'}
    <label>Message preview<textarea id="ml-body" rows="12" style="font:13px/1.45 var(--f-mono);width:100%;box-sizing:border-box"></textarea></label>
    <div class="row" style="flex-wrap:wrap;gap:8px"><button class="btn primary" id="ml-open">Open in email app</button><button class="btn" id="ml-share">Share + photos</button><button class="btn" id="ml-dl">Download attachments</button><button class="btn" id="ml-copy">Copy message</button></div>
