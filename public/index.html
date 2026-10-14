@@ -303,7 +303,7 @@ details.coll{border:1px solid var(--line);border-radius:var(--r);padding:8px 12p
       <select id="f-cons" aria-label="Construction"><option value="">All construction</option></select>
       <details class="ms" id="f-fire"><summary id="f-fire-s">All fire ratings</summary><div class="menu" id="f-fire-m"></div></details>
       <select id="f-ms" aria-label="Commissioning milestone"><option value="">Any milestone</option></select><select id="f-diff" aria-label="Design check"><option value="">Any design check</option><option value="open">Open conflicts</option><option value="rev">Supplier to revise</option><option value="rfi">RFI open</option><option value="diff">Any conflict (incl. resolved)</option><option value="ok">Matches supplier design</option><option value="issue">Open site issues</option><option value="concern">Stud fixing concern</option><option value="prep">Threshold / jamb prep notes</option><option value="swsoft">Swings away from vinyl / carpet</option><option value="swunk">Swing not determined</option><option value="levelq">Level to confirm</option><option value="prelim">Prelim design (not approved)</option><option value="approved">Design approved for construction</option></select>
-      <button class="btn" id="export" hidden>Export CSV</button>
+      <button class="btn" id="export" hidden>Export CSV</button><button class="btn" id="status-x" hidden>Status sheet (.xlsx)</button>
     </div>
     <div class="muted" id="door-count" style="font-size:12px"></div>
     <div class="tbl-wrap"><table><thead id="door-head"></thead><tbody id="door-rows"></tbody></table></div>
@@ -429,7 +429,7 @@ async function boot(){
   applySection("doors");
   const use=n=>window.claude&&window.claude.use?Promise.resolve(window.claude.use(n)).catch(()=>null):Promise.resolve(null);
   [db,userCap,assets,downloads]=await Promise.all([use("db"),use("user"),use("assets"),use("downloads")]);
-  if(downloads)$("#export").hidden=false;
+  if(downloads){$("#export").hidden=false;$("#status-x").hidden=UI.sec!=="doors"}
   if(userCap){try{meId=await userCap.id();const me=await userCap.me();if(me){$("#who").innerHTML=`<img alt="" src="${esc(me.avatarUrl)}"><span>${esc(me.name||"Signed in")}</span>`;if(me.id)S.names[me.id]=me.name||"";isOwner=!!me.isOwner;S.meAvatar=me.avatarUrl}}catch(e){}
     try{const c=await userCap.can("data.write");if(c===false)canWrite=false}catch(e){}}
   if(!db){banner("This view isn't connected to the shared tracker, so progress, defects and photos you add here won't be saved. Open the tracker from claude.ai while signed in.","warn")}
@@ -451,7 +451,7 @@ function applySection(sec){
   $("#brand-t").textContent=SEC[sec].title;$("#tab-sched").textContent=SEC[sec].sched;
   $("#section-sw").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.sec===sec?"true":"false"));
   $("#find").placeholder=sec==="doors"?"Find door ref, e.g. DG04":"Find louvre ref, e.g. L17 or RV04";
-  $("#f-ms").hidden=$("#f-diff").hidden=$("#f-cons").hidden=$("#f-fire").hidden=sec!=="doors";UI.fires.clear();
+  {const sx=$("#status-x");if(sx&&downloads)sx.hidden=sec!=="doors"}$("#f-ms").hidden=$("#f-diff").hidden=$("#f-cons").hidden=$("#f-fire").hidden=sec!=="doors";UI.fires.clear();
   if(UI.door)closeDoor();
   UI.dwg=S.data.layouts[0].id;UI.show=new Set(STAGES.map((_,i)=>i));
   fillFilters();renderAll();showDwg(UI.dwg,true);
@@ -539,7 +539,7 @@ function bindStatic(){window.addEventListener("beforeunload",e=>{if(Object.value
   $("#dwg-list").addEventListener("click",e=>{const b=e.target.closest("[data-dwg]");if(b)showDwg(b.dataset.dwg,true)});
   $("#dwg-select").addEventListener("input",e=>showDwg(e.target.value,true));
   $("#scrim").addEventListener("click",closeDoor);
-  $("#export").addEventListener("click",exportCsv);
+  $("#export").addEventListener("click",exportCsv);$("#status-x").addEventListener("click",exportStatus);
   $("#find").addEventListener("keydown",e=>{if(e.key==="Enter"){const r=e.target.value.trim().toUpperCase();if(S.data.doors[r]){locate(r);openDoor(r)}else toast("No "+SEC[UI.sec].one+" "+r+" in this package. Try the other package switch.")}});
   document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(!$("#lightbox").hidden)$("#lightbox").hidden=true;else if(UI.door)closeDoor()}});
   document.addEventListener("click",listClicks);
@@ -1382,6 +1382,30 @@ function renderPrelim(){const lb=$("#lightbox");const q=(UI.dzQ||"").toLowerCase
   dzBind(lb)}
 
 /* ---------- export ---------- */
+function xlsxBlob(sheet,rows,widths){const enc=new TextEncoder();const x=v=>String(v==null?"":v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  const col=n=>{let s="";n++;while(n){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26)}return s};
+  const sd=rows.map((r,i)=>`<row r="${i+1}">${r.map((v,c)=>`<c r="${col(c)}${i+1}" t="inlineStr"${i===0?' s="1"':""}><is><t xml:space="preserve">${x(v)}</t></is></c>`).join("")}</row>`).join("");
+  const last=col(rows[0].length-1)+rows.length;
+  const F={"[Content_Types].xml":`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`,
+   "_rels/.rels":`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`,
+   "xl/workbook.xml":`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${x(sheet)}" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">'${x(sheet)}'!$A$1:$${last.replace(/\d+/,"")}$${rows.length}</definedName></definedNames></workbook>`,
+   "xl/_rels/workbook.xml.rels":`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`,
+   "xl/styles.xml":`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9E1F2"/></patternFill></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`,
+   "xl/worksheets/sheet1.xml":`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join("")}</cols><sheetData>${sd}</sheetData><autoFilter ref="A1:${last}"/></worksheet>`};
+  const T=new Uint32Array(256).map((_,n)=>{let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;return c>>>0});const crc=b=>{let c=0xFFFFFFFF;for(const v of b)c=T[(c^v)&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0};
+  const parts=[],cent=[];let off=0;const u16=n=>[n&255,(n>>8)&255],u32=n=>[n&255,(n>>8)&255,(n>>16)&255,(n>>>24)&255];
+  for(const [name,txt] of Object.entries(F)){const nb=enc.encode(name),db=enc.encode(txt),c=crc(db);
+    const h=new Uint8Array([...u32(0x04034b50),...u16(20),...u16(0x0800),...u16(0),...u16(0),...u16(0x21),...u32(c),...u32(db.length),...u32(db.length),...u16(nb.length),...u16(0)]);
+    parts.push(h,nb,db);cent.push(new Uint8Array([...u32(0x02014b50),...u16(20),...u16(20),...u16(0x0800),...u16(0),...u16(0),...u16(0x21),...u32(c),...u32(db.length),...u32(db.length),...u16(nb.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(off)]),nb);off+=h.length+nb.length+db.length}
+  const cs=cent.reduce((a,b)=>a+b.length,0),n=Object.keys(F).length;
+  return new Blob([...parts,...cent,new Uint8Array([...u32(0x06054b50),...u16(0),...u16(0),...u16(n),...u16(n),...u32(cs),...u32(off),...u16(0)])],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})}
+function delivTxt(d){if(/almet/i.test(d.supplier||""))return batchTxt(d.batch)||"Batch TBC";const v=d.delivery||{};if(v.phase1)return "Phase 1 (on site)";if(v.date){const [y,m,dd]=v.date.split("-");return `${dd}/${m}/${y}`+(v.wc?" (w/c)":"")}return ""}
+async function exportStatus(){if(UI.sec!=="doors")return;const btn=$("#status-x");btn.disabled=true;const old=btn.textContent;btn.textContent="Preparing…";
+  try{const nk=r=>r.replace(/\d+/g,n=>n.padStart(4,"0"));
+    const rows=Object.entries(S.data.doors).sort((a,b)=>nk(a[0]).localeCompare(nk(b[0]))).map(([r,d])=>[r,d.supplier||"",(DESIGN[d.design||"None"]||{}).t||"",STAGESETS.doors[stageOf(r)].k,delivTxt(d)]);
+    await downloads.save({filename:`SCEC-door-status-${new Date().toISOString().slice(0,10)}.xlsx`,data:xlsxBlob("Door status",[["Door ref","Supplier","Design status","Installation status","Delivery date / Almet batch"],...rows],[12,22,34,20,28])});toast(`Status sheet exported – ${rows.length} doors`)}
+  catch(e){if(e&&e.code!=="declined"&&e.code!=="cancelled")toast("Export didn't complete: "+(e.code||e.message))}
+  finally{btn.disabled=false;btn.textContent=old}}
 async function exportCsv(){
   const cols=["Ref","From","To","Supplier","Type","Description","Construction","SO width","SO height","Fire","Access control","Lock/latch","Ironmongery set","Connection","Design status","Design conflicts","Drawings","Stage","Stage updated","Open defects","Active requests","Door swing","Commissioning milestone"];
   const q=v=>{v=v==null?"":String(v);return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
