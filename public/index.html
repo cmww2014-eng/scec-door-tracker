@@ -1402,7 +1402,7 @@ function xlsxBlob(sheet,rows,widths){const enc=new TextEncoder();const x=v=>Stri
 function delivTxt(d){if(/almet/i.test(d.supplier||""))return batchTxt(d.batch)||"Batch TBC";const v=d.delivery||{};if(v.phase1)return "Phase 1 (on site)";if(v.date){const [y,m,dd]=v.date.split("-");return `${dd}/${m}/${y}`+(v.wc?" (w/c)":"")}return ""}
 async function exportStatus(){if(UI.sec!=="doors")return;const btn=$("#status-x");btn.disabled=true;const old=btn.textContent;btn.textContent="Preparing…";
   try{const nk=r=>r.replace(/\d+/g,n=>n.padStart(4,"0"));
-    const rows=Object.entries(S.data.doors).sort((a,b)=>nk(a[0]).localeCompare(nk(b[0]))).map(([r,d])=>[r,d.supplier||"",(DESIGN[d.design||"None"]||{}).t||"",STAGESETS.doors[stageOf(r)].k,delivTxt(d)]);
+    const rows=Object.entries(S.data.doors).sort((a,b)=>nk(a[0]).localeCompare(nk(b[0]))).map(([r,d])=>{const sg=stageOf(r),p1=!!(d.delivery||{}).phase1,inst=sg>=2||p1;return [r,d.supplier||"",d.design==="Approved"?"Approved":"Prelim",sg===0&&p1?"Installed (Phase 1)":STAGESETS.doors[sg].k,inst?"N/A":delivTxt(d)]});
     await downloads.save({filename:`SCEC-door-status-${new Date().toISOString().slice(0,10)}.xlsx`,data:xlsxBlob("Door status",[["Door ref","Supplier","Design status","Installation status","Delivery date / Almet batch"],...rows],[12,22,34,20,28])});toast(`Status sheet exported – ${rows.length} doors`)}
   catch(e){if(e&&e.code!=="declined"&&e.code!=="cancelled")toast("Export didn't complete: "+(e.code||e.message))}
   finally{btn.disabled=false;btn.textContent=old}}
