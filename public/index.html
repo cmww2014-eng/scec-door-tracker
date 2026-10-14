@@ -302,7 +302,7 @@ details.coll{border:1px solid var(--line);border-radius:var(--r);padding:8px 12p
       <select id="f-dwg" aria-label="Drawing"><option value="">All drawings</option></select>
       <select id="f-cons" aria-label="Construction"><option value="">All construction</option></select>
       <details class="ms" id="f-fire"><summary id="f-fire-s">All fire ratings</summary><div class="menu" id="f-fire-m"></div></details>
-      <select id="f-diff" aria-label="Design check"><option value="">Any design check</option><option value="open">Open conflicts</option><option value="rev">Supplier to revise</option><option value="rfi">RFI open</option><option value="diff">Any conflict (incl. resolved)</option><option value="ok">Matches supplier design</option><option value="issue">Open site issues</option><option value="concern">Stud fixing concern</option><option value="prep">Threshold / jamb prep notes</option><option value="swsoft">Swings away from vinyl / carpet</option><option value="swunk">Swing not determined</option><option value="levelq">Level to confirm</option><option value="prelim">Prelim design (not approved)</option><option value="approved">Design approved for construction</option></select>
+      <select id="f-ms" aria-label="Commissioning milestone"><option value="">Any milestone</option></select><select id="f-diff" aria-label="Design check"><option value="">Any design check</option><option value="open">Open conflicts</option><option value="rev">Supplier to revise</option><option value="rfi">RFI open</option><option value="diff">Any conflict (incl. resolved)</option><option value="ok">Matches supplier design</option><option value="issue">Open site issues</option><option value="concern">Stud fixing concern</option><option value="prep">Threshold / jamb prep notes</option><option value="swsoft">Swings away from vinyl / carpet</option><option value="swunk">Swing not determined</option><option value="levelq">Level to confirm</option><option value="prelim">Prelim design (not approved)</option><option value="approved">Design approved for construction</option></select>
       <button class="btn" id="export" hidden>Export CSV</button>
     </div>
     <div class="muted" id="door-count" style="font-size:12px"></div>
@@ -393,6 +393,8 @@ function openDiffs(d){return (d.diffs||[]).filter(x=>!(RES[x.res]&&RES[x.res].do
 const MAINSUP=["Ascot","Almet","Johan"];
 function outScope(d){const v=d&&d.delivery||{};return !!(v.others||v.removed||d&&d.schedRemoved)}
 function oosTxt(d){const v=d.delivery||{};return v.others?"By others":"Removed from scope"}
+function msTags(d){const m=d&&d.milestone;return m?m.split(/\s+\/\s+/).filter(Boolean):[]}
+function msFill(){const sel=$("#f-ms");if(!sel||!S.RAW)return;const cur=sel.value;const c={};for(const d of Object.values(S.RAW.doors||{}))for(const t of msTags(d))c[t]=(c[t]||0)+1;const ks=Object.keys(c).sort((a,b)=>(a==="N/A")-(b==="N/A")||(a==="TBC")-(b==="TBC")||a.localeCompare(b,undefined,{numeric:true}));sel.innerHTML=`<option value="">Any milestone</option>`+ks.map(k=>`<option value="${esc(k)}">${esc(k==="N/A"?"No milestone (N/A)":k)} (${c[k]})</option>`).join("");sel.value=cur}
 function supOk(d){if(UI.sec==="louvres"&&outScope(d))return false;if(UI.sec!=="doors"||!UI.sup)return true;return UI.sup==="Others"?!MAINSUP.includes(d.supplier):d.supplier===UI.sup}
 function vis(){return Object.keys(S.data.doors).filter(r=>supOk(S.data.doors[r]))}
 function renderSupbar(){const b=$("#supbar");if(UI.sec!=="doors"){b.hidden=true;return}b.hidden=false;const D=S.data.doors,all=Object.values(D);
@@ -423,7 +425,7 @@ function doorSig(ref){try{const f=m=>[...(m&&m.values?m.values():[])].filter(x=>
 /* ---------- boot ---------- */
 async function boot(){
   bindStatic();
-  try{const r=await fetch("data.json");S.RAW=await r.json();for(const d of [...Object.values(S.RAW.doors||{}),...Object.values(S.RAW.louvres||{})])(d.diffs||[]).forEach(x=>x._b={res:x.res||"",agreed:x.agreed||"",comment:x.comment||""})}catch(e){$("#dwg-list").innerHTML='<p class="muted" style="padding:0 16px">Drawing data could not be loaded. Reload the page.</p>';return}
+  try{const r=await fetch("data.json");S.RAW=await r.json();msFill();for(const d of [...Object.values(S.RAW.doors||{}),...Object.values(S.RAW.louvres||{})])(d.diffs||[]).forEach(x=>x._b={res:x.res||"",agreed:x.agreed||"",comment:x.comment||""})}catch(e){$("#dwg-list").innerHTML='<p class="muted" style="padding:0 16px">Drawing data could not be loaded. Reload the page.</p>';return}
   applySection("doors");
   const use=n=>window.claude&&window.claude.use?Promise.resolve(window.claude.use(n)).catch(()=>null):Promise.resolve(null);
   [db,userCap,assets,downloads]=await Promise.all([use("db"),use("user"),use("assets"),use("downloads")]);
@@ -449,7 +451,7 @@ function applySection(sec){
   $("#brand-t").textContent=SEC[sec].title;$("#tab-sched").textContent=SEC[sec].sched;
   $("#section-sw").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.sec===sec?"true":"false"));
   $("#find").placeholder=sec==="doors"?"Find door ref, e.g. DG04":"Find louvre ref, e.g. L17 or RV04";
-  $("#f-diff").hidden=$("#f-cons").hidden=$("#f-fire").hidden=sec!=="doors";UI.fires.clear();
+  $("#f-ms").hidden=$("#f-diff").hidden=$("#f-cons").hidden=$("#f-fire").hidden=sec!=="doors";UI.fires.clear();
   if(UI.door)closeDoor();
   UI.dwg=S.data.layouts[0].id;UI.show=new Set(STAGES.map((_,i)=>i));
   fillFilters();renderAll();showDwg(UI.dwg,true);
@@ -522,7 +524,7 @@ function bindStatic(){window.addEventListener("beforeunload",e=>{if(Object.value
   document.addEventListener("click",e=>{const m=$("#f-fire");if(m.open&&!m.contains(e.target))m.open=false});
   $("#section-sw").addEventListener("click",e=>{const b=e.target.closest("[data-sec]");if(b&&b.dataset.sec!==UI.sec)applySection(b.dataset.sec)});
   $("#tabs").addEventListener("click",e=>{const b=e.target.closest("button[data-v]");if(b)setView(b.dataset.v)});
-  ["#q","#f-status","#f-dwg","#f-cons","#f-diff"].forEach(s=>$(s).addEventListener("input",renderDoors));
+  ["#q","#f-status","#f-dwg","#f-cons","#f-diff","#f-ms"].forEach(s=>$(s).addEventListener("input",renderDoors));
   $("#def-q").addEventListener("input",renderDefects);
   $("#req-kind").addEventListener("input",renderRequests);
   $("#def-seg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;UI.defSeg=b.dataset.v;segSet("#def-seg",b);renderDefects()});
@@ -667,7 +669,7 @@ function filtered(){
     if(fs!==""&&stageOf(r)!==+fs)return false;
     if(fd==="none"&&d.locs.length)return false;if(fd&&fd!=="none"&&!d.locs.some(p=>p.l===fd))return false;
     if(UI.sec==="doors"){if(!supOk(d))return false;if(fc&&consOf(d)!==fc)return false;if(UI.fires.size&&!UI.fires.has(normFire(d.fire)))return false;
-      const fdf=$("#f-diff").value;
+      const fdf=$("#f-diff").value;const fms=$("#f-ms").value;if(fms&&!msTags(d).includes(fms))return false;
       if(fdf==="diff"&&!(d.diffs&&d.diffs.length))return false;if(fdf==="open"&&!openDiffs(d).length)return false;if(fdf==="rfi"&&!(d.diffs||[]).some(x=>x.res==="Query / RFI raised"))return false;if(fdf==="rev"&&!(d.diffs||[]).some(x=>x.res==="Supplier to revise to schedule"))return false;if(fdf==="ok"&&(!d.sup||!Object.keys(d.sup).length||(d.diffs&&d.diffs.length)))return false;if(fdf==="prelim"&&d.design!=="Prelim")return false;if(fdf==="issue"&&!d.alert)return false;if(fdf==="concern"&&!d.concern)return false;if(fdf==="prep"&&!d.prep)return false;if(fdf==="swsoft"){const si=swingInfo(d);if(!si||!si.softAway)return false}if(fdf==="swunk"&&d.swing)return false;if(fdf==="levelq"&&!d.levelQ)return false;if(fdf==="approved"&&d.design!=="Approved")return false}
     if(q){const hay=[r,(d.doorsets||[]).map(x=>x.no).join(" "),d.from,d.to,d.type,d.desc,d.construction,d.lock,d.access,d.hw,d.comments,d.table,d.supplier,(d.drawings||[]).map(x=>x.no).join(" "),batchTxt(d.batch)].join(" ").toLowerCase();if(!hay.includes(q))return false}
     return true})}
@@ -758,7 +760,7 @@ function renderDrawer(){UI.drawerDirty=false;UI.drawerSig=UI.door?doorSig(UI.doo
   const prevScroll=$(".d-body")?$(".d-body").scrollTop:0;const keepForm=captureForm();
   $("#drawer").innerHTML=`<div class="d-head"><div class="d-row"><span class="d-ref">${esc(ref)}</span>${oos?`<span class="pill">${esc(oosTxt(d))}</span>`:`<span class="tag"><i class="dot" style="background:${css(STAGES[s].c)}"></i>${esc(STAGES[s].k)}</span>`}<button class="x" id="d-close" aria-label="Close">×</button></div>
     <div class="d-sub">${esc(where)}${d.desc?" · "+esc(d.desc):""}</div>
-    <div class="d-row" style="flex-wrap:wrap;gap:6px">${d.fire?`<span class="fire ${/no fr|n\/a/i.test(d.fire)?"":"fr"}">${esc(d.fire)}</span>`:""}${d.hw?`<span class="pill">${esc(d.hw)}</span>`:""}${d.supplier?`<span class="pill">${esc(d.supplier)}${d.supInferred?" (assumed)":""}</span>`:""}${d.alert?`<span class="pill" style="background:var(--danger);color:#fff">Open issue</span>`:""}${d.concern?`<span class="pill red" title="${esc(d.concern)}">Stud fixing concern</span>`:""}${d.prep?`<span class="pill blue">Threshold prep</span>`:""}${designPill(d)}${thPill(ref)}${jambOpen(ref,d).length?`<span class="pill red">Jamb issue</span>`:""}${d.level!=null?`<span class="pill ${d.levelQ?"warn":""}" title="${esc(d.levelQ||"")}">${esc(d.level==="Roof"?"Roof":"Level "+(d.level>=0?"+":"")+d.level+"m")}${d.levelQ?" · to confirm":""}</span>`:""}${d.conn?`<span class="pill blue">${esc(d.conn==="Controls"?"AOV controls":d.conn)}</span>`:""}${openDiffs(d).length?`<span class="pill warn">${openDiffs(d).length} open conflict${openDiffs(d).length>1?"s":""}</span>`:((d.diffs||[]).length?`<span class="pill green">Conflicts resolved</span>`:"")}${oos?"":d.locs.length?`<button class="btn sm" id="d-locate">Show on plan</button>`:'<span class="pill">Not on uploaded drawings</span>'}</div></div>
+    <div class="d-row" style="flex-wrap:wrap;gap:6px">${d.fire?`<span class="fire ${/no fr|n\/a/i.test(d.fire)?"":"fr"}">${esc(d.fire)}</span>`:""}${d.hw?`<span class="pill">${esc(d.hw)}</span>`:""}${d.milestone&&d.milestone!=="N/A"?`<span class="pill" title="Commissioning milestone (door schedule 26.09.25)">⚑ ${esc(d.milestone)}</span>`:""}${d.supplier?`<span class="pill">${esc(d.supplier)}${d.supInferred?" (assumed)":""}</span>`:""}${d.alert?`<span class="pill" style="background:var(--danger);color:#fff">Open issue</span>`:""}${d.concern?`<span class="pill red" title="${esc(d.concern)}">Stud fixing concern</span>`:""}${d.prep?`<span class="pill blue">Threshold prep</span>`:""}${designPill(d)}${thPill(ref)}${jambOpen(ref,d).length?`<span class="pill red">Jamb issue</span>`:""}${d.level!=null?`<span class="pill ${d.levelQ?"warn":""}" title="${esc(d.levelQ||"")}">${esc(d.level==="Roof"?"Roof":"Level "+(d.level>=0?"+":"")+d.level+"m")}${d.levelQ?" · to confirm":""}</span>`:""}${d.conn?`<span class="pill blue">${esc(d.conn==="Controls"?"AOV controls":d.conn)}</span>`:""}${openDiffs(d).length?`<span class="pill warn">${openDiffs(d).length} open conflict${openDiffs(d).length>1?"s":""}</span>`:((d.diffs||[]).length?`<span class="pill green">Conflicts resolved</span>`:"")}${oos?"":d.locs.length?`<button class="btn sm" id="d-locate">Show on plan</button>`:'<span class="pill">Not on uploaded drawings</span>'}</div></div>
     <div class="d-tabs" role="tablist">${tabs.map(([k,l])=>`<button role="tab" data-dt="${k}" aria-selected="${topT===k}">${esc(l)}</button>`).join("")}</div>
     <div class="d-body">${topT==="progress"?`<div class="seg d-sub-seg" id="d-subs">${subs.map(([k,l])=>`<button data-dt="${k}" aria-pressed="${UI.dtab===k}">${esc(l)}</button>`).join("")}</div>`:""}${({progress:tabProgress,design:tabDesign,ldesign:tabLDesign,photos:tabPhotos,defects:tabDefects,requests:tabRequests,levels:tabLevels,fire:tabFire})[UI.dtab==="design"&&UI.sec==="louvres"?"ldesign":UI.dtab](ref,d,{s,st,defs,reqs,photos})}</div>`;
   $("#d-close").onclick=closeDoor;const loc=$("#d-locate");if(loc)loc.onclick=()=>{if(window.innerWidth<=900)closeDoorKeep();locate(ref)};
@@ -1381,10 +1383,10 @@ function renderPrelim(){const lb=$("#lightbox");const q=(UI.dzQ||"").toLowerCase
 
 /* ---------- export ---------- */
 async function exportCsv(){
-  const cols=["Ref","From","To","Supplier","Type","Description","Construction","SO width","SO height","Fire","Access control","Lock/latch","Ironmongery set","Connection","Design status","Design conflicts","Drawings","Stage","Stage updated","Open defects","Active requests","Door swing"];
+  const cols=["Ref","From","To","Supplier","Type","Description","Construction","SO width","SO height","Fire","Access control","Lock/latch","Ironmongery set","Connection","Design status","Design conflicts","Drawings","Stage","Stage updated","Open defects","Active requests","Door swing","Commissioning milestone"];
   const q=v=>{v=v==null?"":String(v);return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
   const lines=[cols.join(",")];
-  for(const[r,d]of filtered()){const st=S.doors.get(r)||{};lines.push([r,d.from,d.to,d.supplier,d.type,d.desc,d.construction,d.soW,d.soH,d.fire,d.access,d.lock,d.hw,d.conn,(DESIGN[d.design||"None"]||{}).t,(d.diffs||[]).map(x=>x.label+": supplier "+x.sup+" / schedule "+x.sch+(x.res?" ["+x.res+(x.comment?" – "+x.comment:"")+"]":"")).join("; "),[...new Set(d.locs.map(l=>l.l))].join(" "),STAGES[stageOf(r)].k,st.at?new Date(st.at).toISOString().slice(0,16).replace("T"," "):"",openDefects(r),activeReqs(r),swingTxt(d)].map(q).join(","))}
+  for(const[r,d]of filtered()){const st=S.doors.get(r)||{};lines.push([r,d.from,d.to,d.supplier,d.type,d.desc,d.construction,d.soW,d.soH,d.fire,d.access,d.lock,d.hw,d.conn,(DESIGN[d.design||"None"]||{}).t,(d.diffs||[]).map(x=>x.label+": supplier "+x.sup+" / schedule "+x.sch+(x.res?" ["+x.res+(x.comment?" – "+x.comment:"")+"]":"")).join("; "),[...new Set(d.locs.map(l=>l.l))].join(" "),STAGES[stageOf(r)].k,st.at?new Date(st.at).toISOString().slice(0,16).replace("T"," "):"",openDefects(r),activeReqs(r),swingTxt(d),d.milestone||""].map(q).join(","))}
   try{await downloads.save({filename:`SCEC-${SEC[UI.sec].many}-progress-${new Date().toISOString().slice(0,10)}.csv`,data:lines.join("\n")})}catch(e){if(e&&e.code!=="declined"&&e.code!=="cancelled")toast("Export didn't complete: "+(e.code||e.message))}
 }
 boot();
