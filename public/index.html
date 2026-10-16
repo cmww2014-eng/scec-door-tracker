@@ -91,7 +91,8 @@ main{flex:1;min-height:0;position:relative;display:flex}
 .spacer{flex:1}
 .viewer{flex:1;position:relative;overflow:hidden;background:var(--sunk);touch-action:none;cursor:grab;min-height:240px}
 .viewer.dragging{cursor:grabbing}
-.stage{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
+.stage{position:absolute;inset:0;overflow:hidden}#plan-img{position:absolute;left:0;top:0}#tiles{position:absolute;inset:0}#tiles img{position:absolute;box-shadow:none;background:none;transition:opacity .15s}
+.rmark{position:absolute;left:0;top:0;pointer-events:none;z-index:3}.rmark i{display:block;transform:translate(-50%,-50%);width:46px;height:46px;border-radius:50%;border:3px solid var(--danger);box-shadow:0 0 0 5px rgba(194,56,46,.22);animation:rmk 1.1s ease-out 3}.rmark b{position:absolute;left:34px;top:-13px;white-space:nowrap;background:var(--danger);color:#fff;font:600 12px var(--f-body);padding:3px 9px;border-radius:10px}@keyframes rmk{0%{transform:translate(-50%,-50%) scale(1.7);opacity:.2}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
 .pins{position:absolute;inset:0;pointer-events:none;overflow:hidden}.pins .pin{pointer-events:auto;will-change:transform}
 .stage img{display:block;max-width:none;background:var(--paper);filter:var(--plan-filter);user-select:none;-webkit-user-drag:none;box-shadow:0 2px 14px rgba(0,0,0,.12)}
 .pin{position:absolute;left:0;top:0;border:0;padding:0;background:none;transform-origin:0 0}
@@ -256,6 +257,47 @@ details.coll{border:1px solid var(--line);border-radius:var(--r);padding:8px 12p
 .th-act{font-size:13px;border-left:3px solid var(--warn);padding:4px 8px;background:var(--surface)}.th-act.ok{border-color:var(--ok)}
 .th-v.hi{color:var(--warn);font-weight:700}.th-v.lo{color:var(--accent);font-weight:700}
 .pill.batch{background:#5B3FA0;color:#fff}
+.lvls{display:none!important}
+@media (max-width:620px){.prog-legend{display:none}.top{gap:8px;padding:8px 12px}.kpi span{font-size:9.5px}.supbar{flex-wrap:nowrap!important;overflow-x:auto}.supbar button{flex:none}.vtools .chips{flex-wrap:nowrap;overflow-x:auto;flex:1 1 100%;order:3}.vtools .chip{flex:none}#find{flex:1;width:auto!important;min-width:0}.vtools .spacer{display:none}}
+details.dwg-sheets>summary{list-style:none;cursor:pointer}details.dwg-sheets>summary::-webkit-details-marker{display:none}details.dwg-sheets>summary h3::before{content:"▸ "}details.dwg-sheets[open]>summary h3::before{content:"▾ "}
+.wk{display:flex;flex-direction:column;gap:14px;max-width:1100px}.wk-sec h4{margin:0 0 6px;font:600 12px var(--f-body);text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.wk-refs{display:flex;flex-wrap:wrap;gap:4px}.wk-refs button{font:600 12px var(--f-mono);border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:2px 8px;color:var(--accent)}
+.pill.od{background:var(--danger);color:#fff}
+#rp-seg,#wk-seg{flex:none}#rp-seg button,#wk-seg button{white-space:nowrap;padding:7px 12px}
+/* multi-shot camera */
+.mcam{position:fixed;inset:0;z-index:60;background:#000;display:flex;flex-direction:column;color:#fff}
+.mcam video{flex:1;min-height:0;width:100%;object-fit:contain;background:#000;transition:opacity .1s}
+.mcam.flash video{opacity:.25}
+.mcam .mc-top{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top,0px)) 12px 10px;background:linear-gradient(rgba(0,0,0,.65),transparent);font-size:14px}
+.mcam .mc-top .x{margin-left:auto;background:#222;color:#fff;border-color:#555}
+.mcam .mc-strip{display:flex;gap:6px;overflow-x:auto;padding:8px 10px;background:#111;min-height:78px;align-items:center}
+.mcam .mc-strip div{position:relative;flex:none}.mcam .mc-strip img{height:62px;border-radius:4px;display:block}
+.mcam .mc-strip button{position:absolute;top:2px;right:2px;width:22px;height:22px;min-height:0!important;border-radius:50%;border:0;background:rgba(0,0,0,.7);color:#fff;font-size:12px;padding:0}
+.mcam .mc-strip span{color:#aaa;font-size:13px;padding:0 6px}
+.mcam .mc-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px calc(14px + env(safe-area-inset-bottom,0px));background:#111}
+.mcam .mc-bar .btn{min-width:100px;background:#222;color:#fff;border-color:#555}.mcam .mc-bar .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}.mcam .mc-bar .btn[disabled]{opacity:.4}
+.mcam .mc-shot{width:74px;height:74px;border-radius:50%;border:5px solid #fff;background:#fff;box-shadow:inset 0 0 0 3px #111;flex:none;padding:0}
+.mcam .mc-shot:active{transform:scale(.9)}
+.mcam .mc-r{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+/* site mode: high contrast, bigger touch targets */
+body.site{--bg:#FFFFFF;--surface:#FFFFFF;--sunk:#EBEBEB;--ink:#000000;--muted:#222222;--line:#5E5E5E;--accent:#0A44A0;--accent-soft:#D4E2F9;--danger:#B00000;--danger-soft:#FFD9D6;--paper:#FFFFFF;--plan-filter:contrast(1.3);color-scheme:light;font-size:16px}
+body.site button,body.site .btn,body.site select,body.site input:not([type=checkbox]):not([type=radio]),body.site textarea{min-height:44px;font-size:16px}
+body.site .btn.sm{min-height:40px;padding:6px 12px;font-size:14px}
+body.site input[type=checkbox],body.site input[type=radio]{width:24px;height:24px}
+body.site .tabs button{padding:13px 16px 12px;font-size:17px}
+body.site .d-tabs button{padding:13px 12px;font-size:15px}
+body.site .chip{padding:8px 14px;font-size:14px;border-width:2px}
+body.site .zoom button{width:56px;height:56px;font-size:26px;border:2px solid #000}
+body.site .pin i{min-width:24px;height:24px;font-size:12px;border-width:3px}
+body.site .pin.lbl i{height:30px;padding:0 10px;font-size:15px}
+body.site .step{padding:14px 12px;border-width:2px}
+body.site .card,body.site .kv,body.site .form,body.site .kpi{border-width:2px;border-color:#5E5E5E}
+body.site .x{width:48px;height:48px;font-size:26px}
+body.site .lvls button{padding:10px 12px;font-size:15px}
+body.site .dwg{padding:12px 16px}
+body.site .muted,body.site .meta,body.site .card .meta{color:#222}
+body.site .pill{font-size:13px}
+#site-btn[aria-pressed="true"]{background:#000;color:#fff;border-color:#000}
 </style>
 
 <header class="top">
@@ -263,11 +305,13 @@ details.coll{border:1px solid var(--line);border-radius:var(--r);padding:8px 12p
   <div class="section-sw" id="section-sw" role="group" aria-label="Package"><button data-sec="doors" aria-pressed="true">Doors</button><button data-sec="louvres" aria-pressed="false">COLT louvres</button></div>
   <div class="prog" id="prog"></div>
   <div class="kpis" id="kpis"></div>
+  <button class="btn sm" id="site-btn" aria-pressed="false" title="High-contrast colours and bigger buttons for use on site">☀ Site mode</button>
   <div class="who" id="who"></div>
 </header>
 <div class="supbar" id="supbar" role="group" aria-label="Supplier"></div>
 <nav class="tabs" role="tablist" id="tabs">
   <button role="tab" data-v="plans" aria-selected="true">Plans</button>
+  <button role="tab" data-v="week" aria-selected="false">This week <span class="count" id="c-wk" hidden>0</span></button>
   <button role="tab" data-v="doors" aria-selected="false" id="tab-sched">Door schedule</button>
   <button role="tab" data-v="defects" aria-selected="false">Defects <span class="count" id="c-def">0</span></button>
   <button role="tab" data-v="requests" aria-selected="false">Requests <span class="count" id="c-req">0</span></button>
@@ -283,11 +327,11 @@ details.coll{border:1px solid var(--line);border-radius:var(--r);padding:8px 12p
         <select id="dwg-select" class="dwg-select" aria-label="Drawing"></select>
         <div class="chips" id="status-chips"></div>
         <span class="spacer"></span>
-        <input type="search" id="find" placeholder="Find door ref, e.g. DG04" aria-label="Find door" style="width:190px">
+        <input type="search" id="find" list="find-list" placeholder="Find door or room, e.g. DG04" aria-label="Find door or room" style="width:230px"><datalist id="find-list"></datalist>
       </div>
       <div class="viewer" id="viewer">
-        <div class="stage" id="stage"><img id="plan-img" alt="Plant layout drawing"></div>
-        <div class="pins" id="pins"></div>
+        <div class="stage" id="stage"><img id="plan-img" alt="Plant layout drawing" draggable="false"><div id="tiles"></div></div>
+        <div class="pins" id="pins"></div><div class="rmark" id="rmark" hidden></div>
         <div class="dwg-meta" id="dwg-meta"></div>
         <div class="cl-pop" id="cl-pop" hidden></div>
         <div class="lvls" id="lvls" hidden></div>
@@ -295,6 +339,7 @@ details.coll{border:1px solid var(--line);border-radius:var(--r);padding:8px 12p
       </div>
     </div>
   </section>
+  <section class="view panel-page" id="v-week" hidden><div id="wk-body" style="width:100%"></div></section>
   <section class="view panel-page" id="v-doors" hidden>
     <div class="filters">
       <input type="search" id="q" placeholder="Search ref, room, type, ironmongery…" aria-label="Search doors">
@@ -310,7 +355,8 @@ details.coll{border:1px solid var(--line);border-radius:var(--r);padding:8px 12p
   </section>
   <section class="view panel-page" id="v-defects" hidden>
     <div class="filters">
-      <div class="seg" id="def-seg"><button aria-pressed="true" data-v="Open">Open</button><button aria-pressed="false" data-v="Closed">Closed</button><button aria-pressed="false" data-v="">All</button></div>
+      <div class="seg" id="def-seg"><button aria-pressed="true" data-v="Open">Open</button><button aria-pressed="false" data-v="Overdue">Overdue</button><button aria-pressed="false" data-v="Closed">Closed</button><button aria-pressed="false" data-v="">All</button></div>
+      <select id="def-party" aria-label="Responsible party"><option value="">All responsible parties</option></select>
       <input type="search" id="def-q" placeholder="Search defects" aria-label="Search defects">
     </div>
     <div class="cards" id="def-list"></div>
@@ -324,7 +370,8 @@ details.coll{border:1px solid var(--line);border-radius:var(--r);padding:8px 12p
   </section>
   <section class="view panel-page" id="v-reports" hidden>
     <div class="filters noprint">
-      <div class="seg" id="rp-seg"><button aria-pressed="true" data-v="comp">Completion status</button><button aria-pressed="false" data-v="def">Open defects</button></div>
+      <div class="seg" id="rp-seg"><button aria-pressed="true" data-v="comp">Completion status</button><button aria-pressed="false" data-v="def">Open defects</button><button aria-pressed="false" data-v="week">Weekly defect report</button></div>
+      <select id="rp-wk" aria-label="Week" hidden></select>
       <select id="rp-group" aria-label="Group by"><option value="level">Group by level</option><option value="supplier">Group by supplier</option><option value="plan">Group by drawing</option></select>
       <button class="btn" id="rp-csv">Export CSV</button><button class="btn" id="rp-print">Print / save PDF</button>
     </div>
@@ -450,7 +497,7 @@ function applySection(sec){
   S.doors=S.prog[SEC[sec].pcol];
   $("#brand-t").textContent=SEC[sec].title;$("#tab-sched").textContent=SEC[sec].sched;
   $("#section-sw").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.sec===sec?"true":"false"));
-  $("#find").placeholder=sec==="doors"?"Find door ref, e.g. DG04":"Find louvre ref, e.g. L17 or RV04";
+  $("#find").placeholder=sec==="doors"?"Find door or room, e.g. DG04, Boiler Hall":"Find louvre ref, e.g. L17 or RV04";$("#find-list").innerHTML=sec==="doors"?[...new Set((R.rooms||[]).map(x=>x.n))].sort((a,b)=>a.localeCompare(b)).map(n=>`<option value="${esc(n)}">`).join(""):"";
   {const sx=$("#status-x");if(sx&&downloads)sx.hidden=sec!=="doors"}$("#f-ms").hidden=$("#f-diff").hidden=$("#f-cons").hidden=$("#f-fire").hidden=sec!=="doors";UI.fires.clear();
   if(UI.door)closeDoor();
   UI.dwg=S.data.layouts[0].id;UI.show=new Set(STAGES.map((_,i)=>i));
@@ -518,7 +565,13 @@ async function renderTeamCF(){const lb=$("#lightbox");const adm=isAdmin();
 function banner(msg,kind){const b=$("#banner");b.textContent=msg;b.dataset.kind=kind||"";b.hidden=false}
 
 /* ---------- static bindings ---------- */
-function bindStatic(){window.addEventListener("beforeunload",e=>{if(Object.values(UI.trays||{}).some(t=>t.files.length)){e.preventDefault();e.returnValue="Photos not uploaded yet"}});if(window.__CF__&&"serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js").catch(()=>{})}["door-rows","def-list","req-list","th-list","th-kpis","rp-body","dwg-list","status-chips","prog","kpis"].forEach(stableHTML);
+function bindStatic(){window.addEventListener("beforeunload",e=>{if(Object.values(UI.trays||{}).some(t=>t.files.length)){e.preventDefault();e.returnValue="Photos not uploaded yet"}});if(window.__CF__&&"serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js").catch(()=>{})}["door-rows","def-list","req-list","th-list","th-kpis","rp-body","dwg-list","status-chips","prog","kpis","wk-body"].forEach(stableHTML);
+  try{if(localStorage.getItem("scec-site")==="1")document.body.classList.add("site")}catch(e){}
+  {const sb=$("#site-btn");sb.setAttribute("aria-pressed",document.body.classList.contains("site"));sb.onclick=()=>{const on=document.body.classList.toggle("site");sb.setAttribute("aria-pressed",on);try{localStorage.setItem("scec-site",on?"1":"0")}catch(e){}toast(on?"Site mode on – high contrast, bigger buttons":"Site mode off");renderPins(true)}}
+  $("#wk-body").addEventListener("click",e=>{const b=e.target.closest("[data-wkn]");if(b){UI.wkN=+b.dataset.wkn;renderWeek()}});
+  $("#def-party").addEventListener("input",renderDefects);
+  document.addEventListener("change",e=>{const t=e.target;if(t.matches&&t.matches("[data-ed-party]")){const o=t.parentNode.querySelector("[data-ed-other]");if(o)o.hidden=t.value!=="Other"}});
+  $("#rp-wk").onchange=e=>{UI.rpWeek=+e.target.value;renderReports()};
   $("#supbar").addEventListener("click",e=>{const b=e.target.closest("[data-sup]");if(!b)return;UI.sup=b.dataset.sup;renderAll()});
   $("#f-fire-m").addEventListener("change",e=>{const c=e.target.closest("input[data-fire]");if(!c)return;c.checked?UI.fires.add(c.dataset.fire):UI.fires.delete(c.dataset.fire);$("#f-fire-s").textContent=UI.fires.size?[...UI.fires].join(", "):"All fire ratings";renderDoors()});
   document.addEventListener("click",e=>{const m=$("#f-fire");if(m.open&&!m.contains(e.target))m.open=false});
@@ -536,25 +589,27 @@ function bindStatic(){window.addEventListener("beforeunload",e=>{if(Object.value
   $("#rp-seg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;UI.rpSeg=b.dataset.v;segSet("#rp-seg",b);renderReports()});
   $("#rp-group").onchange=()=>renderReports();$("#rp-csv").onclick=exportReport;$("#rp-print").onclick=()=>window.print();
   $("#rp-body").addEventListener("click",e=>{const tr=e.target.closest("tr[data-ref]");if(tr)openDoor(tr.dataset.ref)});$("#th-export").onclick=exportThresh;
-  $("#dwg-list").addEventListener("click",e=>{const b=e.target.closest("[data-dwg]");if(b)showDwg(b.dataset.dwg,true)});
-  $("#dwg-select").addEventListener("input",e=>showDwg(e.target.value,true));
+  $("#dwg-list").addEventListener("click",e=>{const b=e.target.closest("[data-dwg]");if(b)showDwg(b.dataset.dwg,true,true)});
+  $("#dwg-list").addEventListener("toggle",e=>{if(e.target.matches&&e.target.matches("details.dwg-sheets"))UI.sheetsOpen=e.target.open},true);
+  $("#dwg-select").addEventListener("input",e=>showDwg(e.target.value,true,true));
   $("#scrim").addEventListener("click",closeDoor);
   $("#export").addEventListener("click",exportCsv);$("#status-x").addEventListener("click",exportStatus);
-  $("#find").addEventListener("keydown",e=>{if(e.key==="Enter"){const r=e.target.value.trim().toUpperCase();if(S.data.doors[r]){locate(r);openDoor(r)}else toast("No "+SEC[UI.sec].one+" "+r+" in this package. Try the other package switch.")}});
+  $("#find").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();findGo(e.target.value)}});
+  $("#find").addEventListener("input",e=>{if((!e.inputType||e.inputType==="insertReplacementText")&&UI.sec==="doors"){const v=e.target.value.trim().toLowerCase();if(v&&(S.RAW.rooms||[]).some(x=>x.n.toLowerCase()===v))findGo(e.target.value)}});
   document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(!$("#lightbox").hidden)$("#lightbox").hidden=true;else if(UI.door)closeDoor()}});
   document.addEventListener("click",listClicks);
   initViewer();
 }
 function segSet(sel,b){$(sel).querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"))}
 function setView(v){UI.view=v;$("#tabs").querySelectorAll("button").forEach(b=>b.setAttribute("aria-selected",b.dataset.v===v?"true":"false"));
-  for(const id of["plans","doors","defects","requests","thresh","reports"])$("#v-"+id).hidden=id!==v;
-  if(v==="plans")requestAnimationFrame(()=>{if(!view.fitted)fit()});renderAll()}
+  for(const id of["plans","week","doors","defects","requests","thresh","reports"])$("#v-"+id).hidden=id!==v;
+  if(v==="plans")requestAnimationFrame(()=>{if(view.needFit||!view.fitS)fit();else apply()});renderAll()}
 function fillFilters(){
   const D=S.data.doors;
   $("#f-status").innerHTML='<option value="">All stages</option>'+STAGES.map((s,i)=>`<option value="${i}">${esc(s.k)}</option>`).join("");
-  const dw=S.data.layouts.map(l=>`<option value="${l.id}">${esc(l.id+" · "+l.title)}</option>`).join("");
+  const dw=S.data.layouts.map(l=>`<option value="${l.id}">${esc((l.group&&l.group!=="Drawing sheets"?"":l.id+" · ")+l.title)}</option>`).join("");
   $("#f-dwg").innerHTML='<option value="">All drawings</option>'+dw+'<option value="none">Not on these drawings</option>';
-  $("#dwg-select").innerHTML=dw;
+  $("#dwg-select").__h=null;
   const CT=["Steel - External","Steel - Internal","Timber","Roller shutter","Glazed","Louvre screen","Roof hatch"];
   $("#f-cons").innerHTML='<option value="">All construction</option>'+CT.map(c=>`<option>${esc(c)}</option>`).join("");
   const fires=[...new Set(Object.values(D).map(d=>normFire(d.fire)).filter(Boolean))].sort((a,b)=>(a==="No FR"?-1:b==="No FR"?1:parseInt(a.slice(2))-parseInt(b.slice(2))));
@@ -566,7 +621,7 @@ function consOf(d){return d.ctype||""}
 
 /* ---------- render ---------- */
 function renderAll(){if(!S.data)return;renderHeader();renderDwgList();renderPins();
-  if(UI.view==="doors")renderDoors();if(UI.view==="defects")renderDefects();if(UI.view==="requests")renderRequests();if(UI.view==="reports")renderReports();if(UI.view==="thresh")renderThresh();else if(S.data&&UI.sec==="doors"){const n=[...S.thresholds.values()].filter(t=>{const c=thCalc(t);return c&&!c.ok&&S.data.doors[t.id]&&supOk(S.data.doors[t.id])}).length;$("#c-th").textContent=n}
+  if(UI.view==="week")renderWeek();if(UI.view==="doors")renderDoors();if(UI.view==="defects")renderDefects();if(UI.view==="requests")renderRequests();if(UI.view==="reports")renderReports();if(UI.view==="thresh")renderThresh();else if(S.data&&UI.sec==="doors"){const n=[...S.thresholds.values()].filter(t=>{const c=thCalc(t);return c&&!c.ok&&S.data.doors[t.id]&&supOk(S.data.doors[t.id])}).length;$("#c-th").textContent=n}
   softDrawer();dzRefresh()}
 function counts(refs){const c=STAGES.map(()=>0);for(const r of refs)c[stageOf(r)]++;return c}
 function bar(c,total,cls){return `<div class="${cls}">`+c.map((n,i)=>n?`<i style="width:${(n/total*100).toFixed(2)}%;background:${css(STAGES[i].c)}" title="${esc(STAGES[i].k)}: ${n}"></i>`:"").join("")+`</div>`}
@@ -574,26 +629,59 @@ function renderHeader(){
   renderSupbar();const refs=vis().filter(r=>!S.data.doors[r].unscheduled);const c=counts(refs);const tot=refs.length;
   $("#prog").innerHTML=bar(c,tot,"prog-bar")+`<div class="prog-legend">`+STAGES.map((s,i)=>`<span><i class="dot" style="background:${css(s.c)}"></i>${esc(s.k)} ${c[i]}</span>`).join("")+`</div>`;
   const done=DONE(c);let od=0;for(const d of S.defects.values())if(d.status!=="Closed"&&inSec(d.ref))od++;let ar=0;for(const r of S.requests.values())if((r.status==="Requested"||r.status==="Scheduled")&&inSec(r.ref))ar++;
-  $("#kpis").innerHTML=`<div class="kpi"><b>${Math.round(done/tot*100)}%</b><span>${done}/${tot} done</span></div><div class="kpi ${od?"alert":""}"><b>${od}</b><span>Open defects</span></div><div class="kpi"><b>${ar}</b><span>Requests</span></div>`;
+  let odue=0;for(const d of S.defects.values())if(inSec(d.ref)&&isOverdue(d))odue++;{const cw=$("#c-wk");cw.hidden=!odue;cw.textContent=odue;cw.className="count"+(odue?" hot":"");cw.title=odue+" defects past close-out date"}
+  $("#kpis").innerHTML=`<div class="kpi"><b>${Math.round(done/tot*100)}%</b><span>${done}/${tot} done</span></div><div class="kpi ${od?"alert":""}"><b>${od}</b><span>Open defects${odue?` · ${odue} overdue`:""}</span></div><div class="kpi"><b>${ar}</b><span>Requests</span></div>`;
   $("#c-def").textContent=od;$("#c-def").className="count"+(od?" hot":"");$("#c-req").textContent=ar;
 }
+function onLayout(d,id){return d.locs.some(p=>p.l===id)&&(id!=="overall"||!d.plan||d.plan==="lvG")}
 function renderDwgList(){
-  let grp=null;const html=S.data.layouts.map(l=>{const refs=vis().filter(r=>S.data.doors[r].locs.some(p=>p.l===l.id));const c=counts(refs);const done=DONE(c);
-    const head=l.group&&l.group!==grp?`<h3 style="margin-top:10px">${esc(grp=l.group)}</h3>`:"";
-    return head+`<button class="dwg" data-dwg="${l.id}" aria-current="${l.id===UI.dwg}"><span class="no">${l.kind==="level"?"Stitched plan":l.kind==="stair"?"Stair layout":l.id==="overall"?"A-1080 rev P02":(/^\d{4}$/.test(l.id)?"A-":"")+l.id+(l.rev?" rev "+esc(l.rev):"")}</span><span class="t">${esc(l.title)}</span>${bar(c,refs.length||1,"mini")}<div class="c">${done} of ${refs.length} ${SEC[UI.sec].many} complete</div></button>`}).join("");
-  $("#dwg-list").innerHTML=html;$("#dwg-select").value=UI.dwg;
+  const sub=l=>l.kind==="level"?"Floor plan":l.kind==="stair"?"Stair core":l.id==="overall"?"Site layout":(/^\d{4}$/.test(l.id)?"A-":"")+l.id+(l.rev?" rev "+esc(l.rev):"");
+  const item=l=>{const refs=vis().filter(r=>onLayout(S.data.doors[r],l.id));const c=counts(refs);const done=DONE(c);
+    return `<button class="dwg" data-dwg="${l.id}" aria-current="${l.id===UI.dwg}"><span class="no">${sub(l)}</span><span class="t">${esc(l.title)}</span>${bar(c,refs.length||1,"mini")}<div class="c">${done} of ${refs.length} ${SEC[UI.sec].many} complete</div></button>`};
+  let grp=null;const main=S.data.layouts.filter(l=>l.group!=="Drawing sheets"),sheets=S.data.layouts.filter(l=>l.group==="Drawing sheets");
+  const html=main.map(l=>(l.group&&l.group!==grp?`<h3 style="margin-top:10px">${esc(grp=l.group)}</h3>`:"")+item(l)).join("")
+    +(sheets.length?`<details class="dwg-sheets"${UI.sheetsOpen||sheets.some(l=>l.id===UI.dwg)?" open":""}><summary><h3 style="margin-top:14px">Original drawing sheets (${sheets.length})</h3></summary>${sheets.map(item).join("")}</details>`:"");
+  $("#dwg-list").innerHTML=html;
+  {const sel=$("#dwg-select");const og={};S.data.layouts.forEach(l=>{const g=l.group==="Drawing sheets"?"Original drawing sheets":l.group||"Drawings";(og[g]=og[g]||[]).push(l)});
+   const h=Object.entries(og).map(([g,ls])=>`<optgroup label="${esc(g)}">${ls.map(l=>`<option value="${l.id}">${esc((l.group==="Drawing sheets"||!l.group?l.id+" · ":"")+l.title)} (${vis().filter(r=>onLayout(S.data.doors[r],l.id)).length})</option>`).join("")}</optgroup>`).join("");
+   if(sel.__h!==h){sel.innerHTML=h;sel.__h=h}sel.value=UI.dwg}
   $("#status-chips").innerHTML=STAGES.map((s,i)=>`<button class="chip" data-chip="${i}" aria-pressed="${UI.show.has(i)}"><i class="dot" style="background:${css(s.c)}"></i>${esc(s.k)}</button>`).join("");
 }
 
 /* ---------- plan viewer ---------- */
 const view={s:1,tx:0,ty:0,w:1,h:1,fitted:false,min:.05,max:4};
-function showDwg(id,doFit){UI.dwg=id;const L=S.data.layouts.find(l=>l.id===id);const img=$("#plan-img");view.w=L.w;view.h=L.h;img.width=L.w;img.height=L.h;
-  if(img.getAttribute("src")!==L.file)img.src=L.file;
-  $("#dwg-meta").textContent=L.kind?L.title+" · "+L.no:L.overall?"A-1080 P02 Site layout · all doors placed by gridline (upper floors shown at plan position) · click a numbered pin to zoom":L.no+(L.rev?" rev "+L.rev:"")+" · "+L.title;
-  renderDwgList();renderLevels();renderPins();if(doFit){view.fitted=false;fit()}}
-function fit(){const v=$("#viewer");const W=v.clientWidth,H=v.clientHeight;if(!W||!H)return;const s=Math.min(W/view.w,H/view.h)*.96;view.s=s;view.fitS=s;view.min=s*.6;view.tx=(W-view.w*s)/2;view.ty=(H-view.h*s)/2;view.fitted=true;apply()}
+function curL(){return S.data&&S.data.layouts.find(l=>l.id===UI.dwg)}
+function showDwg(id,doFit,keep){const prev=curL();const L=S.data.layouts.find(l=>l.id===id);if(!L)return;const v=$("#viewer");let kp=null;
+  /* keep place: carry the world point at the centre of the screen (and the zoom in mm per screen pixel) to the new floor */
+  if(keep&&prev&&prev.id!==id&&prev.box&&L.box&&view.fitS&&view.s>view.fitS*1.15&&v.clientWidth){const pm=prev.w/(prev.box[2]-prev.box[0]);kp={X:prev.box[0]+(v.clientWidth/2-view.tx)/view.s/pm,Y:prev.box[3]-(v.clientHeight/2-view.ty)/view.s/pm,mpp:1/(pm*view.s)}}
+  UI.dwg=id;const img=$("#plan-img");view.w=L.w;view.h=L.h;
+  if(img.getAttribute("src")!==L.file){img.style.visibility="hidden";img.onload=img.onerror=()=>{img.style.visibility=""};img.src=L.file}
+  tilesReset();if(view.mark&&view.mark.l!==id)view.mark=null;
+  $("#dwg-meta").textContent=L.id==="overall"?"Site layout · ground floor doors (upper floors are on their own level plans) · click a numbered pin to zoom":L.kind?L.title+" · "+L.no:L.no+(L.rev?" rev "+L.rev:"")+" · "+L.title;
+  renderDwgList();renderLevels();renderPins();
+  if(kp&&kp.X>=L.box[0]&&kp.X<=L.box[2]&&kp.Y>=L.box[1]&&kp.Y<=L.box[3]){fit();const pm=L.w/(L.box[2]-L.box[0]);view.s=Math.min(view.max,Math.max(view.min,1/(kp.mpp*pm)));view.tx=v.clientWidth/2-(kp.X-L.box[0])*pm*view.s;view.ty=v.clientHeight/2-(L.box[3]-kp.Y)*pm*view.s;apply(true);renderPins(true)}
+  else if(doFit||keep){view.fitted=false;fit()}else apply()}
+/* sharp zoom: a low-res overview image plus 512px full-resolution tiles loaded for the visible area only */
+const TL={id:null,map:new Map(),have:null};let tilesT=0;
+function tilesReset(){for(const t of TL.map.values())t.remove();TL.map.clear();TL.id=null}
+function tilesPos(){const s=view.s;for(const t of TL.map.values()){t.style.left=(view.tx+t._x*s)+"px";t.style.top=(view.ty+t._y*s)+"px";t.style.width=(t._w*s+.6)+"px";t.style.height=(t._h*s+.6)+"px"}}
+function tilesLoad(){const L=curL(),box=$("#tiles");if(!box)return;if(!L||!L.tiles||UI.view!=="plans"){box.hidden=true;return}const T=L.tiles;
+  if(TL.id!==L.id){tilesReset();TL.id=L.id;TL.have=new Set(T.have)}
+  const dpr=Math.min(3,window.devicePixelRatio||1),ovr=L.ov?L.ov[0]/L.w:1;
+  if(view.s*dpr<=ovr*1.2){box.hidden=true;return}
+  const v=$("#viewer"),W=v.clientWidth,H=v.clientHeight,ts=T.ts,s=view.s;
+  const i0=Math.max(0,Math.floor(-view.tx/s/ts)),i1=Math.min(T.cols-1,Math.floor((W-view.tx)/s/ts)),j0=Math.max(0,Math.floor(-view.ty/s/ts)),j1=Math.min(T.rows-1,Math.floor((H-view.ty)/s/ts));
+  if(i1<i0||j1<j0)return;if((i1-i0+1)*(j1-j0+1)>180){box.hidden=true;return}
+  box.hidden=false;const want=new Set();
+  for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const k=i+"_"+j;if(!TL.have.has(k))continue;want.add(k);if(TL.map.has(k))continue;
+    const t=new Image();t.alt="";t.draggable=false;t.decoding="async";t._x=i*ts;t._y=j*ts;t._w=Math.min(ts,L.w-i*ts);t._h=Math.min(ts,L.h-j*ts);t.style.opacity="0";t.onload=()=>{t.style.opacity=""};t.src=T.dir+"/"+k+".png";box.appendChild(t);TL.map.set(k,t)}
+  if(TL.map.size>240)for(const[k,t] of TL.map)if(!want.has(k)){t.remove();TL.map.delete(k)}
+  tilesPos()}
+function markPos(){const m=$("#rmark");if(!m)return;const k=view.mark;if(!k||k.l!==UI.dwg){m.hidden=true;return}m.hidden=false;m.style.transform=`translate(${(view.tx+k.x*view.w*view.s).toFixed(1)}px,${(view.ty+k.y*view.h*view.s).toFixed(1)}px)`}
+function fit(){const v=$("#viewer");const W=v.clientWidth,H=v.clientHeight;if(!W||!H){view.needFit=true;return}view.needFit=false;const s=Math.min(W/view.w,H/view.h)*.96;view.s=s;view.fitS=s;view.min=s*.6;view.tx=(W-view.w*s)/2;view.ty=(H-view.h*s)/2;view.fitted=true;apply()}
 let reclusterT=0;
-function apply(noRecluster){$("#stage").style.transform=`translate(${view.tx}px,${view.ty}px) scale(${view.s})`;
+function apply(noRecluster){const img=$("#plan-img");img.style.left=view.tx+"px";img.style.top=view.ty+"px";img.style.width=view.w*view.s+"px";img.style.height=view.h*view.s+"px";
+  tilesPos();clearTimeout(tilesT);tilesT=setTimeout(tilesLoad,80);markPos();
   if(!noRecluster&&clusteredPlan()&&clusterScale&&Math.abs(view.s-clusterScale)/clusterScale>.25){clearTimeout(reclusterT);reclusterT=setTimeout(()=>renderPins(true),140)}
   const lbl=view.s>Math.min(.38,(view.fitS||.2)*1.7);
   for(const p of $("#pins").querySelectorAll(".pin")){p.style.transform=`translate(${(view.tx+p.dataset.x*view.s).toFixed(1)}px,${(view.ty+p.dataset.y*view.s).toFixed(1)}px)`;p.classList.toggle("lbl",lbl)}}
@@ -620,16 +708,16 @@ function renderPins(force){
       const b=document.createElement("button");b.className="pin cluster";b.dataset.x=cx;b.dataset.y=cy;b.dataset.refs=g.map(k=>items[k].ref).join(",");b.dataset.tight=tight?"1":"";
       const low=Math.min(...g.map(k=>items[k].s));b.style.setProperty("--pc",css(STAGES[low].c));b.setAttribute("aria-label",`${g.length} doors here`);b.innerHTML=`<i>${g.length}</i>`;frag.appendChild(b)}}
   const curL=S.data.layouts.find(l=>l.id===UI.dwg);
-  for(const bt of (curL&&curL.buttons)||[]){const n=Object.values(S.data.doors).filter(d=>d.plan===bt.to&&supOk(d)).length;const b=document.createElement("button");b.className="pin stairbtn";b.dataset.to=bt.to;b.dataset.x=bt.x*view.w;b.dataset.y=bt.y*view.h;b.setAttribute("aria-label",bt.label+" layout");b.innerHTML=`<i>${esc(bt.label)} \u203a<small>${n}</small></i>`;frag.appendChild(b)}
+  for(const bt of (curL&&curL.buttons)||[]){const n=Object.values(S.data.doors).filter(d=>supOk(d)&&onLayout(d,bt.to)).length;const b=document.createElement("button");b.className="pin stairbtn";b.dataset.to=bt.to;b.dataset.x=bt.x*view.w;b.dataset.y=bt.y*view.h;b.setAttribute("aria-label",bt.label+" layout");b.innerHTML=`<i>${esc(bt.label)} \u203a<small>${n}</small></i>`;frag.appendChild(b)}
   st.appendChild(frag);apply()}
 function bandOf(d){const L=S.RAW&&S.RAW.levels;if(!L||d.level==null)return null;const v=d.level==="Roof"?998:+d.level;if(isNaN(v))return null;const i=L.findIndex(x=>v>=x.lo&&v<x.hi);return i<0?null:i}
 function renderLevels(){const el=$("#lvls");if(UI.sec!=="doors"){el.hidden=true;return}
   const Ls=S.data.layouts;const cur=Ls.find(l=>l.id===UI.dwg);if(!cur||!(cur.group==="Floor plans"||cur.group==="Stair cores")){el.hidden=true;return}
-  const cnt=id=>vis().filter(r=>S.data.doors[r].plan===id).length;
-  const lab=l=>l.id==="overall"?"Site layout":l.kind==="stair"?l.title.split(" –")[0]:l.id==="lvX"?"Other levels":l.title.replace(/^(First|Second|Third|Fourth) floor /,"").replace(/ –.*$/,"");
-  const btn=l=>`<button data-godwg="${l.id}" aria-pressed="${l.id===UI.dwg}" title="${esc(l.title)}">${esc(lab(l))}<span class="n">${l.id==="overall"?cnt("lvG"):cnt(l.id)}</span></button>`;
+  const cnt=id=>vis().filter(r=>onLayout(S.data.doors[r],id)).length;
+  const lab=l=>l.id==="overall"?"Site layout":l.kind==="stair"?l.title.split(" –")[0]:l.title.replace(/^(First|Second|Third|Fourth) floor /,"").replace(/ –.*$/,"");
+  const btn=l=>`<button data-godwg="${l.id}" aria-pressed="${l.id===UI.dwg}" title="${esc(l.title)}">${esc(lab(l))}<span class="n">${cnt(l.id)}</span></button>`;
   el.innerHTML=`<h5>Floor plans</h5>`+Ls.filter(l=>l.group==="Floor plans").map(btn).join("")+`<h5 style="margin-top:8px">Stair cores</h5>`+Ls.filter(l=>l.group==="Stair cores").map(btn).join("");
-  el.hidden=false;el.querySelectorAll("[data-godwg]").forEach(b=>b.onclick=()=>showDwg(b.dataset.godwg,true))}
+  el.hidden=false;el.querySelectorAll("[data-godwg]").forEach(b=>b.onclick=()=>showDwg(b.dataset.godwg,true,true))}
 function hidePop(){const p=$("#cl-pop");if(p)p.hidden=true}
 function clusterClick(b,e){const refs=b.dataset.refs.split(",");
   if(b.dataset.tight||view.s>=view.max*.9){const p=$("#cl-pop");const r=$("#viewer").getBoundingClientRect();p.innerHTML=`<b>${refs.length} doors at this location</b>`+refs.map(x=>{const d=S.data.doors[x];const v=(d.locs.find(l=>l.l==="overall")||{}).via;return `<button class="btn sm" data-pop="${esc(x)}">${esc(x)}<span class="muted"> ${esc(d.from||d.desc||"")}${v&&v!=="5000"?" · "+esc(v):""}</span></button>`}).join("");
@@ -655,6 +743,17 @@ function initViewer(){
   ["#z-in","#z-out","#z-fit"].forEach(s=>$(s).addEventListener("pointerdown",e=>e.stopPropagation()));
   window.addEventListener("resize",()=>{if(UI.view==="plans"&&view.fitted)fit()});
 }
+function findGo(raw){const v=String(raw||"").trim();if(!v)return;const r=v.toUpperCase();if(S.data.doors[r]){view.mark=null;locate(r);openDoor(r);return}
+  const q=v.toLowerCase(),Ls=S.data.layouts.map(l=>l.id),rooms=UI.sec==="doors"?(S.RAW.rooms||[]):[];
+  let hits=rooms.filter(x=>x.n.toLowerCase()===q);if(!hits.length)hits=rooms.filter(x=>x.n.toLowerCase().includes(q));
+  if(!hits.length){const ds=Object.keys(S.data.doors).filter(k=>k.includes(r));if(ds.length===1){locate(ds[0]);openDoor(ds[0]);return}
+    toast(`No ${SEC[UI.sec].one} or room matching “${v}”.`+(UI.sec!=="doors"?" Try the other package switch.":""));return}
+  hits.sort((a,b)=>(b.l===UI.dwg)-(a.l===UI.dwg)||Ls.indexOf(a.l)-Ls.indexOf(b.l));
+  if(UI.findKey!==q){UI.findKey=q;UI.findI=0}else UI.findI=(UI.findI+1)%hits.length;
+  const h=hits[UI.findI];if(UI.view!=="plans")setView("plans");if(h.l!==UI.dwg)showDwg(h.l,false);
+  view.mark={l:h.l,x:h.x,y:h.y};$("#rmark").innerHTML=`<i></i><b>${esc(h.n)}</b>`;clearTimeout(findGo._t);findGo._t=setTimeout(()=>{view.mark=null;markPos()},12000);
+  requestAnimationFrame(()=>{const vv=$("#viewer"),L=curL();const pm=L.box?L.w/(L.box[2]-L.box[0]):.12;const s=Math.min(view.max,Math.max(view.s,vv.clientWidth/(30000*pm)));view.s=s;view.tx=vv.clientWidth/2-h.x*view.w*s;view.ty=vv.clientHeight/2-h.y*view.h*s;view.fitted=false;apply()});
+  toast(hits.length>1?`${h.n} · ${S.data.layouts.find(l=>l.id===h.l).title} – ${UI.findI+1} of ${hits.length} (press Enter for the next)`:`${h.n} · ${S.data.layouts.find(l=>l.id===h.l).title}`)}
 function locate(ref){const d=S.data.doors[ref];if(!d||!d.locs.length){toast(ref+" isn't marked on the uploaded drawings.");return}
   const p=d.locs.find(x=>x.l===UI.dwg)||d.locs.find(x=>x.l===d.plan)||d.locs[0];setView("plans");if(p.l!==UI.dwg)showDwg(p.l,false);
   UI.show.add(stageOf(ref));renderPins();
@@ -689,21 +788,71 @@ function renderDoors(){
 function accessLabel(d){const a=d.access&&!/^n\/a$/i.test(d.access)?d.access:"";const suited=isSuited(d);return [a&&("AC: "+a),suited&&"Master-keyed cylinder"].filter(Boolean).join(" · ")}
 function isSuited(d){const set=d.hw&&S.data.hwsets[d.hw];if(set&&set.items.some(i=>/master key|cylinder/i.test(i.desc)))return true;return d.lock&&/cylinder/i.test(d.lock)}
 
-/* ---------- defects & requests lists ---------- */
+/* ---------- dates, responsible parties, close-out ---------- */
+const DAY=864e5;
+function ymdT(x){if(!x)return null;const[y,m,d]=String(x).split("-").map(Number);return y?new Date(y,m-1,d).getTime():null}
+function isoD(t){const d=new Date(t);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function dShort(t){return new Date(t).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"})}
+function dayStart(t){const d=new Date(t);d.setHours(0,0,0,0);return d.getTime()}
+function monOf(t){const d=new Date(dayStart(t));d.setDate(d.getDate()-(d.getDay()+6)%7);return d.getTime()}
+function addDays(t,n){const d=new Date(t);d.setDate(d.getDate()+n);return d.getTime()}
+const PARTIES=[["Supplier","Supplier"],["AFRY","AFRY"],["March","March – access control"],["Other","Other…"]];
+function supName(ref){const d=(S.RAW.doors||{})[ref]||(S.RAW.louvres||{})[ref]||{};return d.supplier||"Supplier"}
+function partyTxt(df){const p=df.party||"Supplier";if(p==="Supplier")return supName(df.ref)+" (supplier)";if(p==="AFRY")return "AFRY";if(p==="March")return "March – access control";return df.partyName||"Other"}
+function partySel(ref,val,attrs){return `<select ${attrs} aria-label="Responsible party">${PARTIES.map(([k,l])=>`<option value="${k}"${k===val?" selected":""}>${esc(k==="Supplier"?supName(ref)+" ("+SEC[UI.sec].one+" supplier)":l)}</option>`).join("")}</select>`}
+function dueT(df){return df.due?ymdT(df.due):addDays(dayStart(df.at||Date.now()),7)}
+function isOverdue(df){return df.status!=="Closed"&&dueT(df)<dayStart(Date.now())}
+function duePill(df){if(df.status==="Closed")return"";const t=dueT(df),n=Math.round((dayStart(Date.now())-t)/DAY);return n>0?`<span class="pill od">Overdue ${n} day${n>1?"s":""}</span>`:n===0?`<span class="pill warn">Due today</span>`:n>=-3?`<span class="pill warn">Due ${dShort(t)}</span>`:""}
+function defActs(df){const a=[{at:df.at,by:df.by,t:"Raised"}];(df.hist||[]).forEach(h=>{if(h.a!=="Raised")a.push({at:h.at,by:h.by,t:h.a})});(df.notes||[]).forEach(n=>a.push({at:n.at,by:n.by,t:"Note: "+n.t}));(df.sent||[]).forEach(x=>a.push({at:x.at,by:x.by,t:"Emailed for action"+(x.to?" to "+x.to:"")}));
+  if(df.closedAt&&df.status==="Closed"&&!(df.hist||[]).some(h=>/^Closed/.test(h.a)))a.push({at:df.closedAt,by:df.closedBy,t:"Closed"+(df.closeNote?" – "+df.closeNote:"")});return a.filter(x=>x.at).sort((x,y)=>x.at-y.at)}
+function instAt(r){const st=S.doors.get(r);if(!st)return null;let t=null;for(const h of st.hist||[])if(typeof h.s==="number"&&h.s>=2&&h.at&&(t==null||h.at<t))t=h.at;if(t==null&&stageOf(r)>=2&&st.at)t=st.at;return t}
+/* ---------- this week ---------- */
+function renderWeek(){const el=$("#wk-body");if(!el)return;const D=S.data.doors,now=Date.now(),t0=dayStart(now),N=UI.wkN||14,tN=addDays(t0,N),t7=addDays(t0,7),sec=SEC[UI.sec];
+  const refs=vis().filter(r=>!outScope(D[r]));const nk=(a,b)=>a.localeCompare(b,undefined,{numeric:true});
+  const chips=rs=>`<div class="wk-refs">${rs.sort(nk).map(r=>`<button data-open="${esc(r)}" title="${esc(doorLoc(r))}">${esc(r)}</button>`).join("")}</div>`;
+  const grp=(list,key)=>{const m=new Map();for(const x of list){const k=key(x);if(!m.has(k))m.set(k,[]);m.get(k).push(x)}return [...m.values()]};
+  const dl=[],ins=[];
+  for(const r of refs){const d=D[r],v=d.delivery||{},st=S.doors.get(r)||{};if(stageOf(r)>=2)continue;
+    const dd=ymdT(v.date);if(dd&&dd<tN&&dd>=addDays(t0,-28)&&!st.delivered&&!v.phase1)dl.push({r,d,t:dd,wc:v.wc});
+    const it=ymdT(v.install);if(it&&it<tN&&it>=addDays(t0,-28))ins.push({r,d,t:it,wc:v.wc})}
+  const late=x=>x.wc?addDays(x.t,7)<=t0:x.t<t0;
+  const dLab=x=>(x.wc?"w/c ":"")+dShort(x.t)+(x.wc&&x.t<=t0&&!late(x)?" (this week)":"");
+  const grpCard=(xs,kind)=>{const x=xs[0];const notes=[...new Set(xs.map(y=>(y.d.delivery||{}).note).filter(Boolean))];const bt=/almet/i.test(x.d.supplier||"")?[...new Set(xs.map(y=>batchTxt(y.d.batch)).filter(Boolean))]:[];
+    return `<div class="card"><div class="card-h"><b style="flex:1;min-width:0">${esc(dLab(x))}</b><span class="pill">${esc(x.d.supplier||"Supplier TBC")}</span><span class="pill blue">${xs.length} ${xs.length>1?sec.many:sec.one}</span>${late(x)?`<span class="pill warn">${kind==="d"?"Not marked delivered":"Not marked installed"}</span>`:""}</div>${bt.length?`<div class="meta">${esc(bt.join(", "))}</div>`:""}${notes.length&&notes.length<=2?`<div class="meta">${esc(notes.join(" · "))}</div>`:""}${chips(xs.map(y=>y.r))}</div>`};
+  const dG=grp(dl.sort((a,b)=>a.t-b.t),x=>x.t+"|"+(x.d.supplier||"")+"|"+(x.wc?1:0)),iG=grp(ins.sort((a,b)=>a.t-b.t),x=>x.t+"|"+(x.d.supplier||"")+"|"+(x.wc?1:0));
+  const defs=[...S.defects.values()].filter(d=>inSec(d.ref)&&d.status!=="Closed"&&supOk(D[d.ref]||{}));
+  const over=defs.filter(isOverdue).sort((a,b)=>dueT(a)-dueT(b)),soon=defs.filter(d=>!isOverdue(d)&&dueT(d)<t7).sort((a,b)=>dueT(a)-dueT(b));
+  const reqs=[...S.requests.values()].filter(r=>inSec(r.ref)&&(r.status==="Requested"||r.status==="Scheduled")&&r.need&&ymdT(r.need)<tN).sort((a,b)=>a.need.localeCompare(b.need));
+  const wk0=addDays(t0,-7);const instL=refs.filter(r=>{const t=instAt(r);return t&&t>=wk0});
+  const allD=[...S.defects.values()].filter(d=>inSec(d.ref)&&supOk(D[d.ref]||{}));const raisedL=allD.filter(d=>d.at>=wk0),closedL=allD.filter(d=>d.status==="Closed"&&d.closedAt>=wk0);
+  const dRow=d=>{want(d.by);return `<div class="card"><div class="card-h"><button class="ref" data-open="${esc(d.ref)}">${esc(d.ref)}</button><b style="flex:1;min-width:0">${esc(d.title)}</b>${duePill(d)}</div><div class="meta"><b>${esc(partyTxt(d))}</b> · close out by ${dShort(dueT(d))} · raised ${fmt(d.at)} by ${esc(name(d.by))}${(d.sent||[]).length?" · emailed "+fmt(d.sent[d.sent.length-1].at):" · not yet emailed"}</div></div>`};
+  const sum=(n,lab,cls)=>`<div class="kpi ${cls||""}"><b>${n}</b><span>${lab}</span></div>`;
+  const nD=dl.length,nI=ins.length;
+  el.innerHTML=`<div class="wk"><div class="filters noprint" style="align-items:center"><div class="seg" id="wk-seg"><button data-wkn="7" aria-pressed="${N===7}">Next 7 days</button><button data-wkn="14" aria-pressed="${N===14}">Next 14 days</button></div><span class="muted" style="font-size:12px">${dShort(t0)} – ${dShort(addDays(tN,-1))} · ${UI.sup?esc(UI.sup)+" · ":""}${sec.many}</span></div>
+   <div class="kpis" style="display:flex;gap:8px;flex-wrap:wrap">${sum(nD,"Deliveries due")}${sum(nI,"Installs planned")}${sum(over.length,"Overdue defects",over.length?"alert":"")}${sum(soon.length,"Defects due ≤7 days")}${sum(reqs.length,"Requests due")}${sum(instL.length,"Installed last 7 days")}</div>
+   <div class="wk-sec"><h4>Deliveries due</h4>${dG.length?`<div class="cards">${dG.map(x=>grpCard(x,"d")).join("")}</div>`:`<div class="empty">No deliveries due in the next ${N} days.</div>`}</div>
+   <div class="wk-sec"><h4>Installation planned</h4>${iG.length?`<div class="cards">${iG.map(x=>grpCard(x,"i")).join("")}</div>`:`<div class="empty">No installation dates in the next ${N} days. Dates come from supplier programmes where given.</div>`}</div>
+   <div class="wk-sec"><h4>Defects past close-out date (${over.length})</h4>${over.length?`<div class="cards">${over.map(dRow).join("")}</div>`:`<div class="empty">No overdue defects.</div>`}</div>
+   <div class="wk-sec"><h4>Defects due in the next 7 days (${soon.length})</h4>${soon.length?`<div class="cards">${soon.map(dRow).join("")}</div>`:`<div class="empty">None due.</div>`}</div>
+   <div class="wk-sec"><h4>Requests needed by ${dShort(addDays(tN,-1))} (${reqs.length})</h4>${reqs.length?`<div class="cards">${reqs.map(r=>reqCard(r)).join("")}</div>`:`<div class="empty">No access control or lock requests due.</div>`}</div>
+   <div class="wk-sec"><h4>Last 7 days</h4><div class="cards"><div class="card"><b>${instL.length} ${instL.length===1?sec.one:sec.many} installed</b>${instL.length?chips(instL):""}</div><div class="card"><b>${raisedL.length} defect${raisedL.length===1?"":"s"} raised · ${closedL.length} closed</b>${raisedL.length?chips([...new Set(raisedL.map(d=>d.ref))]):""}</div></div></div></div>`}
 function renderDefects(){
-  const q=$("#def-q").value.trim().toLowerCase();
-  const list=[...S.defects.values()].filter(d=>inSec(d.ref)&&(!UI.defSeg||(UI.defSeg==="Closed"?d.status==="Closed":d.status!=="Closed"))&&(!q||[d.ref,d.title,d.detail,d.cat].join(" ").toLowerCase().includes(q))).sort((a,b)=>(b.at||0)-(a.at||0));
+  const q=$("#def-q").value.trim().toLowerCase();const base=[...S.defects.values()].filter(d=>inSec(d.ref));
+  {const sel=$("#def-party"),cur=sel.value,ks=[...new Set(base.map(partyTxt))].sort();const h=`<option value="">All responsible parties</option>`+ks.map(k=>`<option>${esc(k)}</option>`).join("");if(sel.__h!==h){sel.innerHTML=h;sel.__h=h}sel.value=ks.includes(cur)?cur:""}
+  const pf=$("#def-party").value,seg=UI.defSeg;
+  const list=base.filter(d=>(!seg||(seg==="Closed"?d.status==="Closed":seg==="Overdue"?isOverdue(d):d.status!=="Closed"))&&(!pf||partyTxt(d)===pf)&&(!q||[d.ref,d.title,d.detail,d.cat,partyTxt(d)].join(" ").toLowerCase().includes(q)))
+    .sort((a,b)=>(a.status==="Closed")-(b.status==="Closed")||(a.status==="Closed"?(b.closedAt||0)-(a.closedAt||0):dueT(a)-dueT(b)||(b.at||0)-(a.at||0)));
   list.forEach(d=>{want(d.by);want(d.closedBy)});
   $("#def-list").innerHTML=list.length?list.map(defectCard).join(""):`<div class="empty">${UI.defSeg==="Open"?"No open defects. Report one from a record: open an item on the plan or in the schedule, then choose Defects.":"Nothing here yet."}</div>`;
 }
 function defectCard(d,inDrawer){const sev=d.sev==="High"?"red":d.sev==="Low"?"":"blue";
-  return `<div class="card"><div class="card-h">${inDrawer?"":`<button class="ref" data-open="${esc(d.ref)}">${esc(d.ref)}</button>`}<b style="flex:1;min-width:0">${esc(d.title)}</b><span class="pill ${d.status==="Closed"?"green":sev}">${d.status==="Closed"?"Closed":esc(d.sev||"Medium")}</span></div>
-  ${d.detail?`<p>${esc(d.detail)}</p>`:""}<div class="meta">${esc(catTxt(d.cat))} · Raised by ${esc(name(d.by))}, ${fmt(d.at)}${d.status==="Closed"?` · Closed by ${esc(name(d.closedBy))}, ${fmt(d.closedAt)}${d.closeNote?" — "+esc(d.closeNote):""}`:""}</div>
+  return `<div class="card"><div class="card-h">${inDrawer?"":`<button class="ref" data-open="${esc(d.ref)}">${esc(d.ref)}</button>`}<b style="flex:1;min-width:0">${esc(d.title)}</b>${duePill(d)}<span class="pill ${d.status==="Closed"?"green":sev}">${d.status==="Closed"?"Closed":esc(d.sev||"Medium")}</span></div>
+  ${d.detail?`<p>${esc(d.detail)}</p>`:""}<div class="meta" style="color:var(--ink)">Responsible: <b>${esc(partyTxt(d))}</b>${d.status!=="Closed"?` · close out by <b>${dShort(dueT(d))}</b>${d.due?"":" (default 7 days)"}`:""}</div><div class="meta">${esc(catTxt(d.cat))} · Raised by ${esc(name(d.by))}, ${fmt(d.at)}${d.status==="Closed"?` · Closed by ${esc(name(d.closedBy))}, ${fmt(d.closedAt)}${d.closeNote?" — "+esc(d.closeNote):""}`:""}</div>
   ${(d.notes||[]).length?`<ul class="dnotes">${d.notes.map(n=>{want(n.by);return `<li>${esc(n.t)}<span class="meta"> — ${esc(name(n.by))}, ${fmt(n.at)}</span></li>`}).join("")}</ul>`:""}
   ${inDrawer&&defPhotoList(d).length?`<div class="photos" style="grid-template-columns:repeat(auto-fill,minmax(70px,1fr));margin:6px 0">${defPhotoList(d).map(p=>`<button class="ph" data-photo="${p.id}"><img loading="lazy" alt="" src="${esc(photoSrc(p))}"></button>`).join("")}</div>`:""}
   ${inDrawer&&UI.defAttach===d.id?`<div class="form" style="margin:6px 0">${doorPhotoPicker(d.ref,"dfatt",d.photos||[],S.photos.filter(p=>p.defect===d.id).map(p=>p.id))}<div class="row" style="flex:0;gap:6px"><button class="btn sm primary" data-def-attsave="${d.id}">Save photos</button><button class="btn sm" data-def-attx="1">Cancel</button></div></div>`:""}
   ${(d.sent||[]).length?`<div class="meta">✉ Sent for action: ${d.sent.map(x=>`${esc(x.to||"(shared)")} ${fmt(x.at)}`).join("; ")}</div>`:""}
-  ${canWrite?`<div class="acts">${d.status==="Closed"?`<button class="btn sm" data-def-reopen="${d.id}">Reopen</button>`:`<button class="btn sm" data-def-close="${d.id}">Close defect</button>`}<button class="btn sm" data-def-note="${d.id}">Add note</button>${inDrawer?`<button class="btn sm" data-def-att="${d.id}">📎 Door photos</button>`:""}<button class="btn sm primary" data-def-mail="${d.id}">✉ Email for action</button></div>`:""}</div>`}
+  ${canWrite?`<div class="acts">${d.status==="Closed"?`<button class="btn sm" data-def-reopen="${d.id}">Reopen</button>`:`<button class="btn sm" data-def-close="${d.id}">Close defect</button>`}<button class="btn sm" data-def-note="${d.id}">Add note</button>${d.status!=="Closed"?`<button class="btn sm" data-def-edit="${d.id}">Responsible / due date</button>`:""}${inDrawer?`<button class="btn sm" data-def-att="${d.id}">📎 Door photos</button>`:""}<button class="btn sm primary" data-def-mail="${d.id}">✉ Email for action</button></div>`:""}</div>`}
 function renderRequests(){
   const k=$("#req-kind").value;
   const list=[...S.requests.values()].filter(r=>inSec(r.ref)&&(!k||r.kind===k)&&(!UI.reqSeg||(UI.reqSeg==="active"?(r.status==="Requested"||r.status==="Scheduled"):(r.status==="Connected"||r.status==="Declined")))).sort((a,b)=>(a.need||"9").localeCompare(b.need||"9")||(b.at||0)-(a.at||0));
@@ -727,13 +876,19 @@ async function listClicks(e){
     await save(()=>put("defects",d.id,{...strip(d),photos:ids}),ids.length?`${ids.length} door photo${ids.length>1?"s":""} attached`:"Photos updated");return}
   if(b=t.closest("[data-def-close]")){if(!guard())return;const d=S.defects.get(b.dataset.defClose);if(!d)return;
     const note=b.closest(".card").querySelector("[data-close-note]");if(!note){b.insertAdjacentHTML("afterend",`<span class="confirm"><input type="text" data-close-note placeholder="How was it fixed? (optional)" aria-label="Close note"><button class="btn sm primary" data-def-close="${d.id}">Confirm close</button></span>`);b.remove();return}
-    await save(()=>put("defects",d.id,{...strip(d),status:"Closed",closedBy:meId,closedAt:Date.now(),closeNote:note.value.trim()}),"Defect closed");return}
+    const cn=note.value.trim();await save(()=>put("defects",d.id,{...strip(d),status:"Closed",closedBy:meId,closedAt:Date.now(),closeNote:cn,hist:[...(d.hist||[]),{a:"Closed"+(cn?" – "+cn:""),by:meId,at:Date.now()}]}),"Defect closed");return}
   if(b=t.closest("[data-def-note]")){if(!guard())return;const d=S.defects.get(b.dataset.defNote);if(!d)return;const card=b.closest(".card");let box=card.querySelector("[data-note-box]");
     if(!box){b.insertAdjacentHTML("afterend",`<span class="confirm" data-note-box><input type="text" data-note-in placeholder="Additional information, update or instruction" aria-label="Note" style="min-width:220px"><button class="btn sm primary" data-def-note-save="${d.id}">Save note</button></span>`);card.querySelector("[data-note-in]").focus()}return}
   if(b=t.closest("[data-def-note-save]")){if(!guard())return;const d=S.defects.get(b.dataset.defNoteSave);const inp=b.closest(".card").querySelector("[data-note-in]");const v=inp&&inp.value.trim();if(!d||!v){toast("Type the note first.");return}
     await save(()=>put("defects",d.id,{...strip(d),notes:[...(d.notes||[]),{t:v,by:meId,at:Date.now()}]}),"Note added");return}
   if(b=t.closest("[data-def-mail]")){const d=S.defects.get(b.dataset.defMail);if(d)openMail(d);return}
-  if(b=t.closest("[data-def-reopen]")){if(!guard())return;const d=S.defects.get(b.dataset.defReopen);if(d)await save(()=>put("defects",d.id,{...strip(d),status:"Open",closedBy:null,closedAt:null}),"Defect reopened");return}
+  if(b=t.closest("[data-def-reopen]")){if(!guard())return;const d=S.defects.get(b.dataset.defReopen);if(d)await save(()=>put("defects",d.id,{...strip(d),status:"Open",closedBy:null,closedAt:null,hist:[...(d.hist||[]),{a:"Reopened",by:meId,at:Date.now()}]}),"Defect reopened");return}
+  if(b=t.closest("[data-def-edit]")){if(!guard())return;const d=S.defects.get(b.dataset.defEdit);if(!d)return;const card=b.closest(".card");if(card.querySelector("[data-edit-box]"))return;
+    b.insertAdjacentHTML("afterend",`<span class="confirm" data-edit-box>${partySel(d.ref,d.party||"Supplier","data-ed-party")}<input type="text" data-ed-other placeholder="Name of other party" value="${esc(d.party==="Other"?d.partyName||"":"")}" ${d.party==="Other"?"":"hidden"}><input type="date" data-ed-due aria-label="Close out by" value="${isoD(dueT(d))}"><button class="btn sm primary" data-def-edit-save="${d.id}">Save</button></span>`);return}
+  if(b=t.closest("[data-def-edit-save]")){if(!guard())return;const d=S.defects.get(b.dataset.defEditSave);const box=b.closest("[data-edit-box]");if(!d||!box)return;const p=box.querySelector("[data-ed-party]").value,o=box.querySelector("[data-ed-other]").value.trim(),due=box.querySelector("[data-ed-due]").value;
+    if(p==="Other"&&!o){toast("Name the other party.");return}const nd={...strip(d),party:p,partyName:p==="Other"?o:"",due:due||d.due||isoD(dueT(d))};const ch=[];
+    if(partyTxt(nd)!==partyTxt(d))ch.push("Responsible → "+partyTxt(nd));if(nd.due!==isoD(dueT(d)))ch.push("Close out by → "+dShort(ymdT(nd.due)));if(!ch.length){box.remove();return}
+    nd.hist=[...(d.hist||[]),{a:ch.join("; "),by:meId,at:Date.now()}];await save(()=>put("defects",d.id,nd),"Defect updated");return}
   if(b=t.closest("[data-req]")){if(!guard())return;const r=S.requests.get(b.dataset.req);if(r)await save(()=>put("requests",r.id,{...strip(r),status:b.dataset.st,upBy:meId,upAt:Date.now()}),"Request marked "+b.dataset.st.toLowerCase());return}
 }
 function strip(o){const c={...o};delete c.id;return c}
@@ -766,7 +921,7 @@ function renderDrawer(){UI.drawerDirty=false;UI.drawerSig=UI.door?doorSig(UI.doo
   $("#d-close").onclick=closeDoor;const loc=$("#d-locate");if(loc)loc.onclick=()=>{if(window.innerWidth<=900)closeDoorKeep();locate(ref)};
   $("#drawer").querySelector(".d-tabs").onclick=e=>{const b=e.target.closest("[data-dt]");if(b){UI.dtab=b.dataset.dt;renderDrawer();$(".d-body").scrollTop=0}};
   const ss=$("#d-subs");if(ss)ss.onclick=e=>{const b=e.target.closest("[data-dt]");if(b){UI.dtab=b.dataset.dt;renderDrawer();$(".d-body").scrollTop=0}};
-  bindDrawer(ref,d);restoreForm(keepForm);const dz=$("#dz-open");if(dz)dz.onclick=()=>openTeam("diff");$(".d-body").scrollTop=prevScroll;
+  bindDrawer(ref,d);restoreForm(keepForm);{const dp=$("#df-party"),ol=$("#df-party-ol");if(dp&&ol){ol.hidden=dp.value!=="Other";dp.onchange=()=>{ol.hidden=dp.value!=="Other"}}}const dz=$("#dz-open");if(dz)dz.onclick=()=>openTeam("diff");$(".d-body").scrollTop=prevScroll;
 }
 function closeDoorKeep(){$("#drawer").hidden=true;$("#scrim").hidden=true;UI.door=null;if(photoUnsub){photoUnsub();photoUnsub=null}}
 function captureForm(){const o={};document.querySelectorAll("#drawer [data-keep]").forEach(el=>o[el.dataset.keep]=el.type==="file"?null:el.value);return o}
@@ -882,10 +1037,10 @@ function photoSrc(p){return p.asset?(window.__CF__?"/api/photo/":"/_blob/")+p.as
 function tabPhotos(ref,d,{photos}){
   photos.forEach(p=>want(p.by));
   const pi=UI.photoItem&&UI.photoItem.ref===ref?UI.photoItem:null;
-  return `${canWrite?`<div class="form">${pi?`<div class="check" style="margin-bottom:4px">This upload confirms checklist item: <b>${esc(pi.label)}</b> <button class="btn sm" id="ph-noitem">Cancel</button></div>`:""}<div class="row" style="display:flex;gap:8px;flex-wrap:wrap"><label class="btn primary" style="cursor:pointer">📷 Take photo<input type="file" id="ph-cam" accept="image/*" capture="environment" hidden></label><label class="btn" style="cursor:pointer">🖼 From phone (several)<input type="file" id="ph-file" accept="image/*" multiple hidden></label></div>
+  return `${canWrite?`<div class="form">${pi?`<div class="check" style="margin-bottom:4px">This upload confirms checklist item: <b>${esc(pi.label)}</b> <button class="btn sm" id="ph-noitem">Cancel</button></div>`:""}<div class="row" style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn primary" id="ph-mc">📷 Take photos</button>${UI.mcFail?`<label class="btn" style="cursor:pointer">📷 Phone camera<input type="file" id="ph-cam" accept="image/*" capture="environment" hidden></label>`:""}<label class="btn" style="cursor:pointer">🖼 From phone (several)<input type="file" id="ph-file" accept="image/*" multiple hidden></label></div>
   ${trayHtml("ph",trayOf("ph",ref))}
   <label>Caption (optional – applied to the photos in this batch)<input type="text" id="ph-cap" data-keep="ph-cap" placeholder="e.g. Frame fixed, east elevation" ${pi?`value="${esc(pi.label)}"`:""}></label>
-  <div class="row" style="flex:0;gap:8px;align-items:center"><button class="btn primary" id="ph-up" ${trayOf("ph",ref).length?"":"disabled"} style="flex:0;white-space:nowrap">⬆ Upload ${trayOf("ph",ref).length||""} photo${trayOf("ph",ref).length===1?"":"s"}</button><span class="muted" style="font-size:12px" id="ph-msg">Take as many photos as you need – they wait here until you press Upload. Reduced to max 1600 px and stamped with the door ref and time.</span></div></div>`:""}
+  <div class="row" style="flex:0;gap:8px;align-items:center"><button class="btn primary" id="ph-up" ${trayOf("ph",ref).length?"":"disabled"} style="flex:none;min-width:0;white-space:nowrap">⬆ Upload ${trayOf("ph",ref).length||""} photo${trayOf("ph",ref).length===1?"":"s"}</button><span class="muted" style="font-size:12px" id="ph-msg">Take photos opens the camera: snap as many as you need, then Upload all. Photos wait here until uploaded. Reduced to max 1600 px and stamped with the door ref and time.</span></div></div>`:""}
   ${photos.length?`<div class="photos">${photos.map(p=>`<button class="ph" data-photo="${p.id}"><img loading="lazy" alt="${esc(p.cap||"Door photo")}" src="${esc(photoSrc(p))}"><span>${esc(p.cap||name(p.by))} · ${new Date(p.taken||p.at).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</span></button>`).join("")}</div>`:'<div class="empty">No photos of this door yet.</div>'}`;
 }
 /* photo trays: photos wait on the phone until Upload is pressed */
@@ -899,7 +1054,7 @@ function doorPhotoPicker(ref,key,sel,exclude){const ps=S.photos.filter(p=>p.ref=
   return `<span class="muted" style="font-size:12px">Or pick from this door's photos (${ps.length}):</span><div class="photos" style="grid-template-columns:repeat(auto-fill,minmax(84px,1fr));max-height:260px;overflow:auto">${ps.map(p=>`<label class="ph" style="position:relative;cursor:pointer;outline:${sel.includes(p.id)?"3px solid var(--accent)":"none"}"><img loading="lazy" alt="" src="${esc(photoSrc(p))}"><input type="checkbox" data-${key}="${p.id}" ${sel.includes(p.id)?"checked":""} style="position:absolute;top:4px;left:4px;width:20px;height:20px"><span>${esc(p.cap||"")}</span></label>`).join("")}</div>`}
 function defPhotoList(df){return S.photos.filter(p=>p.defect===df.id||(df.photos||[]).includes(p.id))}
 function tabDefects(ref,d,{defs}){
-  return `${canWrite?`<div class="form"><b>Report a defect</b><label>What's wrong<input type="text" id="df-title" data-keep="df-title" placeholder="e.g. Leaf binding on head, 2mm gap at lock side"></label><div class="row"><label>Category<select id="df-cat" data-keep="df-cat">${DEF_CATS.map(c=>`<option>${esc(c)}</option>`).join("")}</select></label><label>Severity<select id="df-sev" data-keep="df-sev"><option>Low</option><option selected>Medium</option><option>High</option></select></label></div><label>Details<textarea id="df-detail" data-keep="df-detail" placeholder="Location on the door, who should fix it"></textarea></label><b style="font-size:13px">Photos</b><div class="row" style="display:flex;gap:8px;flex-wrap:wrap;flex:0"><label class="btn" style="cursor:pointer;flex:0;white-space:nowrap">📷 Take photo<input type="file" id="df-cam" accept="image/*" capture="environment" hidden></label></div>${trayHtml("df",trayOf("df",ref))}${doorPhotoPicker(ref,"dfsel",[...dfSel(ref)])}<div class="row"><button class="btn primary" id="df-save">Report defect</button></div></div>`:""}
+  return `${canWrite?`<div class="form"><b>Report a defect</b><label>What's wrong<input type="text" id="df-title" data-keep="df-title" placeholder="e.g. Leaf binding on head, 2mm gap at lock side"></label><div class="row"><label>Category<select id="df-cat" data-keep="df-cat">${DEF_CATS.map(c=>`<option>${esc(c)}</option>`).join("")}</select></label><label>Severity<select id="df-sev" data-keep="df-sev"><option>Low</option><option selected>Medium</option><option>High</option></select></label></div><div class="row"><label>Responsible party${partySel(ref,"Supplier",'id="df-party" data-keep="df-party"')}</label><label>Close out by<input type="date" id="df-due" data-keep="df-due" value="${isoD(addDays(dayStart(Date.now()),7))}"></label></div><label id="df-party-ol" hidden>Other party<input type="text" id="df-party-o" data-keep="df-party-o" placeholder="e.g. Main contractor, M&amp;E"></label><label>Details<textarea id="df-detail" data-keep="df-detail" placeholder="Location on the door, who should fix it"></textarea></label><b style="font-size:13px">Photos</b><div class="row" style="display:flex;gap:8px;flex-wrap:wrap;flex:0"><button type="button" class="btn" id="df-mc" style="flex:0;white-space:nowrap">📷 Take photos</button><label class="btn" style="cursor:pointer;flex:0;white-space:nowrap">${UI.mcFail?"📷 Phone camera":"🖼 From phone"}<input type="file" id="df-cam" accept="image/*" ${UI.mcFail?'capture="environment"':"multiple"} hidden></label></div>${trayHtml("df",trayOf("df",ref))}${doorPhotoPicker(ref,"dfsel",[...dfSel(ref)])}<div class="row"><button class="btn primary" id="df-save">Report defect</button></div></div>`:""}
   ${defs.length?`<div style="display:flex;flex-direction:column;gap:8px">${defs.map(x=>{want(x.by);return defectCard(x,true)}).join("")}</div>`:'<div class="empty">No defects recorded for this door.</div>'}`;
 }
 function tabRequests(ref,d,{reqs}){
@@ -945,6 +1100,8 @@ function bindDrawer(ref,d){if(UI.dtab==="fire")bindFire(ref,d);if(UI.dtab==="lev
   const up=$("#ph-up");
   const cam=$("#ph-cam");if(cam)cam.onchange=()=>{if(cam.files.length){trayAdd("ph",ref,[...cam.files]);cam.value="";renderDrawer()}};
   const pf=$("#ph-file");if(pf)pf.onchange=()=>{if(pf.files.length){trayAdd("ph",ref,[...pf.files]);pf.value="";renderDrawer()}};
+  const phmc=$("#ph-mc");if(phmc)phmc.onclick=()=>multiCam(`${ref} · photos`,true,(fs,up)=>{trayAdd("ph",ref,fs);renderDrawer();if(up)setTimeout(()=>{const u=$("#ph-up");if(u&&!u.disabled)u.click()},60)});
+  const dfmc=$("#df-mc");if(dfmc)dfmc.onclick=()=>multiCam(`${ref} · defect photos`,false,fs=>{trayAdd("df",ref,fs);renderDrawer()});
   const dcam=$("#df-cam");if(dcam)dcam.onchange=()=>{if(dcam.files.length){trayAdd("df",ref,[...dcam.files]);dcam.value="";renderDrawer()}};
   dr.querySelectorAll("[data-trayrm]").forEach(b=>b.onclick=e=>{e.preventDefault();const[k,i]=b.dataset.trayrm.split(":");const t=UI.trays[k];if(t){URL.revokeObjectURL(t.files[i].url);t.files.splice(+i,1)}renderDrawer()});
   dr.querySelectorAll("[data-dfsel]").forEach(c=>c.onchange=()=>{const S_=dfSel(ref);c.checked?S_.add(c.dataset.dfsel):S_.delete(c.dataset.dfsel);c.closest(".ph").style.outline=c.checked?"3px solid var(--accent)":"none"});
@@ -956,13 +1113,35 @@ function bindDrawer(ref,d){if(UI.dtab==="fire")bindFire(ref,d);if(UI.dtab==="lev
     if(n){const t=UI.trays.ph;if(t&&t.ref===ref){t.files.splice(0,n).forEach(x=>URL.revokeObjectURL(x.url));if(!t.files.length)delete UI.trays.ph}}
     if(n)toast(`${n} photo${n>1?"s":""} added to ${ref}`+(it!=null?" – you can now tick the checklist item":""));if(n&&it!=null){UI.photoItem=null;UI.dtab="progress"}renderDrawer()};
   const ds=$("#df-save");if(ds)ds.onclick=async()=>{if(!guard())return;const title=$("#df-title").value.trim();if(!title){toast("Describe the defect first.");$("#df-title").focus();return}
-    ds.disabled=true;const id=uid();const rec={ref,title,cat:$("#df-cat").value,sev:$("#df-sev").value,detail:$("#df-detail").value.trim(),status:"Open",by:meId,at:Date.now(),photos:[...dfSel(ref)]};const fs=trayOf("df",ref).map(x=>x.f);
-    try{await put("defects",id,rec);for(const f of fs)await addPhoto(ref,f,"Defect: "+title,id);trayClear("df");UI.dfSel[ref]=new Set();setTimeout(renderDrawer,0);["df-title","df-detail"].forEach(k=>{const el=$("#"+k);if(el)el.value=""});toast("Defect reported on "+ref)}catch(e){toast("Couldn't save the defect: "+(e.message||e.code||"error"))}ds.disabled=false};
+    ds.disabled=true;const id=uid();const pty=$("#df-party").value,pto=$("#df-party-o").value.trim();if(pty==="Other"&&!pto){toast("Name the other party.");$("#df-party-o").focus();ds.disabled=false;return}const now=Date.now();
+    const rec={ref,title,cat:$("#df-cat").value,sev:$("#df-sev").value,detail:$("#df-detail").value.trim(),party:pty,partyName:pty==="Other"?pto:"",due:$("#df-due").value||isoD(addDays(dayStart(now),7)),status:"Open",by:meId,at:now,photos:[...dfSel(ref)],hist:[{a:"Raised",by:meId,at:now}]};const fs=trayOf("df",ref).map(x=>x.f);
+    try{await put("defects",id,rec);for(const f of fs)await addPhoto(ref,f,"Defect: "+title,id);trayClear("df");UI.dfSel[ref]=new Set();setTimeout(renderDrawer,0);["df-title","df-detail","df-party-o"].forEach(k=>{const el=$("#"+k);if(el)el.value=""});toast("Defect reported on "+ref)}catch(e){toast("Couldn't save the defect: "+(e.message||e.code||"error"))}ds.disabled=false};
   const rk=$("#rq-kind");if(rk)rk.onclick=e=>{const b=e.target.closest("[data-k]");if(b){UI.reqKind={ref,k:b.dataset.k};renderDrawer()}};
   const rs=$("#rq-save");if(rs)rs.onclick=async()=>{if(!guard())return;const k=$("#rq-kind [aria-pressed=true]").dataset.k;rs.disabled=true;
     const rec={ref,kind:k,detail:$("#rq-detail").value.trim(),need:$("#rq-need").value||"",suite:k==="lock"?($("#rq-suite").value.trim()):"",status:"Requested",by:meId,at:Date.now()};
     try{await put("requests",uid(),rec);["rq-detail","rq-need","rq-suite"].forEach(x=>{const el=$("#"+x);if(el)el.value=""});toast((KIND[k])+" requested for "+ref)}catch(e){toast("Couldn't send the request: "+(e.message||e.code||"error"))}rs.disabled=false};
 }
+/* in-app camera: take many photos in a row, then add them all at once */
+async function multiCam(label,canUpload,onDone){
+  const md=navigator.mediaDevices;if(!md||!md.getUserMedia){UI.mcFail=true;renderDrawer();toast("This browser can't open the live camera – use “Phone camera” instead.");return}
+  let stream;try{stream=await md.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1920},height:{ideal:1440}},audio:false})}catch(e){UI.mcFail=true;renderDrawer();toast(e&&e.name==="NotAllowedError"?"Camera access was refused – allow the camera for this site, or use “Phone camera”.":"Camera not available – use “Phone camera” instead.");return}
+  const ov=document.createElement("div");ov.className="mcam";ov.setAttribute("role","dialog");ov.setAttribute("aria-label","Camera");
+  ov.innerHTML=`<video playsinline autoplay muted></video><div class="mc-top"><b>${esc(label)}</b><span data-mc-n></span><button class="x" data-mc="x" aria-label="Close camera">×</button></div><div class="mc-strip"></div><div class="mc-bar"><button class="btn" data-mc="x" data-mc-cancel>Cancel</button><button class="mc-shot" data-mc="shot" aria-label="Take photo"></button><div class="mc-r">${canUpload?`<button class="btn primary" data-mc="up" disabled>Upload all</button>`:""}<button class="btn${canUpload?"":" primary"}" data-mc="done" disabled>Done</button></div></div>`;
+  document.body.appendChild(ov);const vid=ov.querySelector("video");vid.srcObject=stream;try{await vid.play()}catch(e){}
+  const shots=[];let armed=false;
+  const close=()=>{stream.getTracks().forEach(t=>t.stop());ov.remove();document.removeEventListener("keydown",kd)};
+  const kd=e=>{if(e.key===" "){e.preventDefault();shoot()}else if(e.key==="Escape"&&!shots.length)close()};document.addEventListener("keydown",kd);
+  const paint=()=>{const n=shots.length;ov.querySelector("[data-mc-n]").textContent=n?`${n} photo${n>1?"s":""} taken`:"";armed=false;ov.querySelector("[data-mc-cancel]").textContent="Cancel";
+    const st=ov.querySelector(".mc-strip");st.innerHTML=n?shots.map((x,i)=>`<div><img alt="" src="${x.url}"><button data-mc="rm" data-i="${i}" aria-label="Remove photo">✕</button></div>`).join(""):`<span>Tap the white button for each photo – take as many as you need.</span>`;st.scrollLeft=st.scrollWidth;
+    ov.querySelectorAll("[data-mc=up],[data-mc=done]").forEach(b=>b.disabled=!n);const u=ov.querySelector("[data-mc=up]");if(u)u.textContent=n?`Upload all ${n}`:"Upload all";ov.querySelector("[data-mc=done]").textContent=canUpload?"Done – add caption":n?`Done (${n})`:"Done"};
+  const shoot=async()=>{if(!vid.videoWidth)return;const c=document.createElement("canvas");c.width=vid.videoWidth;c.height=vid.videoHeight;c.getContext("2d").drawImage(vid,0,0);ov.classList.add("flash");setTimeout(()=>ov.classList.remove("flash"),110);try{if(navigator.vibrate)navigator.vibrate(25)}catch(e){}
+    const blob=await new Promise(r=>c.toBlob(r,"image/jpeg",.9));if(!blob)return;const now=Date.now();shots.push({f:new File([blob],`photo-${now}.jpg`,{type:"image/jpeg",lastModified:now}),url:URL.createObjectURL(blob)});paint()};
+  ov.addEventListener("click",e=>{const b=e.target.closest("[data-mc]");if(!b)return;const k=b.dataset.mc;
+    if(k==="shot")shoot();
+    else if(k==="rm"){const i=+b.dataset.i;URL.revokeObjectURL(shots[i].url);shots.splice(i,1);paint()}
+    else if(k==="x"){if(shots.length&&!armed){armed=true;const c=ov.querySelector("[data-mc-cancel]");c.textContent=`Discard ${shots.length}?`;if(b!==c)toast("Tap “Discard” to throw away the photos, or Done to keep them.");return}shots.forEach(x=>URL.revokeObjectURL(x.url));close()}
+    else if(k==="done"||k==="up"){const fs=shots.map(x=>x.f);shots.forEach(x=>URL.revokeObjectURL(x.url));close();onDone(fs,k==="up")}});
+  paint()}
 async function exifDate(file){try{const b=new DataView(await file.slice(0,131072).arrayBuffer());if(b.getUint16(0)!==0xFFD8)return null;let o=2;
   while(o<b.byteLength-4){const m=b.getUint16(o),len=b.getUint16(o+2);if(m===0xFFE1&&b.getUint32(o+4)===0x45786966){const t=o+10,le=b.getUint16(t)===0x4949;const g16=p=>b.getUint16(p,le),g32=p=>b.getUint32(p,le);
     const rd=(ifd,want)=>{const n=g16(t+ifd);for(let i=0;i<n;i++){const e=t+ifd+2+i*12;if(g16(e)===want)return g32(e+8)}return null};
@@ -1197,17 +1376,19 @@ const MAIL_GROUPS={
 const SUP_MAIL={Almet:["ald@almetdoors.co.uk","liamd@almetdoors.co.uk"],Johan:["louie@johandoors.co.uk"]};
 function designFiles(r){const d=S.data.doors[r]||{};const o=[];(d.doorsets||[]).filter(x=>!x.superseded).forEach(x=>o.push({url:x.file,name:`${r}_design_${x.no}_rev${x.rev}.png`.replace(/[^A-Za-z0-9._-]+/g,"_"),label:`${x.no} rev ${x.rev}`}));
   if(d.prod)(d.prod.pages||[]).forEach((n,i)=>o.push({url:`prod/${n}.png`,name:`${r}_Johan_production_sheet${d.prod.pages.length>1?"_"+(i+1):""}.png`,label:`Johan production sheet${d.prod.pages.length>1?" "+(i+1):""}`}));return o}
-function mailRecipients(r){const d=S.data.doors[r]||{};const sup=d.supplier||"";
+function mailRecipients(r,df){const d=S.data.doors[r]||{};const sup=d.supplier||"";const p=df&&df.party||"Supplier";
+  if(p==="AFRY")return {greet:"",to:["michael.oconnor@afry.com","colin.langan@afry.com"],cc:["tony.malone@afry.com"],label:"AFRY"};
+  if(p!=="Supplier")return {greet:"",to:[],cc:[],label:partyTxt(df)};
   const g=/almet|johan/i.test(sup)?MAIL_GROUPS.ms:/ascot/i.test(sup)?MAIL_GROUPS.cm:null;if(!g)return {greet:"",to:[],cc:[],label:""};
   return {greet:g.greet,to:g.to,cc:[...g.cc,...(SUP_MAIL[sup]||[]),...g.afry],label:g.label}}
 
 function doorLoc(r){const d=S.data.doors[r]||{};const lv=d.level==null?"":d.level==="Roof"?"Roof":"Level "+(d.level>=0?"+":"")+d.level+"m";
   return [d.from&&d.to?d.from+" → "+d.to:(d.from||d.desc||""),lv].filter(Boolean).join(", ")}
 function doorDwgs(r){const d=S.data.doors[r]||{};const o=[];if((d.ga||[]).length)o.push("RPS layout "+d.ga.join(", "));if(d.sheet)o.push("RPS door schedule A-"+d.sheet);(d.doorsets||[]).filter(x=>!x.superseded).forEach(x=>o.push(`${/^(almet|ascot|johan|marshall)/i.test(x.no)?"":(x.maker||d.supplier||"Supplier")+" "}${x.no} rev ${x.rev}`));if(d.prod)o.push(`Johan production sheet${d.hw?" ("+d.hw+")":""}`);return o}
-function mailText(df,extra,photos){const r=df.ref,d=S.data.doors[r]||{};const me=S.names[meId]||"";const R=mailRecipients(r);
+function mailText(df,extra,photos){const r=df.ref,d=S.data.doors[r]||{};const me=S.names[meId]||"";const R=mailRecipients(r,df);
   const L=[R.greet?`Hi ${R.greet},`:`Hello,`,``,`Please see the defect identified below. Can you review and confirm the proposed remedial action.`,``,
   `Door: ${r}${d.desc?" – "+d.desc:""}`,`Location: ${doorLoc(r)||"–"}`,`Drawings: ${doorDwgs(r).join("; ")||"–"}`,`Supplier: ${d.supplier||"–"}`,``,
-  `Defect: ${df.title}`,`Category: ${catTxt(df.cat)||"–"}`,`Severity: ${df.sev||"Medium"}`];
+  `Defect: ${df.title}`,`Category: ${catTxt(df.cat)||"–"}`,`Severity: ${df.sev||"Medium"}`,`Responsible: ${partyTxt(df)}`,`Close out by: ${new Date(dueT(df)).toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}`];
   if(df.detail)L.push(`Details: ${df.detail}`);(df.notes||[]).forEach(n=>L.push(`Note (${new Date(n.at).toLocaleDateString("en-GB")}): ${n.t}`));
   L.push(`Raised: ${name(df.by)}, ${new Date(df.at).toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}`);
   if(extra)L.push("",extra);
@@ -1221,7 +1402,7 @@ async function openMail(df){const lb=$("#lightbox");lb.hidden=false;lb.innerHTML
   const subj=`SCEC EfW – Door ${df.ref} – Defect: ${df.title}`;
   const box=$("#mail");if(!box)return;
   box.innerHTML=`<div class="form" style="background:none;border:0;padding:0">
-   <div class="row"><label>To${mailRecipients(df.ref).label?` <span class="muted" style="font-weight:400">(${esc(mailRecipients(df.ref).label)})</span>`:""}<input type="text" id="ml-to" placeholder="name@company.com" value="${esc(mailRecipients(df.ref).to.join(", ")||UI.lastMailTo||"")}"></label><label>Cc<input type="text" id="ml-cc" placeholder="optional" value="${esc(mailRecipients(df.ref).cc.join(", "))}"></label></div>
+   <div class="row"><label>To${mailRecipients(df.ref,df).label?` <span class="muted" style="font-weight:400">(${esc(mailRecipients(df.ref,df).label)})</span>`:""}<input type="text" id="ml-to" placeholder="name@company.com" value="${esc(mailRecipients(df.ref,df).to.join(", ")||UI.lastMailTo||"")}"></label><label>Cc<input type="text" id="ml-cc" placeholder="optional" value="${esc(mailRecipients(df.ref,df).cc.join(", "))}"></label></div>
    <label>Subject<input type="text" id="ml-subj" value="${esc(subj)}"></label>
    <label>Additional message (optional)<input type="text" id="ml-extra" placeholder="e.g. Please attend site on Tuesday to rectify"></label>
    ${all.length||doorPh.length?`<b style="font-size:13px">Photos to include</b><div class="photos" style="grid-template-columns:repeat(auto-fill,minmax(110px,1fr))">${all.concat(doorPh).map(p=>`<div class="ph" style="position:relative"><img alt="" src="${esc(photoSrc(p))}"><span><label style="display:inline"><input type="checkbox" data-mph="${p.id}" ${all.some(a=>a.id===p.id)?"checked":""}> ${esc(p.cap||"")}</label></span><button type="button" class="btn sm" data-mcopy="${esc(photoSrc(p))}" style="position:absolute;top:4px;right:4px;padding:2px 6px">📋 Copy</button></div>`).join("")}</div>`:'<span class="muted" style="font-size:12px">No photos on this defect.</span>'}
@@ -1235,7 +1416,7 @@ async function openMail(df){const lb=$("#lightbox");lb.hidden=false;lb.innerHTML
   $("#ml-extra").oninput=refresh;box.querySelectorAll("[data-mph],[data-mdw]").forEach(c=>c.onchange=refresh);
   const files=async()=>{const ph=await Promise.all(sel().map(async(p,i)=>{const b=await (await fetch(photoSrc(p))).blob();return new File([b],`${df.ref}-defect-${i+1}.jpg`,{type:b.type||"image/jpeg"})}));
     const dw=await Promise.all(dsel().map(async f=>{const b=await (await fetch(f.url)).blob();return new File([b],f.name,{type:b.type||"image/png"})}));return ph.concat(dw)};
-  const log=async to=>{if(!mailRecipients(df.ref).to.length)UI.lastMailTo=$("#ml-to").value.trim();if(!canWrite)return;const cur=S.defects.get(df.id)||df;try{await put("defects",df.id,{...strip(cur),sent:[...(cur.sent||[]),{to:to||"",by:meId,at:Date.now()}]})}catch(e){}};
+  const log=async to=>{if(!mailRecipients(df.ref,df).to.length)UI.lastMailTo=$("#ml-to").value.trim();if(!canWrite)return;const cur=S.defects.get(df.id)||df;try{await put("defects",df.id,{...strip(cur),sent:[...(cur.sent||[]),{to:to||"",by:meId,at:Date.now()}]})}catch(e){}};
   box.querySelectorAll("[data-mcopy]").forEach(b=>b.onclick=async e=>{e.preventDefault();e.stopPropagation();
     try{if(!navigator.clipboard||!window.ClipboardItem)throw new Error("not supported");
       const png=new Promise(async(res,rej)=>{try{const blob=await (await fetch(b.dataset.mcopy)).blob();const img=await createImageBitmap(blob);const c=document.createElement("canvas");c.width=img.width;c.height=img.height;c.getContext("2d").drawImage(img,0,0);c.toBlob(res,"image/png")}catch(err){rej(err)}});
@@ -1259,7 +1440,7 @@ function rpGroupKey(r,d,g){if(g==="supplier")return d.supplier||"Unknown supplie
 function rpRows(){return Object.entries(S.data.doors).filter(([r,d])=>supOk(d)).map(([r,d])=>{const st=S.doors.get(r)||{};const s=stageOf(r);const is=UI.sec==="doors"?ironStatus(r,d,st):{total:0,missing:[]};
   const od=[...S.defects.values()].filter(x=>x.ref===r&&x.status!=="Closed");const fr=UI.sec==="doors"&&isFR(d);
   return {r,d,s,st,ironN:is.total-is.missing.length,ironT:is.total,od,fr,fseal:fr?FSEAL.length-fsealMissing(r,d).length:null,fdocs:fr?fireDocs(r).length:null,jamb:UI.sec==="doors"?jambOpen(r,d).map(x=>x[1]):[]}})}
-function renderReports(){const seg=UI.rpSeg||"comp",g=$("#rp-group").value,rows=rpRows();const supT=UI.sup?` · ${UI.sup}`:"";
+function renderReports(){const seg=UI.rpSeg||"comp",g=$("#rp-group").value;$("#rp-wk").hidden=seg!=="week";$("#rp-group").hidden=seg==="week";if(seg==="week"){renderWeekly();return}const rows=rpRows();const supT=UI.sup?` · ${UI.sup}`:"";
   const head=`<div class="rp-title"><b>${esc(S.data.project||"SCEC")} – ${seg==="comp"?"installation completion status":"open defects"}${esc(supT)}</b><span class="muted">${UI.sec==="doors"?"Doors":"COLT louvres"} · ${new Date().toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}</span></div>`;
   if(seg==="comp"){
     const groups={};rows.forEach(x=>{const k=rpGroupKey(x.r,x.d,g);(groups[k]=groups[k]||[]).push(x)});
@@ -1275,15 +1456,44 @@ function renderReports(){const seg=UI.rpSeg||"comp",g=$("#rp-group").value,rows=
     const list=rows.flatMap(x=>x.od.map(df=>({x,df}))).sort((a,b)=>({High:0,Medium:1,Low:2}[a.df.sev]??1)-({High:0,Medium:1,Low:2}[b.df.sev]??1)||(a.df.at||0)-(b.df.at||0));
     list.forEach(({df})=>want(df.by));const age=t=>Math.floor((Date.now()-t)/864e5);
     const bySev=k=>list.filter(y=>(y.df.sev||"Medium")===k).length;
-    $("#rp-body").innerHTML=head+`<div class="kpis" style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">${[["Open defects",list.length],["High",bySev("High")],["Medium",bySev("Medium")],["Low",bySev("Low")],["Doors affected",new Set(list.map(y=>y.x.r)).size],["Older than 14 days",list.filter(y=>age(y.df.at)>14).length]].map(([k,v])=>`<div class="kpi"><b>${v}</b><span>${k}</span></div>`).join("")}</div>
-    ${list.length?`<div class="tbl-wrap"><table class="rp"><thead><tr><th>Ref</th><th>Location / drawing</th><th>Defect</th><th>Severity</th><th>Raised</th><th>Age</th><th>Notes / sent</th></tr></thead><tbody>${list.map(({x,df})=>`<tr data-ref="${esc(x.r)}"><td class="ref">${esc(x.r)}</td><td>${esc(doorLoc(x.r))}<br><span class="muted" style="font-size:11px">${esc(doorDwgs(x.r).slice(0,2).join("; "))}</span></td><td><b>${esc(df.title)}</b><br><span class="muted" style="font-size:12px">${esc(catTxt(df.cat))}${df.detail?" – "+esc(df.detail):""}</span>${(df.notes||[]).length?`<br><span style="font-size:12px">Latest note: ${esc(df.notes[df.notes.length-1].t)}</span>`:""}</td><td><span class="pill ${df.sev==="High"?"red":df.sev==="Low"?"":"blue"}">${esc(df.sev||"Medium")}</span></td><td class="muted" style="font-size:12px">${esc(name(df.by))}<br>${fmt(df.at)}</td><td class="mono">${age(df.at)}d</td><td style="font-size:12px">${(df.notes||[]).length?(df.notes.length+" note"+(df.notes.length>1?"s":"")):""}${(df.sent||[]).length?`<br>✉ ${esc(df.sent[df.sent.length-1].to||"shared")} ${fmt(df.sent[df.sent.length-1].at)}`:""}</td></tr>`).join("")}</tbody></table></div>`:'<div class="empty">No open defects.</div>'}`;
+    $("#rp-body").innerHTML=head+`<div class="kpis" style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">${[["Open defects",list.length],["High",bySev("High")],["Medium",bySev("Medium")],["Low",bySev("Low")],["Doors affected",new Set(list.map(y=>y.x.r)).size],["Older than 14 days",list.filter(y=>age(y.df.at)>14).length],["Past close-out date",list.filter(y=>isOverdue(y.df)).length]].map(([k,v])=>`<div class="kpi"><b>${v}</b><span>${k}</span></div>`).join("")}</div>
+    ${list.length?`<div class="tbl-wrap"><table class="rp"><thead><tr><th>Ref</th><th>Location / drawing</th><th>Defect</th><th>Severity</th><th>Raised</th><th>Age</th><th>Notes / sent</th></tr></thead><tbody>${list.map(({x,df})=>`<tr data-ref="${esc(x.r)}"><td class="ref">${esc(x.r)}</td><td>${esc(doorLoc(x.r))}<br><span class="muted" style="font-size:11px">${esc(doorDwgs(x.r).slice(0,2).join("; "))}</span></td><td><b>${esc(df.title)}</b><br><span class="muted" style="font-size:12px">${esc(catTxt(df.cat))}${df.detail?" – "+esc(df.detail):""}</span><br><span style="font-size:12px">Responsible: <b>${esc(partyTxt(df))}</b> · close out by ${dShort(dueT(df))}${isOverdue(df)?' <span class="pill od">overdue</span>':""}</span>${(df.notes||[]).length?`<br><span style="font-size:12px">Latest note: ${esc(df.notes[df.notes.length-1].t)}</span>`:""}</td><td><span class="pill ${df.sev==="High"?"red":df.sev==="Low"?"":"blue"}">${esc(df.sev||"Medium")}</span></td><td class="muted" style="font-size:12px">${esc(name(df.by))}<br>${fmt(df.at)}</td><td class="mono">${age(df.at)}d</td><td style="font-size:12px">${(df.notes||[]).length?(df.notes.length+" note"+(df.notes.length>1?"s":"")):""}${(df.sent||[]).length?`<br>✉ ${esc(df.sent[df.sent.length-1].to||"shared")} ${fmt(df.sent[df.sent.length-1].at)}`:""}</td></tr>`).join("")}</tbody></table></div>`:'<div class="empty">No open defects.</div>'}`;
   }}
-async function exportReport(){const seg=UI.rpSeg||"comp",rows=rpRows();const q=v=>{v=v==null?"":String(v);return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};let lines;
+function weeklyData(w0){const w1=addDays(w0,7),inW=t=>t>=w0&&t<w1,D=S.data.doors;
+  const refs=vis().filter(r=>!outScope(D[r])&&!D[r].unscheduled);
+  const inst=refs.filter(r=>stageOf(r)>=2),instWk=refs.filter(r=>{const t=instAt(r);return t&&inW(t)}),done=refs.filter(r=>STAGES[stageOf(r)].done);
+  const defs=[...S.defects.values()].filter(d=>inSec(d.ref)&&supOk(D[d.ref]||{})&&d.at<w1);
+  const raised=defs.filter(d=>inW(d.at)).sort((a,b)=>a.at-b.at),closedWk=defs.filter(d=>d.status==="Closed"&&d.closedAt&&inW(d.closedAt));
+  const wkActs=d=>defActs(d).filter(a=>inW(a.at)&&a.t!=="Raised");
+  const upd=defs.filter(d=>d.at<w0&&wkActs(d).length).sort((a,b)=>(a.status==="Closed")-(b.status==="Closed")||dueT(a)-dueT(b));
+  const open=defs.filter(d=>d.status!=="Closed"),over=open.filter(isOverdue);
+  const stale=open.filter(d=>d.at<w0&&!upd.includes(d)).sort((a,b)=>dueT(a)-dueT(b));
+  const parties={};for(const d of defs){const k=partyTxt(d);const p=parties[k]=parties[k]||{open:0,over:0,raised:0,closed:0};if(d.status!=="Closed")p.open++;if(isOverdue(d))p.over++;if(inW(d.at))p.raised++;if(d.status==="Closed"&&d.closedAt&&inW(d.closedAt))p.closed++}
+  return {w0,w1,inW,refs,inst,instWk,done,defs,raised,closedWk,upd,open,over,stale,parties,wkActs}}
+function rpWeekOpts(){const sel=$("#rp-wk"),m0=monOf(Date.now());if(UI.rpWeek==null)UI.rpWeek=m0;const o=[];for(let i=0;i<12;i++){const t=addDays(m0,-7*i);o.push(`<option value="${t}"${t===UI.rpWeek?" selected":""}>${i===0?"This week":i===1?"Last week":"Week"} – w/c ${new Date(t).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</option>`)}const h=o.join("");if(sel.__h!==h){sel.innerHTML=h;sel.__h=h}sel.value=String(UI.rpWeek)}
+function renderWeekly(){rpWeekOpts();const W=weeklyData(UI.rpWeek),sec=SEC[UI.sec],today=dayStart(Date.now());const thisWk=W.w0===monOf(Date.now());
+  const dt=t=>new Date(t).toLocaleDateString("en-GB",{day:"numeric",month:"short"});
+  const stat=(k,v,cls)=>`<div class="kpi ${cls||""}"><b>${v}</b><span>${k}</span></div>`;
+  const loc=r=>`${esc(doorLoc(r))}<br><span class="muted" style="font-size:11px">${esc((S.data.doors[r]||{}).supplier||"")}</span>`;
+  const defCell=df=>`<b>${esc(df.title)}</b><br><span class="muted" style="font-size:12px">${esc(catTxt(df.cat))}${df.detail?" – "+esc(df.detail):""}</span>`;
+  const stCell=df=>df.status==="Closed"?`<span class="pill green">Closed ${dt(df.closedAt)}</span>`:`${esc(df.sev||"Medium")}<br>${isOverdue(df)?'<span class="pill od">Overdue</span>':"Open"}`;
+  [...W.raised,...W.upd,...W.stale].forEach(d=>want(d.by));
+  const head=`<div class="rp-title"><b>${esc(S.data.project||"SCEC")} – weekly defect report${UI.sup?" · "+esc(UI.sup):""}</b><span class="muted">${sec.many[0].toUpperCase()+sec.many.slice(1)} · week commencing ${new Date(W.w0).toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"})} (${dt(W.w0)} – ${dt(addDays(W.w1,-1))})${thisWk?" · week to date":""} · generated ${new Date().toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</span></div>`;
+  const pk=Object.keys(W.parties).sort((a,b)=>W.parties[b].open-W.parties[a].open||a.localeCompare(b));
+  $("#rp-body").innerHTML=head+`<div class="kpis" style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">${stat(sec.many[0].toUpperCase()+sec.many.slice(1)+" installed",`${W.inst.length} / ${W.refs.length}`)}${stat("Installed this week",W.instWk.length)}${stat("Complete / inspected",W.done.length)}${stat("Defects raised this week",W.raised.length)}${stat("Defects closed this week",W.closedWk.length)}${stat("Open defects (now)",W.open.length)}${stat("Past close-out date",W.over.length,W.over.length?"alert":"")}</div>
+  ${pk.length?`<h4 class="rp-h">By responsible party</h4><div class="tbl-wrap"><table class="rp"><thead><tr><th>Responsible</th><th>Open</th><th>Overdue</th><th>Raised this week</th><th>Closed this week</th></tr></thead><tbody>${pk.map(k=>{const p=W.parties[k];return `<tr><td>${esc(k)}</td><td class="mono">${p.open||"·"}</td><td class="mono">${p.over?`<b style="color:var(--danger)">${p.over}</b>`:"·"}</td><td class="mono">${p.raised||"·"}</td><td class="mono">${p.closed||"·"}</td></tr>`}).join("")}</tbody></table></div>`:""}
+  <h4 class="rp-h">New defects raised this week (${W.raised.length})</h4>${W.raised.length?`<div class="tbl-wrap"><table class="rp"><thead><tr><th>Ref</th><th>Location</th><th>Defect</th><th>Responsible</th><th>Raised</th><th>Close out by</th><th>Status</th></tr></thead><tbody>${W.raised.map(df=>`<tr data-ref="${esc(df.ref)}"><td class="ref">${esc(df.ref)}</td><td>${loc(df.ref)}</td><td>${defCell(df)}</td><td>${esc(partyTxt(df))}</td><td style="white-space:nowrap">${dt(df.at)}<br><span class="muted" style="font-size:11px">${esc(name(df.by))}</span></td><td style="white-space:nowrap">${dt(dueT(df))}</td><td>${stCell(df)}</td></tr>`).join("")}</tbody></table></div>`:`<p class="muted">No new defects this week.</p>`}
+  <h4 class="rp-h">Updates to earlier defects (${W.upd.length})</h4>${W.upd.length?`<div class="tbl-wrap"><table class="rp"><thead><tr><th>Ref</th><th>Defect</th><th>Responsible</th><th>Raised</th><th>This week</th><th>Status</th></tr></thead><tbody>${W.upd.map(df=>`<tr data-ref="${esc(df.ref)}"><td class="ref">${esc(df.ref)}</td><td>${defCell(df)}</td><td>${esc(partyTxt(df))}</td><td style="white-space:nowrap">${dt(df.at)}</td><td style="font-size:12px">${W.wkActs(df).map(a=>{want(a.by);return `${dt(a.at)} – ${esc(a.t)} <span class="muted">(${esc(name(a.by))})</span>`}).join("<br>")}</td><td>${stCell(df)}${df.status!=="Closed"?`<br><span style="font-size:11px">due ${dt(dueT(df))}</span>`:""}</td></tr>`).join("")}</tbody></table></div>`:`<p class="muted">No updates to earlier defects this week.</p>`}
+  <h4 class="rp-h">Other open defects – no update this week (${W.stale.length})</h4>${W.stale.length?`<div class="tbl-wrap"><table class="rp"><thead><tr><th>Ref</th><th>Defect</th><th>Responsible</th><th>Raised</th><th>Close out by</th><th>Age</th></tr></thead><tbody>${W.stale.map(df=>`<tr data-ref="${esc(df.ref)}"><td class="ref">${esc(df.ref)}</td><td>${defCell(df)}</td><td>${esc(partyTxt(df))}</td><td style="white-space:nowrap">${dt(df.at)}</td><td style="white-space:nowrap">${dt(dueT(df))}${isOverdue(df)?' <span class="pill od">overdue</span>':""}</td><td class="mono">${Math.floor((today-dayStart(df.at))/DAY)}d</td></tr>`).join("")}</tbody></table></div>`:`<p class="muted">None.</p>`}`}
+async function exportReport(){const seg=UI.rpSeg||"comp",rows=seg==="week"?[]:rpRows();const q=v=>{v=v==null?"":String(v);return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};let lines;
   if(seg==="comp"){lines=[["Ref","Level","Location","Supplier","Fire rating","Delivery","Delivered","Stage","Updated by","Updated","Checklist ticked","Checklist items","Fire seal ticked","Fire docs","Jamb issues","Open defects","Drawings"].join(",")];
     rows.sort((a,b)=>lvlSort(lvlName(a.d))-lvlSort(lvlName(b.d))||a.r.localeCompare(b.r)).forEach(x=>lines.push([x.r,lvlName(x.d),doorLoc(x.r),x.d.supplier,x.d.fire,x.d.delivery?[x.d.delivery.date?`Delivery ${x.d.delivery.batch||""} ${x.d.delivery.wc?"w/c ":""}${x.d.delivery.date}`.replace(/\s+/g," "):"",x.d.delivery.install?`Install ${x.d.delivery.wc?"w/c ":""}${x.d.delivery.install}`:"",!x.d.delivery.date&&x.d.delivery.note?x.d.delivery.note:""].filter(Boolean).join("; "):"",x.st.delivered?"Yes":"",STAGES[x.s].k,x.st.by?name(x.st.by):"",x.st.at?new Date(x.st.at).toLocaleString("en-GB"):"",x.ironN,x.ironT,x.fr?(x.fseal?"Yes":"No"):"",x.fr?x.fdocs:"",x.jamb.join("; "),x.od.length,doorDwgs(x.r).join("; ")].map(q).join(",")))}
-  else{lines=[["Ref","Level","Location","Drawings","Defect","Category","Severity","Details","Notes","Raised by","Raised","Age (days)","Last sent to","Last sent"].join(",")];
-    rows.forEach(x=>x.od.forEach(df=>{const ls=(df.sent||[]).slice(-1)[0];lines.push([x.r,lvlName(x.d),doorLoc(x.r),doorDwgs(x.r).join("; "),df.title,df.cat,df.sev,df.detail,(df.notes||[]).map(n=>new Date(n.at).toLocaleDateString("en-GB")+": "+n.t).join(" | "),name(df.by),new Date(df.at).toLocaleString("en-GB"),Math.floor((Date.now()-df.at)/864e5),ls?ls.to:"",ls?new Date(ls.at).toLocaleString("en-GB"):""].map(q).join(","))}))}
-  const data=lines.join("\n"),fn=`SCEC-${seg==="comp"?"completion":"open-defects"}-${new Date().toISOString().slice(0,10)}.csv`;
+  else if(seg==="week"){const W=weeklyData(UI.rpWeek??monOf(Date.now()));lines=[`Weekly defect report – w/c ${new Date(W.w0).toLocaleDateString("en-GB")}`,`Installed,${W.inst.length} of ${W.refs.length}`,`Installed this week,${W.instWk.length}`,`Complete / inspected,${W.done.length}`,`Defects raised this week,${W.raised.length}`,`Defects closed this week,${W.closedWk.length}`,`Open defects,${W.open.length}`,`Past close-out date,${W.over.length}`,"",["Section","Ref","Location","Defect","Category","Severity","Responsible","Raised","Close out by","Status","This week's updates"].join(",")];
+    const row=(sx,df)=>lines.push([sx,df.ref,doorLoc(df.ref),df.title,catTxt(df.cat),df.sev,partyTxt(df),new Date(df.at).toLocaleDateString("en-GB"),new Date(dueT(df)).toLocaleDateString("en-GB"),df.status==="Closed"?"Closed":isOverdue(df)?"Overdue":"Open",W.wkActs(df).map(a=>new Date(a.at).toLocaleDateString("en-GB")+": "+a.t).join(" | ")].map(q).join(","));
+    W.raised.forEach(d=>row("New this week",d));W.upd.forEach(d=>row("Updated this week",d));W.stale.forEach(d=>row("Open – no update",d))}
+  else{lines=[["Ref","Level","Location","Drawings","Defect","Category","Severity","Details","Notes","Raised by","Raised","Age (days)","Last sent to","Last sent","Responsible","Close out by","Overdue"].join(",")];
+    rows.forEach(x=>x.od.forEach(df=>{const ls=(df.sent||[]).slice(-1)[0];lines.push([x.r,lvlName(x.d),doorLoc(x.r),doorDwgs(x.r).join("; "),df.title,df.cat,df.sev,df.detail,(df.notes||[]).map(n=>new Date(n.at).toLocaleDateString("en-GB")+": "+n.t).join(" | "),name(df.by),new Date(df.at).toLocaleString("en-GB"),Math.floor((Date.now()-df.at)/864e5),ls?ls.to:"",ls?new Date(ls.at).toLocaleString("en-GB"):"",partyTxt(df),new Date(dueT(df)).toLocaleDateString("en-GB"),isOverdue(df)?"Yes":""].map(q).join(","))}))}
+  const data=lines.join("\n"),fn=`SCEC-${seg==="comp"?"completion":seg==="week"?"weekly-defects":"open-defects"}-${new Date().toISOString().slice(0,10)}.csv`;
   if(downloads){try{await downloads.save({filename:fn,data})}catch(e){if(e&&e.code!=="declined"&&e.code!=="cancelled")toast("Export didn't complete: "+(e.code||e.message))}}
   else{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type:"text/csv"}));a.download=fn;a.click()}}
 
