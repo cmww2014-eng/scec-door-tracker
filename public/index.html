@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials"><meta name="theme-color" content="#1F5FA8"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Door Tracker"><meta name="apple-mobile-web-app-status-bar-style" content="default"><link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"><link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png"><script src="cf-shim.js"></script></head><body>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials"><meta name="theme-color" content="#D9732B"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Door Tracker"><meta name="apple-mobile-web-app-status-bar-style" content="default"><link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"><link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png"><script src="cf-shim.js"></script></head><body>
 <title>SCEC Door Tracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
@@ -40,6 +40,7 @@ button{cursor:pointer}
 .muted{color:var(--muted)}
 /* top bar */
 .top{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--line)}
+.brand-logo{flex:none;border-radius:8px;margin-right:-6px}@media (max-width:620px){.brand-logo{width:28px;height:28px}}
 .brand{display:flex;flex-direction:column;line-height:1.05;min-width:0}
 .brand b{font:700 21px/1 var(--f-display);letter-spacing:.01em;text-transform:uppercase}
 .brand span{font-size:12px;color:var(--muted)}
@@ -336,7 +337,7 @@ body.site .pill{font-size:13px}
 </style>
 
 <header class="top">
-  <div class="brand"><b id="brand-t">Door Tracker</b><span>South Clyde Energy Centre · Fortum Glasgow</span></div>
+  <img class="brand-logo" src="icons/icon.svg" alt="" width="34" height="34"><div class="brand"><b id="brand-t">Door Tracker</b><span>South Clyde Energy Centre · Fortum Glasgow</span></div>
   <div class="section-sw" id="section-sw" role="group" aria-label="Package"><button data-sec="doors" aria-pressed="true">Doors</button><button data-sec="louvres" aria-pressed="false"><span class="hide-ph">COLT </span>louvres</button></div>
   <div class="prog" id="prog"></div>
   <div class="kpis" id="kpis"></div>
