@@ -1,0 +1,22 @@
+{
+  "name": "SCEC Door Tracker",
+  "short_name": "Door Tracker",
+  "description": "Door and louvre installation tracker – South Clyde Energy Centre",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#EEF1F0",
+  "theme_color": "#1F5FA8",
+  "icons": [
+    {"src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ],
+  "shortcuts": [
+    {"name": "This week", "url": "/?v=week", "icons": [{"src": "/icons/icon-192.png", "sizes": "192x192"}]},
+    {"name": "Defects", "url": "/?v=defects", "icons": [{"src": "/icons/icon-192.png", "sizes": "192x192"}]},
+    {"name": "Plans", "url": "/?v=plans", "icons": [{"src": "/icons/icon-192.png", "sizes": "192x192"}]}
+  ]
+}

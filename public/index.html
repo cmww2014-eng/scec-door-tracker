@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="icon" href="data:,"><script src="cf-shim.js"></script></head><body>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials"><meta name="theme-color" content="#1F5FA8"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Door Tracker"><meta name="apple-mobile-web-app-status-bar-style" content="default"><link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"><link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png"><script src="cf-shim.js"></script></head><body>
 <title>SCEC Door Tracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
@@ -258,6 +258,41 @@ details.coll{border:1px solid var(--line);border-radius:var(--r);padding:8px 12p
 .th-v.hi{color:var(--warn);font-weight:700}.th-v.lo{color:var(--accent);font-weight:700}
 .pill.batch{background:#5B3FA0;color:#fff}
 .lvls{display:none!important}
+.bnav,.msheet,.msheet-scrim{display:none}
+@media (max-width:620px){
+  body{padding-bottom:0}
+  .top{flex-wrap:nowrap;padding:calc(8px + env(safe-area-inset-top,0px)) 12px 8px}
+  .brand span,.top .prog,.top .kpis,#site-btn,.top .who{display:none!important}
+  .hide-ph{display:none}.brand b{font-size:17px;white-space:nowrap}.section-sw button{white-space:nowrap}
+  #v-doors .filters #f-dwg,#v-doors .filters #f-cons,#v-doors .filters #f-fire,#v-doors .filters #f-ms,#v-doors .filters #f-diff{display:none}
+  #v-doors .filters.open #f-dwg,#v-doors .filters.open #f-cons,#v-doors .filters.open #f-fire,#v-doors .filters.open #f-ms,#v-doors .filters.open #f-diff{display:revert}
+  #flt-tog{display:inline-flex!important}#q{flex:1 1 100%}
+  .top .section-sw{margin-left:auto}.section-sw button{padding:6px 10px;font-size:13px}
+  nav.tabs{display:none}
+  .supbar{padding:6px 12px}
+  main{padding-bottom:calc(62px + env(safe-area-inset-bottom,0px))}
+  .bnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:15;background:var(--surface);border-top:1px solid var(--line);padding:4px 4px calc(4px + env(safe-area-inset-bottom,0px));box-shadow:0 -4px 16px rgba(0,0,0,.06)}
+  .bnav button{flex:1;position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:none;color:var(--muted);font:600 11px var(--f-body);padding:6px 0 4px;min-height:52px;border-radius:10px}
+  .bnav button[aria-current="true"]{color:var(--accent)}.bnav button[aria-current="true"] svg{stroke-width:2.4}
+  .bnav .bdg{position:absolute;top:3px;left:calc(50% + 6px);min-width:17px;height:17px;padding:0 4px;box-sizing:border-box;border-radius:9px;background:var(--danger);color:#fff;font:600 10px/17px var(--f-mono);font-style:normal;text-align:center}
+  .msheet-scrim{display:block;position:fixed;inset:0;background:rgba(10,18,15,.4);z-index:16}
+  .msheet{display:flex;flex-direction:column;position:fixed;left:0;right:0;bottom:0;z-index:17;background:var(--surface);border-radius:16px 16px 0 0;padding:8px 12px calc(76px + env(safe-area-inset-bottom,0px));box-shadow:var(--shadow);max-height:80vh;overflow:auto}
+  .msheet[hidden],.msheet-scrim[hidden]{display:none!important}
+  .msheet .grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:4px auto 10px}
+  .msheet .mi{display:flex;align-items:center;gap:12px;border:0;background:none;text-align:left;padding:13px 8px;font:500 16px var(--f-body);color:var(--ink);border-bottom:1px solid var(--line);min-height:50px}
+  .msheet .mi:last-child{border-bottom:0}.msheet .mi .n{margin-left:auto;font:500 13px var(--f-mono);color:var(--muted)}.msheet .mi .n.hot{color:var(--danger);font-weight:700}
+  .msheet .who-row{display:flex;align-items:center;gap:10px;padding:6px 8px 12px;font-size:13px;color:var(--muted)}.msheet .who-row img{width:30px;height:30px;border-radius:50%}
+  .vtools{padding:6px 10px;gap:6px}
+  .dwg-select{min-width:0;flex:1 1 45%}
+  #door-tbl.t-doors th:nth-child(n+3):nth-child(-n+7),#door-tbl.t-doors td:nth-child(n+3):nth-child(-n+7){display:none}
+  #door-tbl.t-louvres th:nth-child(n+3):nth-child(-n+5),#door-tbl.t-louvres td:nth-child(n+3):nth-child(-n+5){display:none}
+  .panel-page{padding:10px 12px!important}
+  .filters{gap:6px}
+  .drawer{z-index:21}
+  .toast{bottom:calc(74px + env(safe-area-inset-bottom,0px))}
+  .zoom{bottom:14px}.dwg-meta{display:none}
+}
+@media (display-mode:standalone){.install-row{display:none!important}}
 @media (max-width:620px){.prog-legend{display:none}.top{gap:8px;padding:8px 12px}.kpi span{font-size:9.5px}.supbar{flex-wrap:nowrap!important;overflow-x:auto}.supbar button{flex:none}.vtools .chips{flex-wrap:nowrap;overflow-x:auto;flex:1 1 100%;order:3}.vtools .chip{flex:none}#find{flex:1;width:auto!important;min-width:0}.vtools .spacer{display:none}}
 details.dwg-sheets>summary{list-style:none;cursor:pointer}details.dwg-sheets>summary::-webkit-details-marker{display:none}details.dwg-sheets>summary h3::before{content:"▸ "}details.dwg-sheets[open]>summary h3::before{content:"▾ "}
 .wk{display:flex;flex-direction:column;gap:14px;max-width:1100px}.wk-sec h4{margin:0 0 6px;font:600 12px var(--f-body);text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
@@ -302,7 +337,7 @@ body.site .pill{font-size:13px}
 
 <header class="top">
   <div class="brand"><b id="brand-t">Door Tracker</b><span>South Clyde Energy Centre · Fortum Glasgow</span></div>
-  <div class="section-sw" id="section-sw" role="group" aria-label="Package"><button data-sec="doors" aria-pressed="true">Doors</button><button data-sec="louvres" aria-pressed="false">COLT louvres</button></div>
+  <div class="section-sw" id="section-sw" role="group" aria-label="Package"><button data-sec="doors" aria-pressed="true">Doors</button><button data-sec="louvres" aria-pressed="false"><span class="hide-ph">COLT </span>louvres</button></div>
   <div class="prog" id="prog"></div>
   <div class="kpis" id="kpis"></div>
   <button class="btn sm" id="site-btn" aria-pressed="false" title="High-contrast colours and bigger buttons for use on site">☀ Site mode</button>
@@ -348,10 +383,10 @@ body.site .pill{font-size:13px}
       <select id="f-cons" aria-label="Construction"><option value="">All construction</option></select>
       <details class="ms" id="f-fire"><summary id="f-fire-s">All fire ratings</summary><div class="menu" id="f-fire-m"></div></details>
       <select id="f-ms" aria-label="Commissioning milestone"><option value="">Any milestone</option></select><select id="f-diff" aria-label="Design check"><option value="">Any design check</option><option value="open">Open conflicts</option><option value="rev">Supplier to revise</option><option value="rfi">RFI open</option><option value="diff">Any conflict (incl. resolved)</option><option value="ok">Matches supplier design</option><option value="issue">Open site issues</option><option value="concern">Stud fixing concern</option><option value="prep">Threshold / jamb prep notes</option><option value="swsoft">Swings away from vinyl / carpet</option><option value="swunk">Swing not determined</option><option value="levelq">Level to confirm</option><option value="prelim">Prelim design (not approved)</option><option value="approved">Design approved for construction</option></select>
-      <button class="btn" id="export" hidden>Export CSV</button><button class="btn" id="status-x" hidden>Status sheet (.xlsx)</button>
+      <button class="btn" id="flt-tog" style="display:none">More filters</button><button class="btn" id="export" hidden>Export CSV</button><button class="btn" id="status-x" hidden>Status sheet (.xlsx)</button>
     </div>
     <div class="muted" id="door-count" style="font-size:12px"></div>
-    <div class="tbl-wrap"><table><thead id="door-head"></thead><tbody id="door-rows"></tbody></table></div>
+    <div class="tbl-wrap"><table id="door-tbl"><thead id="door-head"></thead><tbody id="door-rows"></tbody></table></div>
   </section>
   <section class="view panel-page" id="v-defects" hidden>
     <div class="filters">
@@ -388,6 +423,15 @@ body.site .pill{font-size:13px}
     <div id="th-list"></div>
   </section>
 </main>
+<nav class="bnav" id="bnav" aria-label="Sections">
+  <button data-bv="plans"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15M15 6v15"/></svg><span>Plans</span></button>
+  <button data-bv="week"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/><path d="M8 15l2.5 2.5L16 13"/></svg><span>This week</span><i class="bdg" id="b-wk" hidden></i></button>
+  <button data-bv="doors"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg><span id="b-sched">Schedule</span></button>
+  <button data-bv="defects"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5h.01"/></svg><span>Defects</span><i class="bdg" id="b-def" hidden></i></button>
+  <button data-bv="more" aria-haspopup="dialog"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg><span>More</span></button>
+</nav>
+<div class="msheet-scrim" id="msheet-scrim" hidden></div>
+<div class="msheet" id="msheet" role="dialog" aria-label="More" hidden></div>
 <div class="scrim" id="scrim" hidden></div>
 <aside class="drawer" id="drawer" hidden aria-label="Door record"></aside>
 <div class="lightbox" id="lightbox" hidden></div>
@@ -474,6 +518,7 @@ async function boot(){
   bindStatic();
   try{const r=await fetch("data.json");S.RAW=await r.json();msFill();for(const d of [...Object.values(S.RAW.doors||{}),...Object.values(S.RAW.louvres||{})])(d.diffs||[]).forEach(x=>x._b={res:x.res||"",agreed:x.agreed||"",comment:x.comment||""})}catch(e){$("#dwg-list").innerHTML='<p class="muted" style="padding:0 16px">Drawing data could not be loaded. Reload the page.</p>';return}
   applySection("doors");
+  {const v=new URLSearchParams(location.search).get("v");if(["week","defects","doors","requests","reports","thresh"].includes(v))setView(v);else bnavSync()}
   const use=n=>window.claude&&window.claude.use?Promise.resolve(window.claude.use(n)).catch(()=>null):Promise.resolve(null);
   [db,userCap,assets,downloads]=await Promise.all([use("db"),use("user"),use("assets"),use("downloads")]);
   if(downloads){$("#export").hidden=false;$("#status-x").hidden=UI.sec!=="doors"}
@@ -500,7 +545,7 @@ function applySection(sec){
   $("#find").placeholder=sec==="doors"?"Find door or room, e.g. DG04, Boiler Hall":"Find louvre ref, e.g. L17 or RV04";$("#find-list").innerHTML=sec==="doors"?[...new Set((R.rooms||[]).map(x=>x.n))].sort((a,b)=>a.localeCompare(b)).map(n=>`<option value="${esc(n)}">`).join(""):"";
   {const sx=$("#status-x");if(sx&&downloads)sx.hidden=sec!=="doors"}$("#f-ms").hidden=$("#f-diff").hidden=$("#f-cons").hidden=$("#f-fire").hidden=sec!=="doors";UI.fires.clear();
   if(UI.door)closeDoor();
-  UI.dwg=S.data.layouts[0].id;UI.show=new Set(STAGES.map((_,i)=>i));
+  UI.dwg=(window.innerWidth<=620&&S.data.layouts.find(l=>l.id==="lvG")||S.data.layouts[0]).id;UI.show=new Set(STAGES.map((_,i)=>i));
   fillFilters();renderAll();showDwg(UI.dwg,true);
 }
 function renderWho(){const w=$("#who");if(!userCap||!meId)return;const me=S.names[meId];const role=myRole();
@@ -598,12 +643,37 @@ function bindStatic(){window.addEventListener("beforeunload",e=>{if(Object.value
   $("#find").addEventListener("input",e=>{if((!e.inputType||e.inputType==="insertReplacementText")&&UI.sec==="doors"){const v=e.target.value.trim().toLowerCase();if(v&&(S.RAW.rooms||[]).some(x=>x.n.toLowerCase()===v))findGo(e.target.value)}});
   document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(!$("#lightbox").hidden)$("#lightbox").hidden=true;else if(UI.door)closeDoor()}});
   document.addEventListener("click",listClicks);
+  bindPhone();$("#flt-tog").onclick=e=>{const f=e.target.closest(".filters");f.classList.toggle("open");e.target.textContent=f.classList.contains("open")?"Fewer filters":"More filters"};
   initViewer();
+}
+/* ---------- phone: bottom bar, More sheet, install as app ---------- */
+let installEvt=null;window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installEvt=e});
+const isStandalone=()=>window.matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+function bnavSync(){const v=UI.view;document.querySelectorAll("#bnav [data-bv]").forEach(b=>b.setAttribute("aria-current",b.dataset.bv===v||(b.dataset.bv==="more"&&["requests","thresh","reports"].includes(v))?"true":"false"))}
+function moreSheet(open){const m=$("#msheet"),sc=$("#msheet-scrim");if(!open){m.hidden=sc.hidden=true;return}
+  const n=id=>{const e=$("#"+id);return e?e.textContent:""};const me=meId&&S.names[meId];const site=document.body.classList.contains("site");
+  m.innerHTML=`<div class="grab"></div>${me||S.meAvatar?`<div class="who-row">${S.meAvatar?`<img alt="" src="${esc(S.meAvatar)}">`:""}<span>${esc(me||"Signed in")} · ${esc(myRole())}</span></div>`:""}
+   <button class="mi" data-mv="requests">Requests<span class="n">${esc(n("c-req"))}</span></button>
+   ${UI.sec==="doors"?`<button class="mi" data-mv="thresh">Threshold levels<span class="n${+n("c-th")?" hot":""}">${esc(n("c-th"))}</span></button>`:""}
+   <button class="mi" data-mv="reports">Reports</button>
+   <button class="mi" data-mact="site">${site?"Turn off site mode":"Site mode – high contrast, bigger buttons"}</button>
+   ${userCap&&meId?`<button class="mi" data-mact="team">Team &amp; access</button>`:""}
+   ${isStandalone()?"":`<button class="mi install-row" data-mact="install">Install as an app on this phone</button>`}`;
+  m.hidden=sc.hidden=false}
+function installHelp(){if(installEvt){installEvt.prompt();installEvt.userChoice.finally(()=>{installEvt=null});return}
+  const ios=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);const lb=$("#lightbox");lb.hidden=false;
+  lb.innerHTML=`<div class="lb-top"><span style="flex:1">Install Door Tracker</span><button class="x" id="lb-x" aria-label="Close">×</button></div><div class="team"><ol style="margin:0;padding-left:20px;line-height:1.8;font-size:15px">${ios?`<li>Open this page in <b>Safari</b>.</li><li>Tap the <b>Share</b> button (square with an arrow).</li><li>Choose <b>Add to Home Screen</b>, then <b>Add</b>.</li>`:`<li>Open the browser menu (⋮).</li><li>Choose <b>Install app</b> or <b>Add to Home screen</b>.</li>`}<li>Open Door Tracker from the new icon. Sign in with your email code once more if asked.</li></ol><p class="muted" style="font-size:13px">It opens full screen like an app. Hold the icon for shortcuts to This week, Defects and Plans${ios?" (Android)":""}.</p></div>`;
+  $("#lb-x").onclick=()=>{lb.hidden=true;lb.innerHTML=""}}
+function bindPhone(){
+  $("#bnav").addEventListener("click",e=>{const b=e.target.closest("[data-bv]");if(!b)return;if(b.dataset.bv==="more"){moreSheet($("#msheet").hidden);return}moreSheet(false);setView(b.dataset.bv)});
+  $("#msheet-scrim").addEventListener("click",()=>moreSheet(false));
+  $("#msheet").addEventListener("click",e=>{const b=e.target.closest("[data-mv],[data-mact]");if(!b)return;moreSheet(false);if(b.dataset.mv){setView(b.dataset.mv);return}
+    const a=b.dataset.mact;if(a==="site")$("#site-btn").click();else if(a==="team")openTeam();else if(a==="install")installHelp()});
 }
 function segSet(sel,b){$(sel).querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"))}
 function setView(v){UI.view=v;$("#tabs").querySelectorAll("button").forEach(b=>b.setAttribute("aria-selected",b.dataset.v===v?"true":"false"));
   for(const id of["plans","week","doors","defects","requests","thresh","reports"])$("#v-"+id).hidden=id!==v;
-  if(v==="plans")requestAnimationFrame(()=>{if(view.needFit||!view.fitS)fit();else apply()});renderAll()}
+  if(v==="plans")requestAnimationFrame(()=>{if(view.needFit||!view.fitS)fit();else apply()});bnavSync();renderAll()}
 function fillFilters(){
   const D=S.data.doors;
   $("#f-status").innerHTML='<option value="">All stages</option>'+STAGES.map((s,i)=>`<option value="${i}">${esc(s.k)}</option>`).join("");
@@ -614,6 +684,7 @@ function fillFilters(){
   $("#f-cons").innerHTML='<option value="">All construction</option>'+CT.map(c=>`<option>${esc(c)}</option>`).join("");
   const fires=[...new Set(Object.values(D).map(d=>normFire(d.fire)).filter(Boolean))].sort((a,b)=>(a==="No FR"?-1:b==="No FR"?1:parseInt(a.slice(2))-parseInt(b.slice(2))));
   $("#f-fire-m").innerHTML=fires.map(f=>`<label><input type="checkbox" data-fire="${esc(f)}"> ${esc(f)}</label>`).join("");$("#f-fire-s").textContent="All fire ratings";
+  $("#door-tbl").className="t-"+UI.sec;$("#b-sched").textContent="Schedule";
   $("#door-head").innerHTML=UI.sec==="doors"?"<tr><th>Ref</th><th>Location</th><th>Supplier / construction</th><th>Type</th><th>Fire</th><th>Size (SO)</th><th>Connection</th><th>Stage</th><th>Issues</th></tr>":"<tr><th>Ref</th><th>Description</th><th>Size (SO)</th><th>Finish</th><th>Controls</th><th>Stage</th><th>Issues</th></tr>";
 }
 function normFire(f){if(!f)return"";if(/not fire|no ?fr|^nfr/i.test(f))return"No FR";f=f.toUpperCase().replace(/\s/g,"");return /^FD\d+$/.test(f)?f+"S":f}
@@ -629,7 +700,7 @@ function renderHeader(){
   renderSupbar();const refs=vis().filter(r=>!S.data.doors[r].unscheduled);const c=counts(refs);const tot=refs.length;
   $("#prog").innerHTML=bar(c,tot,"prog-bar")+`<div class="prog-legend">`+STAGES.map((s,i)=>`<span><i class="dot" style="background:${css(s.c)}"></i>${esc(s.k)} ${c[i]}</span>`).join("")+`</div>`;
   const done=DONE(c);let od=0;for(const d of S.defects.values())if(d.status!=="Closed"&&inSec(d.ref))od++;let ar=0;for(const r of S.requests.values())if((r.status==="Requested"||r.status==="Scheduled")&&inSec(r.ref))ar++;
-  let odue=0;for(const d of S.defects.values())if(inSec(d.ref)&&isOverdue(d))odue++;{const cw=$("#c-wk");cw.hidden=!odue;cw.textContent=odue;cw.className="count"+(odue?" hot":"");cw.title=odue+" defects past close-out date"}
+  let odue=0;for(const d of S.defects.values())if(inSec(d.ref)&&isOverdue(d))odue++;{const cw=$("#c-wk");cw.hidden=!odue;cw.textContent=odue;cw.className="count"+(odue?" hot":"");cw.title=odue+" defects past close-out date";const bw=$("#b-wk"),bd=$("#b-def");bw.hidden=!odue;bw.textContent=odue;bd.hidden=!od;bd.textContent=od}
   $("#kpis").innerHTML=`<div class="kpi"><b>${Math.round(done/tot*100)}%</b><span>${done}/${tot} done</span></div><div class="kpi ${od?"alert":""}"><b>${od}</b><span>Open defects${odue?` · ${odue} overdue`:""}</span></div><div class="kpi"><b>${ar}</b><span>Requests</span></div>`;
   $("#c-def").textContent=od;$("#c-def").className="count"+(od?" hot":"");$("#c-req").textContent=ar;
 }
