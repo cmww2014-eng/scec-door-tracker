@@ -4,7 +4,7 @@ const ADMIN_ONLY=new Set(["users","overrides","diffres","prelim","points"]);
 const COLS=new Set(["doors","louvres","defects","requests","photos","users","overrides","thresholds","firedocs","diffres","prelim","points"]);
 const isAdm=u=>u.role==="owner"||u.role==="admin";
 export async function onRequest(ctx){
-  const {request:req,env,params}=ctx;const p=[].concat(params.path||[]);const m=req.method;
+  const {request:req,env,params}=ctx;const p=[].concat(params.path||[]).map(x=>{try{return decodeURIComponent(x)}catch(e){return x}});const m=req.method;
   await ensureSchema(env);
   const u=await who(req,env);if(!u)return json({error:"Not signed in"},401);
   try{
@@ -19,7 +19,7 @@ export async function onRequest(ctx){
       if(p[1]==="people"&&p[2]&&m==="PUT"){const email=p[2].toLowerCase();const b=await req.json();if(b.name&&!b.role){const n=String(b.name).trim().slice(0,60);await env.DB.prepare("UPDATE people SET name=? WHERE email=?").bind(n,email).run();return json({ok:true})}const role=b.role;
         if(!["member","viewer","admin","rejected","pending"].includes(role))return json({error:"Bad role"},400);
         if(owners(env).includes(email))return json({error:"Owners are set in the site config"},400);
-        await env.DB.prepare("UPDATE people SET role=?,decided_by=?,decided_at=? WHERE email=?").bind(role==="admin"?"member":role,u.email,Date.now(),email).run();
+        const r0=await env.DB.prepare("UPDATE people SET role=?,decided_by=?,decided_at=? WHERE email=?").bind(role==="admin"?"member":role,u.email,Date.now(),email).run();if(!(r0.meta&&r0.meta.changes))return json({error:"No such person: "+email},404);
         const now=Date.now();
         if(role==="admin")await env.DB.prepare("INSERT INTO docs(col,id,data,updated,by,deleted) VALUES('users',?,?,?,?,0) ON CONFLICT(col,id) DO UPDATE SET data=excluded.data,updated=excluded.updated,by=excluded.by,deleted=0").bind(email,JSON.stringify({role:"admin",by:u.email,at:now}),now,u.email).run();
         else await env.DB.prepare("UPDATE docs SET deleted=1,updated=?,by=? WHERE col='users' AND id=?").bind(now,u.email,email).run();
