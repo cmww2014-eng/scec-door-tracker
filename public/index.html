@@ -1370,33 +1370,35 @@ function thGeom(d){d=d||{};const sp=d.sup||{};const so=+(sp.soH||d.soH)||2100;co
 function thCalc(v,d){
   if(!v||v.mode==="screen")return null;d=d||(S.data&&S.data.doors[v.ref||v.id])||{};const h=thNum(v.h),l=thNum(v.l),s=thNum(v.s);if(h==null||l==null)return null;
   const G=thGeom(d);const f=floorInfo(d);const A=(v.fin!==false&&f)?(f.swAllow??f.allow??0):0;const clr=thNum(v.clr)??8;
-  const hiJ=Math.min(h,l),loJ=Math.max(h,l),fall=loJ-hiJ,loSide=h>l?"hinge":"latch",hiSide=h>l?"latch":"hinge";
+  const hiJ=Math.min(h,l),fall=Math.max(h,l)-hiJ,loSide=h>l?"hinge":"latch",hiSide=h>l?"latch":"hinge";
   const MINGAP=3;
-  // design position: frame fixed to the top of the structural opening with the supplier's head gap
   const tD=G.tDesign,sDH=h-tD,sDL=l-tD;
-  // lowest the frame foot can go: the highest jamb (no grinding), and the leaf must clear the finished floor in the swing
-  const sw=s!=null?s:hiJ;const floorSw=sw-A;const tMax=floorSw+clr-TH_MARGIN;
-  let t=hiJ,swingUp=0;if(tMax<t){swingUp=t-tMax;t=tMax}
+  // 1. screed level: the threshold is screeded level across the opening, up to the highest point –
+  //    the higher jamb, or the high spot in the swing if that is higher (it sets the minimum screed depth).
+  const swingUp=s!=null&&s<hiJ?hiJ-s:0;const t=hiJ-swingUp;
   const sH=h-t,sL=l-t,smax=Math.max(sH,sL);
-  const headGap=TH_MARK+t-G.fh,extra=headGap-G.dgap,lowered=t-tD;
-  const acts=[],need={screed:false,headfill:false,reduce:false,swing:false,tight:false};
+  // 2. floor finish (carpet, vinyl etc.) is NOT screeded for – the door is set higher so the leaf swings over it.
+  //    Leaf underside = frame foot − clearance; it must clear the finished floor in the swing by the margin.
+  const sw=s!=null?Math.min(s,hiJ):hiJ;const raise=Math.max(0,(t-sw)+A+TH_MARGIN-clr);const fF=t-raise;
+  const headGap=TH_MARK+fF-G.fh,extra=headGap-G.dgap,lowered=fF-tD;
+  const acts=[],need={screed:false,headfill:false,reduce:false,swing:false,raise:raise>0,tight:false};
   acts.push(`<b>Design position</b> (frame fixed to the head with a ${G.dgap} mm gap${G.gapAssumed?" – assumed":""}): screed hinge ${sDH} mm, latch ${sDL} mm${Math.min(sDH,sDL)<0?` – the floor is ${-Math.min(sDH,sDL)} mm too high there`:""}.`);
-  if(headGap<MINGAP){need.reduce=need.tight=true;acts.push(`<b>⚠ Head gap only ${headGap} mm</b> (minimum ${MINGAP} mm). With the threshold ${swingUp?"raised for the swing":"at the highest jamb"} the opening is ${TH_MARK+t} mm and the frame is ${G.fh} mm. <b>Reduce the frame/door height by ${MINGAP-headGap} mm</b> (supplier)${swingUp?`, or grind the floor in the swing by ${swingUp} mm`:` or break out the floor by ${MINGAP-headGap} mm`}.`)}
-  if(fall>2){need.screed=true;acts.push(`<b>Jambs differ by ${fall} mm</b> (hinge ${h}, latch ${l}). Screed the threshold level: <b>${fall} mm at the ${loSide} side</b>, feathered to 0 at the ${hiSide} side.`)}
-  if(swingUp&&s==null){need.screed=true;acts.push(`<b>Floor finish:</b> the ${A} mm finish raises the floor next to the door, so the threshold is built up ${swingUp} mm (to the finished floor less the ${clr} mm leaf clearance) so the leaf doesn't scrape.`)}
-  else if(swingUp){need.screed=need.swing=true;acts.push(`<b>Door swing:</b> ${s!=null?`the high spot in the swing (${s} mm)`:`the floor next to the threshold`}${A?` plus the ${A} mm floor finish`:""} would leave the leaf (${clr} mm clearance) short by <b>${swingUp} mm</b> – it would scrape. Build the threshold screed up a further ${swingUp} mm${s!=null?`, or grind the high spot by ${swingUp} mm to keep the door lower`:""}.`)}
-  else acts.push(`Door swing checked${A?` (incl. ${A} mm floor finish)`:""}: ${floorSw-(t-clr)} mm under the leaf – no scraping.`);
-  if(!need.reduce){
-    if(lowered>2)acts.push(`<b>Recommended: install the door ${lowered} mm lower</b> than the design position to minimise screed – <b>screed hinge ${sH} mm, latch ${sL} mm</b> (instead of ${sDH} / ${sDL}).`);
-    else if(smax>2)acts.push(`<b>Screed to threshold: hinge ${sH} mm, latch ${sL} mm.</b>`);
+  if(fall>2||swingUp){need.screed=true;acts.push(`<b>Screed the threshold level</b> across the opening${swingUp?` up to the <b>high spot in the swing</b> (${swingUp} mm above the higher jamb – this sets the minimum screed depth)`:` to the ${hiSide} side (highest jamb)`}: <b>hinge ${sH} mm, latch ${sL} mm</b>${fall>2?`, ${fall} mm fall across the opening`:""}. The finished threshold is level both sides.`)}
+  if(swingUp)need.swing=true;
+  if(raise)acts.push(`<b>Floor finish:</b> ${A} mm finish in the swing is not screeded for – <b>set the door ${raise} mm above the screeded threshold</b> so the leaf (${clr} mm clearance) swings over the finished floor.`);
+  else acts.push(`Door swing checked${A?` (incl. ${A} mm floor finish)`:""}: leaf clears the finished floor in the swing – no raise needed.`);
+  if(headGap<MINGAP){need.reduce=need.tight=true;acts.push(`<b>⚠ Head gap only ${headGap} mm</b> (minimum ${MINGAP} mm) with the door at this level – the opening is ${TH_MARK+fF} mm and the frame is ${G.fh} mm. <b>Reduce the frame/door height by ${MINGAP-headGap} mm</b> (supplier).`)}
+  else{
+    if(lowered>2)acts.push(`<b>Install the door ${lowered} mm lower</b> than the design position${smax>2?` – screed hinge ${sH} mm, latch ${sL} mm instead of ${sDH} / ${sDL}`:""}.`);
+    else if(lowered<-2)acts.push(`<b>Install the door ${-lowered} mm higher</b> than the design position.`);
     if(extra>3){need.headfill=true;acts.push(`Resulting <b>gap at the head ${headGap} mm</b> (design ${G.dgap} mm). Pack and fix the frame at the head and fill with ${headGap>20?`a ${G.fr?"fire-rated (e.g. calcium silicate) ":""}board/timber packer, sealed with ${G.fr?"intumescent ":""}mastic`:headGap>10?`${G.fr?"intumescent ":""}mastic over a backing rod`:`${G.fr?"intumescent ":""}mastic`}.`)}
     else if(extra<-1)acts.push(`Head gap ${headGap} mm (design ${G.dgap} mm) – door sits ${-extra} mm higher than designed; still above the ${MINGAP} mm minimum.`);
   }
   if(G.fhAssumed)acts.push(`<span class="muted">Frame height not confirmed – ${G.fh} mm assumed (${G.fhSrc}). Confirm it in Team → Design review → Open points.</span>`);
-  const ok=!need.reduce&&smax<=TH_TOL&&!swingUp&&Math.abs(extra)<=TH_TOL;
+  const ok=!need.reduce&&smax<=TH_TOL&&!swingUp&&!raise&&Math.abs(extra)<=TH_TOL;
   if(ok)acts.unshift(`Within ±${TH_TOL} mm – no remedial work needed.`);
   const sug=ok?"No action":need.reduce?"Reduce door height (supplier)":need.swing?"Build up threshold for swing":need.headfill&&smax>2?"Screed threshold + fill head gap":need.headfill?"Lower door + fill head gap":smax>2?"Screed threshold":"No action";
-  return {h,l,s,A,clr,G,fall,t,sH,sL,sDH,sDL,lowered,smax,headGap,extra,swingUp,ok,need,acts,sug,reduceBy:need.reduce?MINGAP-headGap:0,dev:Math.max(smax,Math.abs(extra),swingUp)}}
+  return {h,l,s,A,clr,G,fall,t,sH,sL,sDH,sDL,lowered,smax,headGap,extra,swingUp,raise,ok,need,acts,sug,reduceBy:need.reduce?MINGAP-headGap:0,dev:Math.max(smax,Math.abs(extra),swingUp,raise)}}
 const thCls=(v,e)=>v==null?"":v<e-TH_TOL?"hi":v>e+TH_TOL?"lo":"";
 const thDev=(v,e)=>v==null?"":v===e?"on level":v<e?`${e-v} high`:`${v-e} low`;
 function thPill(ref){const t=S.thresholds&&S.thresholds.get(ref);if(t&&t.mode==="screen")return t.issue||(t.hs||0)>3?`<span class="pill warn" title="${esc(t.note||"")}">Floor issue</span>`:"";const c=t&&thCalc(t);if(!c)return"";return `<span class="pill ${c.ok?"green":"warn"}" title="Threshold level survey">${c.ok?"Levels OK":"Levels: "+esc(t.remedy||c.sug)}</span>`}
@@ -1656,8 +1658,8 @@ function thVol(d,c){if(!c)return null;const w=+((d.sup||{}).soW||d.soW)||1000,de
 function thCells(r,d,t,c){const room=[d.from,d.to].filter(Boolean).join(" / ")||doorLoc(r);
   if(!c)return [r,room,"","","",t&&t.mode==="screen"?"Glazed screen door – floor check only":"Not surveyed","","",""];
   const tot=v=>v==null?"":TH_MARK+v;const sH=Math.max(0,c.sH),sL=Math.max(0,c.sL),lo=c.h>c.l?"hinge":"latch",hi=c.h>c.l?"latch":"hinge";
-  const F=(sH>2||sL>2)?`Screed hinge ${sH} mm, latch ${sL} mm`+(c.fall>2?` (${c.fall} mm fall – feather to 0 at the ${hi} side)`:"")+(c.swingUp?` – incl. ${c.swingUp} mm build-up for the swing`:""):"None";
-  const G=c.need.reduce?`Reduce door/frame height by ${c.reduceBy} mm (supplier)`+(c.swingUp?` or grind high spot in swing by ${c.swingUp} mm`:""):c.lowered>2?`Install ${c.lowered} mm lower than design position`:c.lowered<-2?`Install ${-c.lowered} mm higher than design position`:"Design position";
+  const F=(sH>2||sL>2)?`Screed hinge ${sH} mm, latch ${sL} mm`+(c.fall>2?` (${c.fall} mm fall – feather to 0 at the ${hi} side)`:"")+(c.swingUp?` – level with the high spot in the swing (${c.swingUp} mm above the higher jamb)`:""):"None";
+  const G=(c.need.reduce?`Reduce door/frame height by ${c.reduceBy} mm (supplier)`+(c.swingUp?` or grind high spot in swing by ${c.swingUp} mm`:""):c.lowered>2?`Install ${c.lowered} mm lower than design position`:c.lowered<-2?`Install ${-c.lowered} mm higher than design position`:"Design position")+(c.raise?` – door set ${c.raise} mm above the screeded threshold to clear the ${c.A} mm floor finish`:"");
   const fr=c.G.fr,hg=c.headGap;const H=c.need.reduce?`None – head gap only ${hg} mm`:c.extra>3?`Head gap ${hg} mm (design ${c.G.dgap} mm): `+(hg>20?`${fr?"fire-rated (calcium silicate) ":""}board/timber packer, sealed with ${fr?"intumescent ":""}mastic`:hg>10?`${fr?"intumescent ":""}mastic over backing rod`:`${fr?"intumescent ":""}mastic`):"None";
   return [r,room,tot(c.h),tot(c.l),tot(c.s),F,G,H,thVol(d,c)]}
 function thRepRows(){const D=S.data.doors;return Object.keys(D).filter(r=>{const d=D[r];return supOk(d)&&(thApplies(d)||isScreenDoor(d))&&(!UI.thLv||lvlName(d)===UI.thLv)&&(!UI.thSp||d.supplier===UI.thSp)&&(!UI.thDone||S.thresholds.get(r))}).sort((a,b)=>nkey(a).localeCompare(nkey(b))).map(r=>{const d=D[r],t=S.thresholds.get(r),c=t&&t.mode!=="screen"?thCalc(t,d):null;return {r,d,t,c,cells:thCells(r,d,t,c)}})}
