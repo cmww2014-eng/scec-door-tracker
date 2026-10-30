@@ -385,7 +385,7 @@ body.site .pill{font-size:13px}
       <select id="f-dwg" aria-label="Drawing"><option value="">All drawings</option></select>
       <select id="f-cons" aria-label="Construction"><option value="">All construction</option></select>
       <details class="ms" id="f-fire"><summary id="f-fire-s">All fire ratings</summary><div class="menu" id="f-fire-m"></div></details>
-      <select id="f-ms" aria-label="Commissioning milestone"><option value="">Any milestone</option></select><select id="f-diff" aria-label="Design check"><option value="">Any design check</option><option value="open">Open conflicts</option><option value="rev">Supplier to revise</option><option value="rfi">RFI open</option><option value="diff">Any conflict (incl. resolved)</option><option value="ok">Matches supplier design</option><option value="issue">Open site issues</option><option value="concern">Stud fixing concern</option><option value="prep">Threshold / jamb prep notes</option><option value="swsoft">Swings away from vinyl / carpet</option><option value="swunk">Swing not determined</option><option value="levelq">Level to confirm</option><option value="prelim">Prelim design (not approved)</option><option value="approved">Design approved for construction</option></select>
+      <select id="f-ms" aria-label="Commissioning milestone"><option value="">Any milestone</option></select><select id="f-diff" aria-label="Design check"><option value="">Any design check</option><option value="open">Open conflicts</option><option value="rev">Supplier to revise</option><option value="rfi">RFI open</option><option value="diff">Any conflict (incl. resolved)</option><option value="ok">Matches supplier design</option><option value="issue">Open site issues</option><option value="concern">Stud fixing concern</option><option value="prep">Threshold / jamb prep notes</option><option value="swsoft">Swings away from vinyl / carpet</option><option value="swunk">Swing not determined</option><option value="levelq">Level to confirm</option><option value="prelim">Prelim design (not approved)</option><option value="approved">Design approved for construction</option></select><label class="tick" id="f-recent-l" style="display:flex;align-items:center;gap:6px;font-size:13px;white-space:nowrap" title="Photos, stage / checklist updates, inspections & fire documents, threshold readings or defect activity in the last 7 days"><input type="checkbox" id="f-recent"> Updated in last 7 days</label>
       <button class="btn" id="flt-tog" style="display:none">More filters</button><button class="btn" id="export" hidden>Export CSV</button><button class="btn" id="status-x" hidden>Status sheet (.xlsx)</button>
     </div>
     <div class="muted" id="door-count" style="font-size:12px"></div>
@@ -629,7 +629,7 @@ function bindStatic(){window.addEventListener("beforeunload",e=>{if(Object.value
   document.addEventListener("click",e=>{const m=$("#f-fire");if(m.open&&!m.contains(e.target))m.open=false});
   $("#section-sw").addEventListener("click",e=>{const b=e.target.closest("[data-sec]");if(b&&b.dataset.sec!==UI.sec)applySection(b.dataset.sec)});
   $("#tabs").addEventListener("click",e=>{const b=e.target.closest("button[data-v]");if(b)setView(b.dataset.v)});
-  ["#q","#f-status","#f-dwg","#f-cons","#f-diff","#f-ms"].forEach(s=>$(s).addEventListener("input",renderDoors));
+  ["#q","#f-status","#f-dwg","#f-cons","#f-diff","#f-ms","#f-recent"].forEach(s=>$(s).addEventListener("input",renderDoors));
   $("#def-q").addEventListener("input",renderDefects);
   $("#req-kind").addEventListener("input",renderRequests);
   $("#def-seg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;UI.defSeg=b.dataset.v;segSet("#def-seg",b);renderDefects()});
@@ -839,9 +839,17 @@ function locate(ref){const d=S.data.doors[ref];if(!d||!d.locs.length){toast(ref+
     const pin=$(`.pin[data-ref="${CSS.escape(ref)}"]`);if(pin){pin.classList.remove("hit");void pin.offsetWidth;pin.classList.add("hit")}})}
 
 /* ---------- door schedule ---------- */
+/* latest activity on a door/louvre (photos, progress/inspections, fire docs, thresholds, defects) */
+function lastAct(r){let m=0;const sc=o=>{if(!o||typeof o!=="object")return;if(Array.isArray(o)){o.forEach(sc);return}for(const k in o){const v=o[k];if(k==="at"&&typeof v==="number"&&v>m)m=v;else if(v&&typeof v==="object")sc(v)}};
+  sc(S.doors&&S.doors.get(r));for(const p of S.photos||[])if(p.ref===r&&(p.at||0)>m)m=p.at;
+  if(S.firedocs)for(const x of S.firedocs.values())if(x.ref===r&&(x.at||0)>m)m=x.at;
+  if(S.thresholds){const t=S.thresholds.get(r);if(t&&(t.at||0)>m)m=t.at}
+  if(S.defects)for(const df of S.defects.values())if(df.ref===r)for(const a of defActs(df))if(a.at>m)m=a.at;
+  return m}
 function filtered(){
-  const q=$("#q").value.trim().toLowerCase(),fs=$("#f-status").value,fd=$("#f-dwg").value,fc=$("#f-cons").value;
+  const q=$("#q").value.trim().toLowerCase(),fs=$("#f-status").value,fd=$("#f-dwg").value,fc=$("#f-cons").value,rc=$("#f-recent")&&$("#f-recent").checked,wk=Date.now()-7*864e5;
   return Object.entries(S.data.doors).filter(([r,d])=>{
+    if(rc&&lastAct(r)<wk)return false;
     if(UI.sec==="louvres"&&outScope(d))return false;
     if(fs!==""&&stageOf(r)!==+fs)return false;
     if(fd==="none"&&d.locs.length)return false;if(fd&&fd!=="none"&&!d.locs.some(p=>p.l===fd))return false;
