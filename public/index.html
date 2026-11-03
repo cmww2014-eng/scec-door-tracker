@@ -450,14 +450,17 @@ const STAGESETS={doors:[
  {k:"Complete",c:"--s4",hint:"Ready for inspection",done:1},
  {k:"Inspected & handed over",c:"--s5",hint:"AFRY only – open items listed",done:1,ho:1}],
  louvres:[
- {k:"Not started",c:"--s0",hint:"Opening ready"},
- {k:"Subframe fixed",c:"--s1",hint:"Support steel / subframe"},
- {k:"Unit installed",c:"--s2",hint:"Louvre / vent fixed"},
- {k:"Flashings & sealed",c:"--s3",hint:"Weathered, mesh fitted"},
- {k:"Complete",c:"--s4",hint:"Ready for inspection",done:1},
- {k:"Inspected",c:"--s5",hint:"Signed off",done:1}]};
+ {k:"Not started",c:"--s0",hint:"Nothing on site yet"},
+ {k:"Aperture prepared for install",c:"--sB",hint:"Opening formed, support steel / subframe in place, ready for the unit"},
+ {k:"Louvre / vent installed",c:"--s2",hint:"Unit fixed, flashed and sealed, mesh fitted"},
+ {k:"Electrical interfaces",c:"--s3",hint:"Actuators, controls and power connected (AOVs / dampers) – mark through for fixed louvres"},
+ {k:"Complete",c:"--s4",hint:"Ready for inspection",done:1}]};
 const DONE=c=>STAGES.reduce((n,x,i)=>n+(x.done?c[i]:0),0);
-const DOORS_V=4;function migrate(col,o){if(col!=="doors"||(o.v||1)>=DOORS_V)return o;const v=o.v||1;
+const LOUV_V=2;function migrate(col,o){if(col==="louvres"){if((o.v||1)>=LOUV_V)return o;
+  /* v1 (Not started, Subframe, Unit installed, Flashings & sealed, Complete, Inspected) → v2 (Not started, Aperture prepared, Installed, Electrical interfaces, Complete) */
+  const m=[0,1,2,2,4,4],f=x=>typeof x==="number"?(m[x]??x):x;return {...o,v:LOUV_V,stage:f(o.stage),hist:(o.hist||[]).map(h=>({...h,s:f(h.s)}))}}
+  return migDoor(col,o)}
+const DOORS_V=4;function migDoor(col,o){if(col!=="doors"||(o.v||1)>=DOORS_V)return o;const v=o.v||1;
   /* v1→v3 (Jamb prepared added), v3→v4 (Frame installed + Leaf hung merged into Door installed) */
   const f3=v===1?(x=>x>=1?x+1:x):v===2?(x=>x>=2?x-1:0):(x=>x);const f4=x=>x<=2?x:x-1;const f=x=>typeof x==="number"?f4(f3(x)):x;
   return {...o,v:DOORS_V,stage:f(o.stage),hist:(o.hist||[]).map(h=>({...h,s:f(h.s)}))}}
@@ -504,7 +507,7 @@ async function resolveNames(){const ids=[...nameQ];nameQ.clear();if(!ids.length|
 
 /* ---------- data writes (db when available, in-memory otherwise) ---------- */
 async function put(col,id,data){
-  if(col==="doors")data={...data,v:DOORS_V};
+  if(col==="doors")data={...data,v:DOORS_V};if(col==="louvres")data={...data,v:LOUV_V};
   if(db){await db.collection(col).doc(id).set(data)}
   else{(S.prog[col]||S[col]).set(id,{id,...data});renderAll()}
 }
