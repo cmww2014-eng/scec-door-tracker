@@ -759,27 +759,24 @@ async function exportKeys(list){const D=S.data.doors;const rows=[["Door ref","Lo
 
 /* ---------- timber doorset installation record photos (Johan) ---------- */
 function isTimberSet(d){return UI.sec==="doors"&&(/johan/i.test(d.supplier||"")||d.ctype==="Timber")}
-function rpSlots(d){const fr=isFR(d),vp=d.vision&&!/^(no|n\/a|none)$/i.test(d.vision),dbl=/double/i.test(d.desc||"");const o=[];
-  const g=(grp,k,l,why,opt)=>o.push({grp,k,l,why,opt});
-  g("Identification","cert","Certificate / manufacturer record","Label, certificate or delivery record showing this door ref and its fire rating (FD30/60/120)");
-  g("Identification","label","Third-party certification label on the "+(dbl?"leaves":"leaf"),"Q-Mark / Certifire label or plug on the hinge edge or top of the leaf – scheme and certificate number legible");
-  g("Door leaf","leafPush","Door leaf – push side",(dbl?"Both leaves":"Whole leaf")+", closed, ironmongery and signage visible");
-  g("Door leaf","leafPull","Door leaf – pull side",(dbl?"Both leaves":"Whole leaf")+", closed, ironmongery visible");
-  g("Before facings","rhB","Right-hand jamb (push side) – before facings","Frame fixings, packers and the gap to the structure");
-  g("Before facings","lhB","Left-hand jamb (push side) – before facings","Frame fixings, packers and the gap to the structure");
-  g("Before facings","hdB","Head – before facings","Head fixings and gap to the structure / lintel");
-  g("Before facings","seal",fr?"Fire stopping to the frame–wall gap":"Sealing to the frame–wall gap","Product in the gap before the architraves go on – full depth, no voids",!fr);
-  g("Before facings","fsLabel","Frame sealant product – label / packaging","Product name, batch and fire rating on the tube, can or packaging",!fr);
-  g("After facings","rhA","Right-hand jamb (push side) – after facings","Architrave / facing fixed, no gaps");
-  g("After facings","lhA","Left-hand jamb (push side) – after facings","Architrave / facing fixed, no gaps");
-  g("After facings","hdA","Head – after facings","Architrave / facing fixed, no gaps");
-  if(fr)g("Fire performance","ints","Intumescent / smoke seals in the frame","Seals continuous and undamaged at head and both jambs");
-  g("Fire performance","gaps","Leaf-to-frame gaps","Gauge or ruler in the head and jamb gaps (typically 2–4 mm) and the threshold gap");
-  g("Fire performance","hinge","Hinges","All hinges fitted with every screw, intumescent pads where specified");
-  if(d.closer&&!/n\/a|none/i.test(d.closer))g("Fire performance","closer","Door closer","Closer fitted and adjusted – door closes and latches from 90°");
-  if(vp)g("Fire performance","glaze","Vision panel","Glazing bead fixed, glass marking (e.g. Pyrobelite EW30) visible",true);
-  if(fr)g("Fire performance","sign","Fire door signage","'Fire door keep shut' / 'keep locked' sign fitted both sides as scheduled",true);
+function rpSlots(d){const fr=isFR(d),vp=d.vision&&!/^(no|n\/a|none)$/i.test(d.vision),dbl=isDbl(d),rs=d.ctype==="Roller shutter";const o=[];
+  const hw=[...((d.sup||{}).hardware||[]),...(d.iron||[]),d.closer||"",d.lock||"",d.hinges||""].join(" ; ");
+  const g=(grp,k,l,why,opt)=>o.push({grp,k,l,why,opt});const lv=dbl?"both leaves":"the leaf";
+  g("Overall","ovPush","Overall – push side","Whole doorset, "+lv+" closed, frame and surrounding wall in shot");
+  g("Overall","ovPull","Overall – pull side","Whole doorset, "+lv+" closed, frame and surrounding wall in shot");
+  g("Frame","rhB","Right-hand jamb","Full height of the jamb – fixings, packers and the gap to the wall");
+  g("Frame","lhB","Left-hand jamb","Full height of the jamb – fixings, packers and the gap to the wall");
+  g("Frame","hdB","Head","Head fixings and the gap to the structure / lintel");
+  g("Frame","thr","Threshold","Threshold fixed and sealed, gap under the leaf"+(dbl?"es":""));
+  if(!rs){g("Ironmongery","hinge","Hinges","All hinges fitted with every screw"+(fr?", intumescent pads where specified":""));
+   if((d.closer&&!/^(n\/a|none|no)\b/i.test(d.closer))||/closer/i.test(hw))g("Ironmongery","closer","Closer","Closer fitted and adjusted – closes and latches from 90°");
+   if(/lock|latch|el ?560|cylinder|panic|push bar/i.test(hw))g("Ironmongery","latch","Latch / lock","Lock or latch, keep and strike – latching engaged");
+   if(fr||/smoke ?seal|intumescent/i.test(hw)||/ascot|almet/i.test(d.supplier||""))g("Seals","ints","Smoke seals"+(fr?" / intumescent":""),"Seals continuous and undamaged at head and both jambs"+(dbl?" and meeting stiles":""))}
+  g("Identification","ident","Installation label / identifier","Door reference / ID label on the doorset");
+  if(fr)g("Identification","label","Fire certification label","Q-Mark / Certifire label or plug"+(dbl?" on each leaf":"")+" – scheme and certificate number legible");
+  if(vp)g("Identification","glaze","Glass stamp","Etched / printed marking on the glass (e.g. Pyrobelite EW30) legible");
   return o}
+const FSPH=[["seal","Fire stopping in the frame–wall gap","Product in the gap before the architraves / facings go on – full depth, no voids"],["fsLabel","Fire-stopping product label","Product name, batch and fire rating on the tube, can or packaging"]];
 function rpHas(ref,k){return S.photos.filter(p=>p.ref===ref&&String(p.item)==="rp:"+k)}
 function rpInst(ref){const c=((S.doors.get(ref)||{}).inst)||{};return c.company&&c.name?c:null}
 function rpFsp(ref){const c=((S.doors.get(ref)||{}).fsp)||{};return c.product?c:null}
@@ -854,13 +851,13 @@ function bindFDR(r){const b=$("#fdr-save");document.querySelectorAll("#drawer [d
 
 /* ---------- combined installation record (stage 2) ---------- */
 const FINPH=[["leafPush","Finished doorset – push side"],["leafPull","Finished doorset – pull side"]];
-function recSlots(d){const fin=x=>!FINPH.some(([k])=>k===x.k);if(/johan/i.test(d.supplier||"")||d.ctype==="Timber")return rpSlots(d).filter(fin);if(isFR(d))return rpSlots(d).filter(x=>["label","seal","fsLabel"].includes(x.k));return []}
+function recSlots(d){return UI.sec==="doors"?rpSlots(d):[]}
 function recStat(ref,d){const st=S.doors.get(ref)||{},f=st.fdr||{},i=st.inst||{},c=st.cert||{},p=st.fsp||{},fr=isFR(d);const it=[];const add=(sec,k,l,ok)=>it.push({sec,k,l,ok:!!ok});
   add("inst","inst","Installer name & company",i.name&&i.company);
   add("check","check","Doorset checked against the design",f.vId);
   if(fr)add("check","cert","Certification scheme & number",c.scheme&&c.no);
   const is=ironStatus(ref,d,st);const ax=archIdx(d);if(is.total>ax.length)add("iron","iron","Ironmongery checked",!is.missing.filter(x=>x.i!==d.prepIdx&&!ax.includes(x.i)).length&&!is.noPhoto.filter(x=>!ax.includes(x.i)).length);
-  const nz=v=>v!==""&&v!=null;if(fr){add("fire","fsgap","Frame-to-wall gap recorded",nz(p.gapW)||p.gap);add("fire","fsp","Fire-stopping material & depth",p.product&&(nz(p.depth)||p.gap));add("gaps","gaps","Leaf-to-frame gaps measured",gapFields(d).every(g=>g.f.every(([k])=>f[k]!==""&&f[k]!=null)));add("func","func","Function checks",FDCHK.every(([k])=>f["c_"+k]))}
+  const nz=v=>v!==""&&v!=null;if(fr){add("fire","fsgap","Frame-to-wall gap recorded",nz(p.gapW)||p.gap);add("fire","fsp","Fire-stopping material & depth",p.product&&(nz(p.depth)||p.gap));add("fire","fsph","Fire-stopping photos",FSPH.every(([k])=>rpHas(ref,k).length));add("gaps","gaps","Leaf-to-frame gaps measured",gapFields(d).every(g=>g.f.every(([k])=>f[k]!==""&&f[k]!=null)));add("func","func","Function checks",FDCHK.every(([k])=>f["c_"+k]))}
   const sl=recSlots(d).filter(x=>!x.opt);if(sl.length){const got=sl.filter(x=>rpHas(ref,x.k).length).length;add("photos","photos",`Photos (${got}/${sl.length})`,got===sl.length)}
   if(ax.length)add("arch","arch","Architraves fitted",ax.every(i=>(st.iron||{})[i]));
   if(UI.sec==="doors"&&d.ctype!=="Roller shutter")add("arch","fin","Finished photos – push & pull side",FINPH.every(([k])=>rpHas(ref,k).length));
@@ -882,6 +879,7 @@ function gapRef(d){const sp=d.sup||{},pr=d.prod,o={leaf:"",wall:""};const num=v=
   if(so&&fw&&so>fw)o.wall=`Drawing: ≈${(so-fw)/2} mm each side${soh&&fh&&soh>fh?`, ${soh-fh} mm total in height`:""} <span class="muted">(opening ${so} × ${soh||"?"} − frame ${fw} × ${fh||"?"})</span>`;
   else if(/ascot/i.test(d.supplier||""))o.wall='Ascot GA: 5 mm each side, 10 mm at head (check the door\'s drawing)';
   return o}
+function phList(ref,arr){return `<ul style="list-style:none;margin:0;padding:0">${arr.map(([k,l,why])=>{const ph=rpHas(ref,k);return `<li style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)"><span style="width:20px">${ph.length?"✅":"⬜"}</span><span style="flex:1;min-width:0;font-size:13px"><b>📷 ${esc(l)}</b><br><span class="muted" style="font-size:12px">${esc(why||"")}</span>${ph.length?`<span style="display:flex;gap:4px;margin-top:4px">${ph.slice(0,4).map(q=>`<button class="ph" data-photo="${q.id}" style="width:44px;height:44px;padding:0"><img alt="" src="${esc(photoSrc(q))}" style="width:44px;height:44px;object-fit:cover"></button>`).join("")}</span>`:""}</span>${canWrite?`<button class="btn sm ${ph.length?"":"primary"}" data-rp="${k}" data-label="${esc(l)}">${ph.length?"Add":"📷"}</button>`:""}</li>`}).join("")}</ul>`}
 function installRecord(ref,d,st){if(UI.sec!=="doors")return"";const f=st.fdr||{},i=st.inst||{},c=st.cert||{},p=st.fsp||{},fr=isFR(d);const R_=recStat(ref,d);const ro=canWrite?"":"disabled";const D=fdDesign(ref,d);
   const secOk=k=>R_.items.filter(x=>x.sec===k).every(x=>x.ok);const firstOpen=(R_.missing[0]||{}).sec;
   const dl=k=>`<datalist id="dl-${k.replace(".","_")}">${fdLib(k).map(v=>`<option value="${esc(v)}">`).join("")}</datalist>`;
@@ -907,10 +905,10 @@ function installRecord(ref,d,st){if(UI.sec!=="doors")return"";const f=st.fdr||{}
      <div class="row" style="flex-wrap:wrap">${nm("fsp.depth","3. Depth of installation",p.depth,250)}${fsSel("fsp.backing","Backing / support",p.backing,FSBACK,ro)}</div>
      <div class="row">${tx("fsp.maker","Manufacturer / product name (optional)",p.maker,"e.g. as on the cartridge",1)}${tx("fsp.sides","Sealed",p.sides,"both sides / one side")}</div>
      <label>Comments<textarea data-fd="fsp.note" rows="2" style="box-sizing:border-box;width:100%" placeholder="e.g. head gap over 20 mm – packed with mineral wool first" ${ro}>${esc(p.note||"")}</textarea></label>
-     <span class="muted" style="font-size:12px">Check the gap and depth are within the fire-stopping product's tested limits for this doorset.</span>`):""}
+     <span class="muted" style="font-size:12px">Check the gap and depth are within the fire-stopping product's tested limits for this doorset.</span>${phList(ref,FSPH)}`):""}
    ${fr?sec("gaps","Leaf-to-frame gaps",`<div style="font-size:12px">📐 Expected: ${gapRef(d).leaf}</div>${gapFields(d).map(g=>`${g.t?`<b style="font-size:13px">${g.t}</b>`:""}<div class="row" style="flex-wrap:wrap">${g.f.map(([k,l])=>nm("fdr."+k,l,f[k])).join("")}</div>`).join("")}`):""}
    ${fr?sec("func","Function checks",`${FDCHK.map(([k,l])=>ck("c_"+k,l,f["c_"+k])).join("")}<label>Comments<textarea data-fd="fdr.funcNote" rows="2" style="box-sizing:border-box;width:100%" placeholder="optional" ${ro}>${esc(f.funcNote||"")}</textarea></label>`):""}
-   ${sec("photos","Photos",photoBody)}
+   ${sec("photos","Installation photos",photoBody)}
    ${sec("arch",archIdx(d).length?"Architraves & finished photos":"Architraves (N/A) & finished photos",(archIdx(d).length?ironList(ref,d,st,archIdx(d),"Architraves")+(fr?'<span class="muted" style="font-size:12px">Fit after the fire stopping has been completed and photographed.</span>':""):'<div style="font-size:13px"><b>Architraves:</b> <span class="pill">N/A</span> <span class="muted">metal doorset – no architraves</span></div>')+`<b style="font-size:13px">${archIdx(d).length?"After facings – photos":"Photos"} of the finished doorset</b><ul style="list-style:none;margin:0;padding:0">${FINPH.map(([k,l])=>{const ph=rpHas(ref,k);return `<li style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)"><span style="width:20px">${ph.length?"✅":"⬜"}</span><span style="flex:1;min-width:0;font-size:13px"><b>${esc(l)}</b><br><span class="muted" style="font-size:12px">Whole doorset closed${archIdx(d).length?", architraves on":""}, ironmongery${k==="leafPush"?" and signage":""} visible</span>${ph.length?`<span style="display:flex;gap:4px;margin-top:4px">${ph.slice(0,4).map(q=>`<button class="ph" data-photo="${q.id}" style="width:44px;height:44px;padding:0"><img alt="" src="${esc(photoSrc(q))}" style="width:44px;height:44px;object-fit:cover"></button>`).join("")}</span>`:""}</span>${canWrite?`<button class="btn sm ${ph.length?"":"primary"}" data-rp="${k}" data-label="${esc(l)}">${ph.length?"Add":"📷"}</button>`:""}</li>`}).join("")}</ul>`)}
    ${d.conn?sec("elec","Access control interfaces",`<div class="crow" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span style="flex:1;font-size:13px">${esc(d.conn==="EL560"?"EL560 lock – cable loop, joint box / access control interface in place":d.conn==="Controls"?"Controls interface in place":"Electrical interface ("+d.conn+") in place")}</span>${segBtns("data-cs","elec",(compStat(st,"elec")||{}).s,!canWrite)}</div><span class="muted" style="font-size:12px">“To be completed later” keeps it listed at handover.</span>`):""}
    ${sec("keys","Keys",keysBody)}
