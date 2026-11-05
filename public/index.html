@@ -354,6 +354,7 @@ body.site .pill{font-size:13px}
   <button role="tab" data-v="defects" aria-selected="false">Defects <span class="count" id="c-def">0</span></button>
   <button role="tab" data-v="requests" aria-selected="false">Requests <span class="count" id="c-req">0</span></button>
   <button role="tab" data-v="thresh" aria-selected="false">Threshold levels <span class="count" id="c-th">0</span></button>
+  <button role="tab" data-v="keys" aria-selected="false" id="tab-keys">Keys <span class="count" id="c-keys" hidden>0</span></button>
   <button role="tab" data-v="reports" aria-selected="false">Reports</button>
 </nav>
 <div id="banner" class="banner" hidden></div>
@@ -415,6 +416,7 @@ body.site .pill{font-size:13px}
     </div>
     <div id="rp-body"></div>
   </section>
+  <section class="view panel-page" id="v-keys" hidden><div id="keys-body" style="width:100%"></div></section>
   <section class="view panel-page" id="v-thresh" hidden>
     <div class="kpis" id="th-kpis" style="display:flex;gap:8px;flex-wrap:wrap"></div>
     <div class="filters">
@@ -473,7 +475,7 @@ const SEC={doors:{one:"door",many:"doors",title:"Door Tracker",sched:"Door sched
 const DEF_CATS=["Damage & finish","Gaps & alignment","Ironmongery","Seals & intumescent","Glazing","Signage","Frame & fixing","Other"];
 const catTxt=c=>String(c||"").replace(/ \/ /g," & ");
 const REQ_STATES=["Requested","Scheduled","Connected","Declined"];
-const S={data:null,RAW:null,doors:new Map(),prog:{doors:new Map(),louvres:new Map()},defects:new Map(),requests:new Map(),thresholds:new Map(),firedocs:new Map(),prelim:new Map(),points:new Map(),photos:[],names:{}};
+const S={data:null,RAW:null,doors:new Map(),prog:{doors:new Map(),louvres:new Map()},defects:new Map(),requests:new Map(),thresholds:new Map(),firedocs:new Map(),prelim:new Map(),points:new Map(),keys:new Map(),keylocs:new Map(),photos:[],names:{}};
 const UI={sup:"",fires:new Set(),sec:"doors",view:"plans",dwg:null,show:new Set(STAGES.map((_,i)=>i)),door:null,dtab:"progress",defSeg:"Open",reqSeg:"active",confirm:null,level:undefined};
 let db=null,assets=null,userCap=null,downloads=null,meId=null,canWrite=true,live=false,photoUnsub=null,isOwner=false,users=new Map();
 function isAdmin(){if(isOwner)return true;const u=meId&&users.get(meId);return !!(u&&u.role==="admin")}
@@ -537,7 +539,7 @@ async function boot(){
     db.collection("users").onSnapshot(snap=>{users=new Map(snap.docs.map(d=>[d.id,{id:d.id,...d.data()}]));renderWho();scheduleRender()},()=>{});
     db.collection("diffres").onSnapshot(snap=>{applyDiffRes(new Map(snap.docs.map(d=>[d.id,d.data()])));scheduleRender()},()=>{});
     db.collection("overrides").onSnapshot(snap=>{applyOverrides(snap.docs.map(d=>({id:d.id,...d.data()})));scheduleRender()},()=>{});
-    for(const col of["doors","louvres","defects","requests","thresholds","firedocs","prelim","points"]){
+    for(const col of["doors","louvres","defects","requests","thresholds","firedocs","prelim","points","keys","keylocs"]){
       db.collection(col).onSnapshot(snap=>{const m=new Map(snap.docs.map(d=>[d.id,migrate(col,{id:d.id,...d.data()})]));if(col==="doors"||col==="louvres"){S.prog[col]=m;S.doors=S.prog[SEC[UI.sec].pcol]}else S[col]=m;scheduleRender()},e=>banner("Lost connection to the shared tracker ("+(e&&e.code||"error")+"). Reload the page to reconnect.","warn"));
     }
   }
@@ -659,12 +661,13 @@ function bindStatic(){window.addEventListener("beforeunload",e=>{if(Object.value
 /* ---------- phone: bottom bar, More sheet, install as app ---------- */
 let installEvt=null;window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installEvt=e});
 const isStandalone=()=>window.matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
-function bnavSync(){const v=UI.view;document.querySelectorAll("#bnav [data-bv]").forEach(b=>b.setAttribute("aria-current",b.dataset.bv===v||(b.dataset.bv==="more"&&["requests","thresh","reports"].includes(v))?"true":"false"))}
+function bnavSync(){const v=UI.view;document.querySelectorAll("#bnav [data-bv]").forEach(b=>b.setAttribute("aria-current",b.dataset.bv===v||(b.dataset.bv==="more"&&["requests","thresh","keys","reports"].includes(v))?"true":"false"))}
 function moreSheet(open){const m=$("#msheet"),sc=$("#msheet-scrim");if(!open){m.hidden=sc.hidden=true;return}
   const n=id=>{const e=$("#"+id);return e?e.textContent:""};const me=meId&&S.names[meId];const site=document.body.classList.contains("site");
   m.innerHTML=`<div class="grab"></div>${me||S.meAvatar?`<div class="who-row">${S.meAvatar?`<img alt="" src="${esc(S.meAvatar)}">`:""}<span>${esc(me||"Signed in")} · ${esc(myRole())}</span></div>`:""}
    <button class="mi" data-mv="requests">Requests<span class="n">${esc(n("c-req"))}</span></button>
    ${UI.sec==="doors"?`<button class="mi" data-mv="thresh">Threshold levels<span class="n${+n("c-th")?" hot":""}">${esc(n("c-th"))}</span></button>`:""}
+   ${UI.sec==="doors"?`<button class="mi" data-mv="keys">Keys<span class="n${+n("c-keys")?" hot":""}">${esc(n("c-keys"))}</span></button>`:""}
    <button class="mi" data-mv="reports">Reports</button>
    <button class="mi" data-mact="site">${site?"Turn off site mode":"Site mode – high contrast, bigger buttons"}</button>
    ${userCap&&meId?`<button class="mi" data-mact="team">Team &amp; access</button>`:""}
@@ -681,8 +684,81 @@ function bindPhone(){
     const a=b.dataset.mact;if(a==="site")$("#site-btn").click();else if(a==="team")openTeam();else if(a==="install")installHelp()});
 }
 function segSet(sel,b){$(sel).querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"))}
+
+/* ---------- key register ---------- */
+const KEYLOC0=["Permit office","AFRY site office","Civil supervisor","Door installer / subcontractor","Gatehouse"];
+function hasCyl(d){if(d.cylTemp)return true;return [d.lock,...(d.iron||[]),...((d.sup&&d.sup.hardware)||[]),(d.sup&&d.sup.lock)||""].some(t=>t&&/cylinder|euro profile|sashlock|deadlock/i.test(t)&&!/no cylinder/i.test(t))}
+function keyLocs(){const s=new Set(KEYLOC0);for(const x of S.keylocs.values())if(x.name&&!x.hidden)s.add(x.name);for(const k of S.keys.values())for(const e of k.sets||[])if(e.loc)s.add(e.loc);return [...s]}
+function keyRec(ref){return S.keys.get(ref)||{ref,sets:[],hist:[]}}
+function keyTot(ref){return (keyRec(ref).sets||[]).reduce((a,e)=>a+(+e.n||0),0)}
+function keyDoors(){const D=S.data.doors;return Object.keys(D).filter(r=>supOk(D[r])&&(hasCyl(D[r])||S.keys.has(r)))}
+function keyCount(){const e=$("#c-keys");if(!e||!S.data||UI.sec!=="doors"){if(e)e.hidden=true;return}const n=keyDoors().filter(r=>stageOf(r)>=2&&!keyTot(r)).length;e.textContent=n;e.hidden=!n}
+const keyNK=r=>r.replace(/\d+/g,n=>n.padStart(4,"0"));
+async function keySave(ref,sets,act){const cur=keyRec(ref);const hist=[...(cur.hist||[]),{a:act,by:meId,at:Date.now()}].slice(-60);
+  await put("keys",ref,{ref,sets,hist,by:meId,at:Date.now()})}
+async function keyAddLoc(name){name=(name||"").trim();if(!name)return null;const ex=keyLocs().find(x=>x.toLowerCase()===name.toLowerCase());if(ex)return ex;
+  await put("keylocs",name.toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,60),{name,by:meId,at:Date.now()});return name}
+function keyLocSel(id,val){return `<select id="${id}"${id==="k-loc"?' data-keep="k-loc"':""}>${keyLocs().map(l=>`<option${l===val?" selected":""}>${esc(l)}</option>`).join("")}<option value="__new">+ New location…</option></select>`}
+function tabKeys(ref,d){const k=keyRec(ref);const sets=k.sets||[];const tot=keyTot(ref);const inst=stageOf(ref)>=2;
+  const cyl=[...(d.iron||[]),d.lock||""].filter(x=>/cylinder|thumbturn|sashlock|deadlock/i.test(x)).join("; ");
+  k.hist&&k.hist.forEach(h=>want(h.by));sets.forEach(e=>want(e.by));
+  return `<div class="grp"><h4>Keys</h4>
+   <p class="muted" style="margin:0 0 6px;font-size:13px">${cyl?esc(cyl):"Cylinder lock"}${d.cylTemp?" · temporary cylinder (to be swapped for suited Protect2)":""}</p>
+   ${!tot&&inst?'<div class="th-act" style="margin-bottom:8px"><b>Installed – no keys recorded.</b> Record where the keys were handed over.</div>':""}
+   ${sets.length?`<div class="tbl-wrap"><table><thead><tr><th>Qty</th><th>Location</th><th>Held by / note</th><th>Updated</th>${canWrite?"<th></th>":""}</tr></thead><tbody>${sets.map((e,i)=>`<tr><td class="mono"><b>${esc(e.n)}</b></td><td>${canWrite?keyLocSel("kl-"+i,e.loc):esc(e.loc)}</td><td style="font-size:13px">${esc(e.who||"")}${e.note?`<div class="muted">${esc(e.note)}</div>`:""}</td><td class="muted" style="font-size:12px">${e.by?esc(name(e.by))+"<br>":""}${e.at?fmt(e.at):""}</td>${canWrite?`<td style="white-space:nowrap"><button class="btn sm" data-kmv="${i}">Move</button> <button class="btn sm" data-kdel="${i}" title="Remove this entry">✕</button></td>`:""}</tr>`).join("")}<tr class="tot"><td class="mono"><b>${tot}</b></td><td colspan="${canWrite?4:3}">key${tot===1?"":"s"} in total</td></tr></tbody></table></div>`:'<p class="muted" style="margin:0;font-size:13px">No keys recorded yet.</p>'}
+  </div>
+  ${canWrite?`<div class="form"><b>Record keys</b>
+    <div class="row"><label style="max-width:90px">Qty<input type="number" id="k-n" min="1" max="50" value="1" inputmode="numeric"></label><label>Location${keyLocSel("k-loc","Permit office")}</label></div>
+    <label id="k-newl" hidden>New location name<input type="text" id="k-newn" placeholder="e.g. Civil office, Mechanical supervisor"></label>
+    <label>Held by (optional)<input type="text" id="k-who" placeholder="e.g. John Smith (M&S), key safe 2, hook 14"></label>
+    <label>Note (optional)<input type="text" id="k-note" placeholder="e.g. Temporary cylinder keys, 3 supplied with doorset"></label>
+    <div class="row" style="flex:0"><button class="btn primary" id="k-add" style="flex:0">Add keys</button></div></div>`:""}
+  ${(k.hist||[]).length?`<div class="grp" style="margin-top:12px"><h4>Key history</h4>${k.hist.slice().reverse().slice(0,25).map(h=>`<div class="muted" style="font-size:12px">${fmt(h.at)} · ${esc(name(h.by))}: ${esc(h.a)}</div>`).join("")}</div>`:""}`}
+function bindKeys(ref){const sel=$("#k-loc");if(!sel)return;const k=()=>keyRec(ref);
+  sel.onchange=()=>{$("#k-newl").hidden=sel.value!=="__new";if(sel.value==="__new")$("#k-newn").focus()};
+  $("#k-add").onclick=async()=>{if(!guard())return;const n=Math.max(1,parseInt($("#k-n").value)||1);let loc=sel.value;if(loc==="__new"){loc=await keyAddLoc($("#k-newn").value);if(!loc){toast("Enter a name for the new location");return}}
+    const who=$("#k-who").value.trim(),note=$("#k-note").value.trim();const sets=[...(k().sets||[])];const same=sets.findIndex(e=>e.loc===loc&&(e.who||"")===who);
+    if(same>=0)sets[same]={...sets[same],n:(+sets[same].n||0)+n,note:note||sets[same].note,by:meId,at:Date.now()};else sets.push({n,loc,who,note,by:meId,at:Date.now()});
+    save(()=>keySave(ref,sets,`${n} key${n>1?"s":""} → ${loc}${who?" ("+who+")":""}`).then(()=>renderDrawer()),`${ref}: ${n} key${n>1?"s":""} recorded at ${loc}`)};
+  document.querySelectorAll("#drawer [data-kdel]").forEach(b=>b.onclick=()=>{if(!guard())return;const i=+b.dataset.kdel;const sets=[...(k().sets||[])];const e=sets[i];if(!e)return;sets.splice(i,1);save(()=>keySave(ref,sets,`Removed ${e.n} key${e.n>1?"s":""} from ${e.loc}`).then(()=>renderDrawer()),"Key entry removed")});
+  document.querySelectorAll("#drawer [data-kmv]").forEach(b=>b.onclick=async()=>{if(!guard())return;const i=+b.dataset.kmv;const s2=$("#kl-"+i);let to=s2.value;
+    if(to==="__new"){const nm=prompt("New location name");to=await keyAddLoc(nm);if(!to)return}
+    const sets=[...(k().sets||[])];const e=sets[i];if(!e||to===e.loc){toast("Pick a different location in the list, then press Move");return}
+    let n=+e.n||1;if(n>1){const q=prompt(`How many of the ${n} keys at ${e.loc} are moving to ${to}?`,String(n));if(q==null)return;n=Math.min(+e.n,Math.max(1,parseInt(q)||0))}
+    const who=prompt(`Held by at ${to} (optional)`,"")||"";
+    if(n>=+e.n)sets.splice(i,1);else sets[i]={...e,n:+e.n-n};
+    const j=sets.findIndex(x=>x.loc===to&&(x.who||"")===who);if(j>=0)sets[j]={...sets[j],n:(+sets[j].n||0)+n,by:meId,at:Date.now()};else sets.push({n,loc:to,who,note:e.note||"",by:meId,at:Date.now()});
+    save(()=>keySave(ref,sets,`Moved ${n} key${n>1?"s":""}: ${e.loc} → ${to}${who?" ("+who+")":""}`).then(()=>renderDrawer()),`${ref}: ${n} key${n>1?"s":""} moved to ${to}`)})}
+function renderKeys(){const el=$("#keys-body");if(UI.sec!=="doors"){el.innerHTML='<div class="empty">Keys are tracked for doors only.</div>';return}
+  const D=S.data.doors,all=keyDoors().sort((a,b)=>keyNK(a).localeCompare(keyNK(b)));const locs=keyLocs();
+  const byLoc={};for(const l of locs)byLoc[l]={doors:new Set(),n:0};
+  for(const r of all)for(const e of keyRec(r).sets||[]){const b=byLoc[e.loc]=byLoc[e.loc]||{doors:new Set(),n:0};b.doors.add(r);b.n+=+e.n||0}
+  const inst=all.filter(r=>stageOf(r)>=2),noKeys=inst.filter(r=>!keyTot(r)),withK=all.filter(r=>keyTot(r)),totK=all.reduce((a,r)=>a+keyTot(r),0);
+  const f=UI.kf||"",q=(UI.kq||"").toLowerCase();
+  let list=all;if(f==="__none")list=noKeys;else if(f==="__inst")list=inst;else if(f==="__held")list=withK;else if(f)list=all.filter(r=>(keyRec(r).sets||[]).some(e=>e.loc===f));
+  if(q)list=list.filter(r=>[r,doorLoc(r),D[r].supplier,...(keyRec(r).sets||[]).map(e=>e.loc+" "+(e.who||"")+" "+(e.note||""))].join(" ").toLowerCase().includes(q));
+  (keyRec&&all).forEach(r=>(keyRec(r).sets||[]).forEach(e=>want(e.by)));
+  const chip=(v,l,n,hot)=>`<button class="btn sm ${f===v?"primary":""}" data-kf="${esc(v)}" style="${f===v?"":"color:var(--ink)"}">${esc(l)} <b>${n}</b>${hot?"":""}</button>`;
+  el.innerHTML=`<div class="rp-title"><b>${esc(S.data.project||"SCEC")} – key register</b><span class="muted">${UI.sup?esc(UI.sup)+" · ":""}doors with cylinder locks · ${new Date().toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</span></div>
+   <div class="kpis" style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">${[["Doors with cylinders",all.length],["Installed",inst.length],["Keys recorded",totK],["Doors with keys logged",withK.length],["Installed – no keys recorded",noKeys.length]].map(([k,v],i)=>`<div class="kpi ${i===4&&v?"alert":""}"><b>${v}</b><span>${k}</span></div>`).join("")}</div>
+   <h4 class="rp-h">Where the keys are</h4>
+   <div class="tbl-wrap"><table class="rp"><thead><tr><th>Location</th><th>Keys</th><th>Doors</th><th></th></tr></thead><tbody>${Object.entries(byLoc).filter(([,b])=>b.n).sort((a,b)=>b[1].n-a[1].n).map(([l,b])=>`<tr><td><b>${esc(l)}</b></td><td class="mono">${b.n}</td><td style="font-size:12px">${[...b.doors].sort((x,y)=>keyNK(x).localeCompare(keyNK(y))).map(r=>`<button class="ref" data-kopen="${esc(r)}">${esc(r)}</button>`).join(" ")}</td><td><button class="btn sm" data-kf="${esc(l)}">Filter</button></td></tr>`).join("")||`<tr><td colspan="4" class="muted">No keys recorded yet. Open a door → Progress & inspection → Keys to record them.</td></tr>`}</tbody></table></div>
+   <div class="filters noprint" style="margin:12px 0 6px;flex-wrap:wrap;gap:6px">${chip("","All",all.length)}${chip("__inst","Installed",inst.length)}${chip("__none","Installed, no keys",noKeys.length)}${chip("__held","Keys logged",withK.length)}${locs.map(l=>chip(l,l,(byLoc[l]&&byLoc[l].n)||0)).join("")}
+     <input type="search" id="k-q" placeholder="Search door, room, location, holder" value="${esc(UI.kq||"")}" style="min-width:220px"><button class="btn" id="k-x">Export Excel</button></div>
+   ${canWrite?`<div class="row noprint" style="gap:6px;margin-bottom:8px;max-width:520px"><input type="text" id="k-loc-new" placeholder="Add a key location, e.g. Civil office, SAP's office"><button class="btn sm" id="k-loc-add" style="flex:0">Add location</button></div>`:""}
+   <div class="tbl-wrap"><table class="rp"><thead><tr><th>Door</th><th>Location</th><th>Stage</th><th>Keys</th><th>Key locations</th></tr></thead><tbody>${list.map(r=>{const sets=keyRec(r).sets||[];const t=keyTot(r);const s=stageOf(r);return `<tr data-ref="${esc(r)}" data-dt-open="keys"><td class="ref">${esc(r)}</td><td>${esc(doorLoc(r))}<br><span class="muted" style="font-size:11px">${esc(D[r].supplier||"")}${D[r].cylTemp?" · temp cylinder":""}</span></td><td><span class="tag"><i class="dot" style="background:${css(STAGES[s].c)}"></i>${esc(STAGES[s].k)}</span></td><td class="mono">${t||(s>=2?'<span class="pill red">none</span>':'<span class="muted">–</span>')}</td><td style="font-size:13px">${sets.map(e=>`<b>${esc(e.n)}</b> × ${esc(e.loc)}${e.who?` <span class="muted">(${esc(e.who)})</span>`:""}`).join("<br>")}</td></tr>`}).join("")||'<tr><td colspan="5" class="muted">No doors match.</td></tr>'}</tbody></table></div>`;
+  el.querySelectorAll("[data-kf]").forEach(b=>b.onclick=()=>{UI.kf=b.dataset.kf;renderKeys()});
+  el.querySelectorAll("[data-kopen]").forEach(b=>b.onclick=e=>{e.stopPropagation();UI.dtab="keys";openDoor(b.dataset.kopen)});
+  el.querySelectorAll("tr[data-dt-open=keys]").forEach(t=>t.onclick=()=>{UI.dtab="keys";openDoor(t.dataset.ref)});
+  const qi=$("#k-q");qi.oninput=()=>{UI.kq=qi.value;clearTimeout(UI.kqT);UI.kqT=setTimeout(()=>{renderKeys();const n=$("#k-q");if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length)}},300)};
+  $("#k-x").onclick=()=>exportKeys(list);
+  const la=$("#k-loc-add");if(la)la.onclick=()=>{if(!guard())return;const v=$("#k-loc-new").value;if(!v.trim())return;save(()=>keyAddLoc(v),`Location “${v.trim()}” added`)}}
+async function exportKeys(list){const D=S.data.doors;const rows=[["Door ref","Location","Supplier","Stage","Qty","Key location","Held by","Note","Updated by","Updated"]];
+  for(const r of list){const sets=keyRec(r).sets||[];const base=[r,doorLoc(r),D[r].supplier||"",STAGES[stageOf(r)].k];if(!sets.length)rows.push([...base,0,"","","","",""]);for(const e of sets)rows.push([...base,+e.n||0,e.loc,e.who||"",e.note||"",e.by?name(e.by):"",e.at?new Date(e.at).toLocaleString("en-GB"):""])}
+  const fn=`SCEC-key-register-${new Date().toISOString().slice(0,10)}.xlsx`,data=xlsxBlob("Key register",rows,[11,40,18,22,6,26,24,30,18,18]);
+  try{if(downloads)await downloads.save({filename:fn,data});else{const a=document.createElement("a");a.href=URL.createObjectURL(data);a.download=fn;a.click()}toast(`Key register exported – ${list.length} doors`)}catch(e){if(e&&e.code!=="declined"&&e.code!=="cancelled")toast("Export didn't complete: "+(e.code||e.message))}}
 function setView(v){UI.view=v;$("#tabs").querySelectorAll("button").forEach(b=>b.setAttribute("aria-selected",b.dataset.v===v?"true":"false"));
-  for(const id of["plans","week","doors","defects","requests","thresh","reports"])$("#v-"+id).hidden=id!==v;
+  for(const id of["plans","week","doors","defects","requests","thresh","keys","reports"])$("#v-"+id).hidden=id!==v;
   if(v==="plans")requestAnimationFrame(()=>{if(view.needFit||!view.fitS)fit();else apply()});bnavSync();renderAll()}
 function fillFilters(){
   const D=S.data.doors;
@@ -702,7 +778,7 @@ function consOf(d){return d.ctype||""}
 
 /* ---------- render ---------- */
 function renderAll(){if(!S.data)return;renderHeader();renderDwgList();renderPins();
-  if(UI.view==="week")renderWeek();if(UI.view==="doors")renderDoors();if(UI.view==="defects")renderDefects();if(UI.view==="requests")renderRequests();if(UI.view==="reports")renderReports();if(UI.view==="thresh")renderThresh();else if(S.data&&UI.sec==="doors"){const n=[...S.thresholds.values()].filter(t=>{const c=thCalc(t);return c&&!c.ok&&S.data.doors[t.id]&&supOk(S.data.doors[t.id])}).length;$("#c-th").textContent=n}
+  if(UI.view==="week")renderWeek();if(UI.view==="doors")renderDoors();if(UI.view==="defects")renderDefects();if(UI.view==="requests")renderRequests();if(UI.view==="reports")renderReports();if(UI.view==="keys")renderKeys();keyCount();if(UI.view==="thresh")renderThresh();else if(S.data&&UI.sec==="doors"){const n=[...S.thresholds.values()].filter(t=>{const c=thCalc(t);return c&&!c.ok&&S.data.doors[t.id]&&supOk(S.data.doors[t.id])}).length;$("#c-th").textContent=n}
   softDrawer();dzRefresh()}
 function counts(refs){const c=STAGES.map(()=>0);for(const r of refs)c[stageOf(r)]++;return c}
 function bar(c,total,cls){return `<div class="${cls}">`+c.map((n,i)=>n?`<i style="width:${(n/total*100).toFixed(2)}%;background:${css(STAGES[i].c)}" title="${esc(STAGES[i].k)}: ${n}"></i>`:"").join("")+`</div>`}
@@ -999,14 +1075,14 @@ function renderDrawer(){UI.drawerDirty=false;UI.drawerSig=UI.door?doorSig(UI.doo
   const photos=S.photos.filter(p=>p.ref===ref);
   const od=defs.filter(x=>x.status!=="Closed").length;
   const where=UI.sec==="louvres"?(d.soW?`${d.soW} × ${d.soH} mm`:"COLT"):(d.from&&d.to?`${d.from} → ${d.to}`:(d.from||(d.table||"Not in door schedules").replace(/^Door Schedule - /,"")));
-  const SUB=["progress","photos","defects","requests"];const subs=[["progress","Installation"],["photos",`Photos${photos.length?" ("+photos.length+")":""}`],["defects",`Defects${od?" ("+od+")":""}`],["requests",`Requests${reqs.length?" ("+reqs.length+")":""}`]];
+  const SUB=["progress","photos","defects","requests","keys"];const subs=[["progress","Installation"],["photos",`Photos${photos.length?" ("+photos.length+")":""}`],["defects",`Defects${od?" ("+od+")":""}`],["requests",`Requests${reqs.length?" ("+reqs.length+")":""}`]];if(UI.sec==="doors"&&(hasCyl(d)||S.keys.has(ref)))subs.push(["keys",`Keys${keyTot(ref)?" ("+keyTot(ref)+")":""}`]);if(UI.dtab==="keys"&&UI.sec!=="doors")UI.dtab="progress";
   const tabs=[["progress",`Progress & inspection${od?" · "+od+" defect"+(od>1?"s":""):""}`],["design","Design"]];if(UI.sec==="doors"&&isFR(d)){const nd=[...S.firedocs.values()].filter(x=>x.ref===ref).length;tabs.push(["fire",`Fire inspection${nd?" ("+nd+")":""}`])}if(UI.dtab==="fire"&&!(UI.sec==="doors"&&isFR(d)))UI.dtab="progress";if(UI.sec==="doors")tabs.splice(2,0,["levels",isScreenDoor(d)?(S.thresholds.has(ref)?"Floor & finishes ✓":"Floor & finishes"):!thApplies(d)?"Finishes":S.thresholds.has(ref)?"Thresholds & finishes ✓":"Thresholds & finishes"]);const oos=UI.sec==="louvres"&&outScope(d);const vis_=canSee(d);if(oos||!vis_){tabs.length=0;tabs.push(["design","Design"]);UI.dtab="design"}const topT=SUB.includes(UI.dtab)?"progress":UI.dtab;if(UI.dtab==="levels"&&UI.sec!=="doors")UI.dtab="progress";
   const prevScroll=$(".d-body")?$(".d-body").scrollTop:0;const keepForm=captureForm();
   $("#drawer").innerHTML=`<div class="d-head"><div class="d-row"><span class="d-ref">${esc(ref)}</span>${oos?`<span class="pill">${esc(oosTxt(d))}</span>`:`<span class="tag"><i class="dot" style="background:${css(STAGES[s].c)}"></i>${esc(STAGES[s].k)}</span>`}<button class="x" id="d-close" aria-label="Close">×</button></div>
     <div class="d-sub">${esc(where)}${d.desc?" · "+esc(d.desc):""}</div>
     <div class="d-row" style="flex-wrap:wrap;gap:6px">${d.fire?`<span class="fire ${/no fr|n\/a/i.test(d.fire)?"":"fr"}">${esc(d.fire)}</span>`:""}${d.hw?`<span class="pill">${esc(d.hw)}</span>`:""}${d.milestone&&d.milestone!=="N/A"?`<span class="pill" title="Commissioning milestone (door schedule 26.09.25)">⚑ ${esc(d.milestone)}</span>`:""}${d.supplier?`<span class="pill">${esc(d.supplier)}${d.supInferred?" (assumed)":""}</span>`:""}${d.alert?`<span class="pill" style="background:var(--danger);color:#fff">Open issue</span>`:""}${d.concern?`<span class="pill red" title="${esc(d.concern)}">Stud fixing concern</span>`:""}${d.prep?`<span class="pill blue">Threshold prep</span>`:""}${designPill(d)}${thPill(ref)}${jambOpen(ref,d).length?`<span class="pill red">Jamb issue</span>`:""}${d.level!=null?`<span class="pill ${d.levelQ?"warn":""}" title="${esc(d.levelQ||"")}">${esc(d.level==="Roof"?"Roof":"Level "+(d.level>=0?"+":"")+d.level+"m")}${d.levelQ?" · to confirm":""}</span>`:""}${d.conn?`<span class="pill blue">${esc(d.conn==="Controls"?"AOV controls":d.conn)}</span>`:""}${openDiffs(d).length?`<span class="pill warn">${openDiffs(d).length} open conflict${openDiffs(d).length>1?"s":""}</span>`:((d.diffs||[]).length?`<span class="pill green">Conflicts resolved</span>`:"")}${oos?"":d.locs.length?`<button class="btn sm" id="d-locate">Show on plan</button>`:'<span class="pill">Not on uploaded drawings</span>'}</div></div>
     <div class="d-tabs" role="tablist">${tabs.map(([k,l])=>`<button role="tab" data-dt="${k}" aria-selected="${topT===k}">${esc(l)}</button>`).join("")}</div>
-    <div class="d-body">${topT==="progress"?`<div class="seg d-sub-seg" id="d-subs">${subs.map(([k,l])=>`<button data-dt="${k}" aria-pressed="${UI.dtab===k}">${esc(l)}</button>`).join("")}</div>`:""}${({progress:tabProgress,design:tabDesign,ldesign:tabLDesign,photos:tabPhotos,defects:tabDefects,requests:tabRequests,levels:tabLevels,fire:tabFire})[UI.dtab==="design"&&UI.sec==="louvres"?"ldesign":UI.dtab](ref,d,{s,st,defs,reqs,photos})}</div>`;
+    <div class="d-body">${topT==="progress"?`<div class="seg d-sub-seg" id="d-subs">${subs.map(([k,l])=>`<button data-dt="${k}" aria-pressed="${UI.dtab===k}">${esc(l)}</button>`).join("")}</div>`:""}${({progress:tabProgress,design:tabDesign,ldesign:tabLDesign,photos:tabPhotos,defects:tabDefects,requests:tabRequests,levels:tabLevels,fire:tabFire,keys:tabKeys})[UI.dtab==="design"&&UI.sec==="louvres"?"ldesign":UI.dtab](ref,d,{s,st,defs,reqs,photos})}</div>`;
   $("#d-close").onclick=closeDoor;const loc=$("#d-locate");if(loc)loc.onclick=()=>{if(window.innerWidth<=900)closeDoorKeep();locate(ref)};
   $("#drawer").querySelector(".d-tabs").onclick=e=>{const b=e.target.closest("[data-dt]");if(b){UI.dtab=b.dataset.dt;renderDrawer();$(".d-body").scrollTop=0}};
   const ss=$("#d-subs");if(ss)ss.onclick=e=>{const b=e.target.closest("[data-dt]");if(b){UI.dtab=b.dataset.dt;renderDrawer();$(".d-body").scrollTop=0}};
@@ -1199,7 +1275,7 @@ function tabRequests(ref,d,{reqs}){
   <label>Details<textarea id="rq-detail" data-keep="rq-detail" placeholder="${k==="access"?(UI.sec==="louvres"?"e.g. Vent installed, actuator fitted, ready for controls wiring and C&E test.":"e.g. Door hung, EL560 lock fitted, cable at head. Ready for second fix and commissioning."):"e.g. Construction cylinder fitted; swap for permanent suited cylinder."}"></textarea></label><label>Needed by<input type="date" id="rq-need" data-keep="rq-need"></label><div class="row"><button class="btn primary" id="rq-save">Send request</button></div></div>`:""}
   ${reqs.length?`<div style="display:flex;flex-direction:column;gap:8px">${reqs.map(r=>{want(r.by);return reqCard(r,true)}).join("")}</div>`:`<div class="empty">No requests for this ${SEC[UI.sec].one} yet.</div>`}`;
 }
-function bindDrawer(ref,d){if(UI.dtab==="fire")bindFire(ref,d);if(UI.dtab==="levels")bindLevels(ref);
+function bindDrawer(ref,d){if(UI.dtab==="fire")bindFire(ref,d);if(UI.dtab==="levels")bindLevels(ref);if(UI.dtab==="keys")bindKeys(ref);
   const dr=$("#drawer");
   dr.querySelectorAll("[data-dt-go]").forEach(b=>b.onclick=()=>{UI.dtab=b.dataset.dtGo;renderDrawer()});
   dr.querySelectorAll("[data-pst]").forEach(b=>b.onclick=()=>{const i=+b.dataset.pst;UI.pstage=UI.pstage===i?-1:i;if(UI.pstage<0)UI.pstage=STAGES.length;UI.confirm=null;renderDrawer()});
