@@ -1,7 +1,7 @@
 // Door Tracker API (Cloudflare Pages Functions + D1). Requests reach here only for approved users (see _middleware.js).
 import {json,ensureSchema,who,owners,niceName} from "../../lib/core.js";
 const ADMIN_ONLY=new Set(["users","overrides","diffres","prelim","points"]);
-const COLS=new Set(["doors","louvres","defects","requests","photos","users","overrides","thresholds","firedocs","diffres","prelim","points","keys","keylocs","fdlib"]);
+const COLS=new Set(["doors","louvres","defects","requests","photos","users","overrides","thresholds","firedocs","diffres","prelim","points","keys","keylocs","fdlib","flags"]);
 const isAdm=u=>u.role==="owner"||u.role==="admin";
 export async function onRequest(ctx){
   const {request:req,env,params}=ctx;const p=[].concat(params.path||[]).map(x=>{try{return decodeURIComponent(x)}catch(e){return x}});const m=req.method;
