@@ -13,6 +13,12 @@ export async function onRequest(ctx){
       return json({...u,autoName:u.name===niceName(u.email)})}
     if(p[0]==="admin"){
       if(!isAdm(u))return json({error:"Admins only"},403);
+      if(p[1]==="storage"&&m==="GET"){const LIMIT=+(env.DB_LIMIT_MB||500)*1048576;
+        const b=await env.DB.prepare("SELECT COUNT(*) n,COALESCE(SUM(LENGTH(data)),0) s FROM blobs").all();const d=await env.DB.prepare("SELECT COUNT(*) n,COALESCE(SUM(LENGTH(data)),0) s FROM docs").all();
+        const ph=await env.DB.prepare("SELECT COUNT(*) n FROM docs WHERE col='photos' AND deleted=0").first();
+        let size=(b.meta&&b.meta.size_after)||(d.meta&&d.meta.size_after)||0;if(!size){try{const pc=await env.DB.prepare("PRAGMA page_count").first(),ps=await env.DB.prepare("PRAGMA page_size").first();size=(Object.values(pc||{})[0]||0)*(Object.values(ps||{})[0]||0)}catch(e){}}
+        const br=b.results[0],dr=d.results[0];if(!size)size=br.s+dr.s;
+        return json({size,limit:LIMIT,blobs:{n:br.n,bytes:br.s},docs:{n:dr.n,bytes:dr.s},photos:ph?ph.n:0,at:Date.now()})}
       if(p[1]==="people"&&m==="GET"){const {results}=await env.DB.prepare("SELECT email,name,role,first_seen,requested,note,decided_by,decided_at FROM people ORDER BY (role='pending') DESC,requested DESC,email").all();
         const own=owners(env);const adm=new Set((await env.DB.prepare("SELECT id,data FROM docs WHERE col='users' AND deleted=0").all()).results.filter(r=>JSON.parse(r.data).role==="admin").map(r=>r.id));
         return json(results.map(r=>({...r,role:own.includes(r.email)?"owner":(r.role==="member"&&adm.has(r.email)?"admin":r.role)})))}
