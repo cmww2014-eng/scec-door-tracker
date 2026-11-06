@@ -767,19 +767,19 @@ function rpSlots(d){const fr=isFR(d),vp=d.vision&&!/^(no|n\/a|none)$/i.test(d.vi
   const hw=[...((d.sup||{}).hardware||[]),...(d.iron||[]),d.closer||"",d.lock||"",d.hinges||""].join(" ; ");
   const g=(grp,k,l,why,opt)=>o.push({grp,k,l,why,opt});const lv=dbl?"both leaves":"the leaf";
   const fx=((S.RAW&&S.RAW.fixReq)||{})[(d.supplier||"").split(" ")[0]];
-  g("Before facings","rhB","Right-hand jamb (push side)","Full height of the jamb – fixings, packers and the gap to the wall");
-  g("Before facings","lhB","Left-hand jamb (push side)","Full height of the jamb – fixings, packers and the gap to the wall");
-  g("Before facings","hdB","Head","Head fixings and the gap to the structure / lintel");
-  g("Before facings","fix","Frame fixing & packers (close-up)",fx?"Required: "+fx:"A fixing with its packer – screw type and packer position visible");
-  g("Completed – push side","ovPush","Overall – push side","Whole doorset, "+lv+" closed, frame and surrounding wall in shot");
-  g("Completed – push side","thr","Threshold","Threshold fixed and sealed, gap under the "+(dbl?"leaves":"leaf"));
-  if(!rs&&/lock|latch|el ?560|cylinder|panic|push bar/i.test(hw))g("Completed – push side","latch","Latch / lock","Lock or latch, keep and strike – latching engaged");
-  if(vp)g("Completed – push side","glaze","Glass stamp","Etched / printed marking on the glass (e.g. Pyrobelite EW30) legible");
-  g("Completed – pull side","ovPull","Overall – pull side","Whole doorset, "+lv+" closed, frame and surrounding wall in shot");
-  if(!rs){g("Completed – pull side","hinge","Hinges","All hinges fitted with every screw"+(fr?", intumescent pads where specified":""));
-   if((d.closer&&!/^(n\/a|none|no)\b/i.test(d.closer))||/closer/i.test(hw))g("Completed – pull side","closer","Closer","Closer fitted and adjusted – closes and latches from 90°");
+  g("Identification","ident","Installation label / identifier","Door reference / ID label on the doorset");
+  g("Before facings","fix","Frame fixing & packers (close-up)",fx?"Required: "+fx:"A fixing with its packer – screw type and packer position visible (before facings go on)");
+  for(const [sd,sfx] of [["push",""],["pull","P"]]){const G="Push side".replace("Push",sd==="push"?"Push":"Pull");
+   g(G,sd==="push"?"ovPush":"ovPull","Overall – "+sd+" side","Whole doorset, "+lv+" closed, frame and surrounding wall in shot");
+   g(G,(sd==="push"?"lhB":"lhP"),"Left-hand jamb ("+sd+" side)","Full height of the jamb – frame, fixings / facings and the gap to the wall");
+   g(G,(sd==="push"?"rhB":"rhP"),"Right-hand jamb ("+sd+" side)","Full height of the jamb – frame, fixings / facings and the gap to the wall");
+   g(G,(sd==="push"?"hdB":"hdP"),"Head ("+sd+" side)","Head of the frame and the gap to the structure / lintel");
+   g(G,(sd==="push"?"thr":"thrP"),"Threshold ("+sd+" side)","Threshold fixed and sealed, gap under the "+(dbl?"leaves":"leaf"))}
+  if(!rs){if(/lock|latch|el ?560|cylinder|panic|push bar/i.test(hw))g("Pull side","latch","Latch / lock","Lock or latch, keep and strike – latching engaged");
+   g("Pull side","hinge","Hinges","All hinges fitted with every screw"+(fr?", intumescent pads where specified":""));
+   if((d.closer&&!/^(n\/a|none|no)\b/i.test(d.closer))||/closer/i.test(hw))g("Pull side","closer","Closer","Closer fitted and adjusted – closes and latches from 90°");
    if(fr||/smoke ?seal|intumescent/i.test(hw)||/ascot|almet/i.test(d.supplier||""))g("Door open","ints","Smoke seals"+(fr?" / intumescent":""),"Seals continuous and undamaged at head and both jambs"+(dbl?" and meeting stiles":""))}
-  g("Door open","ident","Installation label / identifier","Door reference / ID label on the doorset");
+  if(vp)g("Door open","glaze","Glass stamp","Etched / printed marking on the glass (e.g. Pyrobelite EW30) legible");
   return o}
 const FSPH=[["seal","Fire stopping in the frame–wall gap","Product in the gap before the architraves / facings go on – full depth, no voids"],["fsLabel","Fire-stopping product label","Product name, batch and fire rating on the tube, can or packaging"]];
 function rpHas(ref,k){return S.photos.filter(p=>p.ref===ref&&String(p.item)==="rp:"+k)}
@@ -972,7 +972,7 @@ function installRecord(ref,d,st){if(UI.sec!=="doors")return"";const f=st.fdr||{}
   const sec=(key,t,body,opt)=>{if(!body)return"";const ok=opt?null:secOk(key);const open=UI.fdOpen&&UI.fdOpen[key]!=null?UI.fdOpen[key]:key===firstOpen;
     return `<details class="fdsec" ${open?"open":""} data-fdsec="${key}" style="border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:8px;background:var(--surface)"><summary style="cursor:pointer;font-weight:700;display:flex;gap:8px;align-items:center"><span>${ok==null?"◽":ok?"✅":"⬜"}</span><span style="flex:1">${esc(t)}</span>${opt?'<span class="muted" style="font-weight:400;font-size:12px">optional</span>':""}</summary><div class="form" style="margin-top:8px;background:transparent;border:0;padding:0">${body}</div></details>`};
   const slots=recSlots(d);
-  const photoBody=slots.length?(canWrite?`<div class="row" style="flex:0;margin-bottom:6px"><button class="btn primary" data-prun="${esc(ref)}" style="flex:none;white-space:nowrap;width:auto">📷 Take installation photos${slots.filter(x=>!rpHas(ref,x.k).length).length<slots.length?" – continue":""}</button></div><p class="muted" style="margin:0 0 4px;font-size:12px">Steps through each photo in order – skip any you can't take yet. “Before facings” shots must be taken before architraves / facings go on.</p>`:"")+[...new Set(slots.map(x=>x.grp))].map(gp=>`<b style="font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)">${esc(gp)}</b>`+phList(ref,slots.filter(x=>x.grp===gp).map(x=>[x.k,x.l,x.why]))).join(""):"";
+  const photoBody=slots.length?(canWrite?`<div class="row" style="flex:0;margin-bottom:6px"><button class="btn primary" data-prun="${esc(ref)}" style="flex:none;white-space:nowrap;width:auto">📷 Take installation photos${slots.filter(x=>!rpHas(ref,x.k).length).length<slots.length?" – continue":""}</button></div><p class="muted" style="margin:0 0 4px;font-size:12px">Steps through each photo in order – skip any you can't take yet. The frame fixing close-up must be taken before facings go on.</p>`:"")+[...new Set(slots.map(x=>x.grp))].map(gp=>`<b style="font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)">${esc(gp)}</b>`+phList(ref,slots.filter(x=>x.grp===gp).map(x=>[x.k,x.l,x.why]))).join(""):"";
   const keysBody=hasCyl(d)?`<div style="font-size:13px">${keyTot(ref)?(keyRec(ref).sets||[]).map(e=>`<b>${esc(e.n)}</b> × ${esc(e.loc)}${e.who?` <span class="muted">(${esc(e.who)})</span>`:""}`).join("<br>"):'<span class="muted">No keys recorded yet.</span>'}</div><div class="row" style="flex:0"><button class="btn sm primary" data-dt-go="keys" style="flex:0">${keyTot(ref)?"Move / add keys":"Record key handover"}</button></div>${keyTot(ref)?"":ck("noKeys","No keys supplied with this doorset",f.noKeys)}`:"";
   const docs=fr?fireDocs(ref):[];
   const docBody=fr?`<div style="font-size:13px">${docs.length?docs.map(x=>`📄 ${esc(x.kind)} <span class="muted">· ${esc(name(x.by))}, ${fmt(x.at)}</span> <a href="${esc(docSrc(x))}" target="_blank" rel="noopener">open</a>`).join("<br>"):'<span class="muted">None uploaded.</span>'}</div>${canWrite?`<div class="row"><label>Type<select id="fd-kind"><option>Installation certificate</option><option>Fire-stopping certificate</option><option>Manufacturer certificate / label</option><option>Fire door inspection record</option><option>Other</option></select></label><label>Note<input type="text" id="fd-note" placeholder="optional"></label></div><label class="btn sm" style="cursor:pointer;align-self:flex-start">Upload PDF / image<input type="file" id="fd-file" accept="application/pdf,image/*" multiple hidden></label><span class="muted" style="font-size:12px" id="fd-msg">PDFs up to 1.8 MB.</span>`:""}`:"";
